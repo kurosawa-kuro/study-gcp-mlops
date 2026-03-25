@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""batch 冪等デプロイ: repo作成 → ビルド&push → 全リソース反映 → 実行"""
+"""全体冪等デプロイ: batch + API デプロイ → batch実行"""
 
 import subprocess
 import sys
@@ -17,7 +17,7 @@ def run(cmd: str) -> None:
 
 
 def main() -> None:
-    run("make batch-deploy")
+    run("make deploy")
     run("make batch-run")
     print("\n==> 完了")
 

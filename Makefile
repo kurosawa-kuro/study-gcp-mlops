@@ -9,12 +9,14 @@ IMAGE_BASE := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO)
 include makefiles/gcp.mk
 include makefiles/terraform.mk
 include makefiles/batch.mk
-# include makefiles/api.mk  # API実装時に有効化
+include makefiles/api.mk
 
 # === 統合コマンド ===
-.PHONY: deploy reset help
+.PHONY: deploy reset test help
 
-deploy: batch-deploy  ## 全体デプロイ（インフラ + batch）
+deploy: batch-deploy api-deploy  ## 全体デプロイ（インフラ + batch + API）
+
+test: batch-test api-test  ## 全テスト一括実行
 
 reset:  ## 全リソース削除 & ローカルクリーン
 	python3 scripts/reset.py
@@ -46,6 +48,15 @@ help:  ## コマンド一覧表示
 	@echo "  make batch-monitor      監視 + Discord通知"
 	@echo "  make batch-ui           MLflow UI起動"
 	@echo ""
+	@echo "=== API (推論サービス) ==="
+	@echo "  make api-test           APIテスト実行"
+	@echo "  make api-build          APIイメージビルド"
+	@echo "  make api-push           APIイメージ push"
+	@echo "  make api-deploy         API冪等デプロイ"
+	@echo "  make api-logs           APIログ確認"
+	@echo "  make api-url            APIのURL表示"
+	@echo ""
 	@echo "=== 統合 ==="
-	@echo "  make deploy             全体デプロイ"
+	@echo "  make deploy             全体デプロイ（batch + API）"
+	@echo "  make test               全テスト一括実行"
 	@echo "  make reset              全リソース削除 & クリーン"

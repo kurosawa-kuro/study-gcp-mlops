@@ -15,24 +15,31 @@ GCPプロジェクト: `mlops-dev-a`、リージョン: `asia-northeast1`
    ├── 特徴量生成 → 学習（scikit-learn RandomForest）
    ├── 評価（RMSE, MAE） → MLflow記録
    ├── モデル保存 → [GCS models/]
-   └── ログ出力 → [GCS logs/]
+   ├── ログ出力 → [GCS logs/]
+   └── メトリクス投入 → [BigQuery mlops.metrics]
 
-[Cloud Run Service (FastAPI API)]  ← 将来実装
-   └── GCSからモデルロード → 推論レスポンス
+[BigQuery]
+   └── metrics テーブル → 最良モデル選択
+
+[Cloud Run Service (FastAPI API)]
+   ├── BigQueryから最良モデルパス取得
+   ├── GCSからモデルロード
+   └── POST /predict で推論レスポンス
 ```
 
-- **batch/**: Cloud Run Job - データ取得→学習(scikit-learn)→評価(MLflow)→モデル保存(GCS)→ログ出力(GCS)
-- **api/**: Cloud Run Service - GCSからモデルロード→FastAPIで推論レスポンス（将来実装）
-- **terraform/**: GCS, Cloud Run, Artifact Registry, Cloud Scheduler のIaC定義
+- **batch/**: Cloud Run Job - データ取得→学習(scikit-learn)→評価(MLflow)→モデル保存(GCS)→ログ出力(GCS)→メトリクス投入(BigQuery)
+- **api/**: Cloud Run Service - BigQueryで最良モデル選択→GCSからロード→FastAPIで推論レスポンス
+- **terraform/**: GCS, BigQuery, Cloud Run (Job/Service), Artifact Registry, Cloud Scheduler のIaC定義
 
 ## Tech Stack
 
 - **ML**: scikit-learn, MLflow, pandas
-- **API**: FastAPI（将来）
+- **API**: FastAPI (Cloud Run Service)
+- **Data**: BigQuery（評価メトリクス蓄積・最良モデル選択）
 - **Infra**: Cloud Run (Job/Service), GCS, Artifact Registry, Cloud Scheduler
 - **IaC**: Terraform
 - **CI/CD**: GitHub Actions
-- **将来**: BigQuery, Vertex AI
+- **将来**: Vertex AI
 
 ## GCP Setup
 

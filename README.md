@@ -10,7 +10,8 @@ MLOpsをCloud Runベースで理解・実装する
 
 ・Kubernetesを使わない構成でMLパイプラインを構築する
 ・バッチ処理主体のMLフロー（学習・評価・モデル保存）を確立する
-・推論APIまで含めた一連の流れを実装する
+・BigQueryで評価メトリクスを蓄積し、最良モデルを機械的に選択する
+・推論APIで最良モデルを自動ロードし、MLOpsの一周を完成させる
 ```
 
 ---
@@ -21,6 +22,7 @@ MLOpsをCloud Runベースで理解・実装する
 GCP
 - Cloud Run（Job / Service）
 - GCS（logs / models）
+- BigQuery（評価メトリクス蓄積・最良モデル選択）
 - Artifact Registry
 - Cloud Scheduler（定期実行）
 
@@ -29,8 +31,8 @@ ML
 - MLflow（実験管理・メトリクス記録）
 - pandas
 
-API（将来）
-- FastAPI
+API
+- FastAPI（Cloud Run Service / 推論API）
 
 IaC
 - Terraform
@@ -39,7 +41,6 @@ CI/CD
 - GitHub Actions
 
 将来
-- BigQuery（features / predictions / metrics）
 - Vertex AI
 ```
 
@@ -54,18 +55,22 @@ CI/CD
    ├── scikit-learn RandomForest 学習
    ├── 評価（RMSE, MAE）→ MLflow記録
    ├── モデル保存 → [GCS models/]
-   └── ログ出力 → [GCS logs/]
+   ├── ログ出力 → [GCS logs/]
+   └── メトリクス投入 → [BigQuery mlops.metrics]
+
+[BigQuery]
+   └── metrics テーブル → 最良モデル選択（ORDER BY rmse ASC LIMIT 1）
+
+[Cloud Run Service（API）]
+   ├── 起動時に BigQuery から最良モデルパス取得
+   ├── GCS からモデルロード
+   └── FastAPI で推論レスポンス（POST /predict）
 
 [Cloud Scheduler]
    └── 毎日 9:00 JST に batch を定期実行
 
 [GitHub Actions]
    └── main push → test → build → push → Cloud Run Job 更新
-
----（将来）---
-
-[Cloud Run Service（API）]
-   └── GCS からモデルロード → FastAPI 推論レスポンス
 ```
 
 ---
@@ -77,7 +82,7 @@ study-gcp-mlops/
 ├── .github/workflows/  # CI/CD（GitHub Actions）
 ├── src/
 │   ├── batch/          # Cloud Run Job（ML学習パイプライン）
-│   └── api/            # Cloud Run Service（FastAPI）（将来）
+│   └── api/            # Cloud Run Service（FastAPI推論API）
 ├── terraform/          # インフラ定義（Terraform）
 ├── makefiles/          # Makefile分割ファイル
 ├── scripts/            # セットアップ・デプロイスクリプト
@@ -105,14 +110,17 @@ make gcp-setup                 # API有効化・SA権限・Docker認証
 make deploy          # 全体デプロイ（インフラ + batch）
 make batch-run       # Cloud Run Job実行
 make batch-logs      # 実行履歴確認
+make api-deploy      # API冪等デプロイ
+make api-url         # APIのURL表示
 ```
 
 ### ローカル開発
 
 ```bash
-make batch-test       # テスト実行（11件）
+make batch-test       # batchテスト実行
 make batch-run-local  # ローカルでML学習実行
 make batch-ui         # MLflow UI起動
+make api-test         # APIテスト実行
 ```
 
 ### リセット

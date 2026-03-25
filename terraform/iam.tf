@@ -6,6 +6,12 @@ resource "google_storage_bucket_iam_member" "batch_writer" {
   member = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
 }
 
+resource "google_storage_bucket_iam_member" "api_reader" {
+  bucket = google_storage_bucket.data.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
 resource "google_bigquery_dataset_iam_member" "batch_bq_editor" {
   dataset_id = google_bigquery_dataset.mlops.dataset_id
   role       = "roles/bigquery.dataEditor"
