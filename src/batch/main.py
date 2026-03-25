@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from datetime import datetime, timezone
 
 import mlflow
@@ -34,83 +35,88 @@ def main():
     job_name = os.environ.get("JOB_NAME", "ml-batch")
     print(f"=== ML学習パイプライン開始: {job_name} ===")
 
-    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "california-housing")
-    mlflow.set_experiment(experiment_name)
+    try:
+        experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "california-housing")
+        mlflow.set_experiment(experiment_name)
 
-    with mlflow.start_run():
-        # 1. データ取得
-        print("データ取得中...")
-        X_train, X_test, y_train, y_test = load_data(
-            test_size=TEST_SIZE, random_state=RANDOM_STATE
-        )
-        print(f"  train: {len(X_train)}件, test: {len(X_test)}件")
+        with mlflow.start_run():
+            # 1. データ取得
+            print("データ取得中...")
+            X_train, X_test, y_train, y_test = load_data(
+                test_size=TEST_SIZE, random_state=RANDOM_STATE
+            )
+            print(f"  train: {len(X_train)}件, test: {len(X_test)}件")
 
-        # 2. パラメータ記録
-        mlflow.log_params({
-            "n_estimators": N_ESTIMATORS,
-            "max_depth": MAX_DEPTH,
-            "random_state": RANDOM_STATE,
-            "test_size": TEST_SIZE,
-        })
+            # 2. パラメータ記録
+            mlflow.log_params({
+                "n_estimators": N_ESTIMATORS,
+                "max_depth": MAX_DEPTH,
+                "random_state": RANDOM_STATE,
+                "test_size": TEST_SIZE,
+            })
 
-        # 3. 学習
-        print("モデル学習中...")
-        model = build_model(
-            n_estimators=N_ESTIMATORS,
-            max_depth=MAX_DEPTH,
-            random_state=RANDOM_STATE,
-        )
-        train(model, X_train, y_train)
+            # 3. 学習
+            print("モデル学習中...")
+            model = build_model(
+                n_estimators=N_ESTIMATORS,
+                max_depth=MAX_DEPTH,
+                random_state=RANDOM_STATE,
+            )
+            train(model, X_train, y_train)
 
-        # 4. 評価 & メトリクス記録
-        metrics = evaluate(model, X_test, y_test)
-        mlflow.log_metrics(metrics)
-        print(f"  RMSE: {metrics['rmse']:.4f}")
-        print(f"  MAE:  {metrics['mae']:.4f}")
+            # 4. 評価 & メトリクス記録
+            metrics = evaluate(model, X_test, y_test)
+            mlflow.log_metrics(metrics)
+            print(f"  RMSE: {metrics['rmse']:.4f}")
+            print(f"  MAE:  {metrics['mae']:.4f}")
 
-        # 5. MLflowにモデル記録
-        mlflow.sklearn.log_model(model, artifact_path="model")
+            # 5. MLflowにモデル記録
+            mlflow.sklearn.log_model(model, artifact_path="model")
 
-        # 6. GCS保存（設定時）
-        bucket_name = os.environ.get("GCS_BUCKET")
-        if bucket_name:
-            gcs_path = save_gcs(model, bucket_name)
-            mlflow.log_param("model_gcs_path", gcs_path)
-            print(f"モデル保存完了: {gcs_path}")
+            # 6. GCS保存（設定時）
+            bucket_name = os.environ.get("GCS_BUCKET")
+            if bucket_name:
+                gcs_path = save_gcs(model, bucket_name)
+                mlflow.log_param("model_gcs_path", gcs_path)
+                print(f"モデル保存完了: {gcs_path}")
 
-            # 7. GCSにログ書き出し
-            log_data = {
-                "job": job_name,
-                "status": "success",
-                "metrics": metrics,
-                "train_size": len(X_train),
-                "test_size": len(X_test),
-                "mlflow_run_id": mlflow.active_run().info.run_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-            log_path = upload_log(bucket_name, job_name, log_data)
-            print(f"ログ書き出し完了: gs://{bucket_name}/{log_path}")
-
-            # 8. BigQueryにメトリクス投入
-            if os.environ.get("BQ_DATASET"):
-                bq_row = {
-                    "run_id": mlflow.active_run().info.run_id,
+                # 7. GCSにログ書き出し
+                log_data = {
+                    "job": job_name,
+                    "status": "success",
+                    "metrics": metrics,
+                    "train_size": len(X_train),
+                    "test_size": len(X_test),
+                    "mlflow_run_id": mlflow.active_run().info.run_id,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "rmse": metrics["rmse"],
-                    "mae": metrics["mae"],
-                    "model_path": gcs_path,
-                    "n_estimators": N_ESTIMATORS,
-                    "max_depth": MAX_DEPTH,
                 }
-                insert_metrics(bq_row)
-                print("BigQueryメトリクス投入完了")
-            else:
-                print("BQ_DATASET未設定のためBigQuery投入スキップ")
-        else:
-            local_path = save_local(model, "outputs/model.pkl")
-            print(f"GCS_BUCKET未設定のためローカル保存: {local_path}")
+                log_path = upload_log(bucket_name, job_name, log_data)
+                print(f"ログ書き出し完了: gs://{bucket_name}/{log_path}")
 
-    print("=== ML学習パイプライン完了 ===")
+                # 8. BigQueryにメトリクス投入
+                if os.environ.get("BQ_DATASET"):
+                    bq_row = {
+                        "run_id": mlflow.active_run().info.run_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "rmse": metrics["rmse"],
+                        "mae": metrics["mae"],
+                        "model_path": gcs_path,
+                        "n_estimators": N_ESTIMATORS,
+                        "max_depth": MAX_DEPTH,
+                    }
+                    insert_metrics(bq_row)
+                    print("BigQueryメトリクス投入完了")
+                else:
+                    print("BQ_DATASET未設定のためBigQuery投入スキップ")
+            else:
+                local_path = save_local(model, "outputs/model.pkl")
+                print(f"GCS_BUCKET未設定のためローカル保存: {local_path}")
+
+        print("=== ML学習パイプライン完了 ===")
+
+    except Exception as e:
+        print(f"=== ML学習パイプライン失敗: {e} ===", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

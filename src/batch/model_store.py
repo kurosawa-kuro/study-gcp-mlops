@@ -1,6 +1,7 @@
 import io
 import os
 import pickle
+import time
 from datetime import datetime, timezone
 
 from sklearn.ensemble import RandomForestRegressor
@@ -25,8 +26,8 @@ def _get_storage_client():
     return storage.Client()
 
 
-def save_gcs(model: RandomForestRegressor, bucket_name: str, prefix: str = "models") -> str:
-    """モデルをGCSに保存する。返り値はGCSパス。"""
+def save_gcs(model: RandomForestRegressor, bucket_name: str, prefix: str = "models", max_retries: int = 3) -> str:
+    """モデルをGCSに保存する。リトライ付き。"""
 
     buf = io.BytesIO()
     pickle.dump(model, buf)
@@ -38,9 +39,19 @@ def save_gcs(model: RandomForestRegressor, bucket_name: str, prefix: str = "mode
     client = _get_storage_client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    blob.upload_from_file(buf, content_type="application/octet-stream")
 
-    return f"gs://{bucket_name}/{blob_path}"
+    for attempt in range(max_retries):
+        try:
+            buf.seek(0)
+            blob.upload_from_file(buf, content_type="application/octet-stream")
+            return f"gs://{bucket_name}/{blob_path}"
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait = 2 ** attempt
+                print(f"GCS upload リトライ ({attempt + 1}/{max_retries}), {wait}秒待機: {e}")
+                time.sleep(wait)
+            else:
+                raise RuntimeError(f"GCS upload エラー ({max_retries}回失敗): {e}") from e
 
 
 def load_gcs(bucket_name: str, blob_path: str) -> RandomForestRegressor:
