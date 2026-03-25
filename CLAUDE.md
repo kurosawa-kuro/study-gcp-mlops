@@ -10,28 +10,36 @@ GCPプロジェクト: `mlops-dev-a`、リージョン: `asia-northeast1`
 ## Architecture
 
 ```
-[GCS raw] → [Cloud Run Job (batch)] → [GCS models] → [Cloud Run Service (FastAPI API)]
-                    ↓
-               [BigQuery] (features / metrics / predictions)
+[Cloud Run Job (batch)]
+   ├── データ取得（California Housing）
+   ├── 特徴量生成 → 学習（scikit-learn RandomForest）
+   ├── 評価（RMSE, MAE） → MLflow記録
+   ├── モデル保存 → [GCS models/]
+   └── ログ出力 → [GCS logs/]
+
+[Cloud Run Service (FastAPI API)]  ← 将来実装
+   └── GCSからモデルロード → 推論レスポンス
 ```
 
-- **batch/**: Cloud Run Job - データ取得→特徴量生成→学習(scikit-learn)→評価(MLflow)→モデル保存(GCS)→結果保存(BigQuery)
-- **api/**: Cloud Run Service - GCSからモデルロード→FastAPIで推論レスポンス
-- **terraform/**: GCS, BigQuery, Cloud Run, Artifact Registry のIaC定義
+- **batch/**: Cloud Run Job - データ取得→学習(scikit-learn)→評価(MLflow)→モデル保存(GCS)→ログ出力(GCS)
+- **api/**: Cloud Run Service - GCSからモデルロード→FastAPIで推論レスポンス（将来実装）
+- **terraform/**: GCS, Cloud Run, Artifact Registry, Cloud Scheduler のIaC定義
 
 ## Tech Stack
 
 - **ML**: scikit-learn, MLflow, pandas
-- **API**: FastAPI
-- **Infra**: Cloud Run (Job/Service), GCS, BigQuery, Artifact Registry
+- **API**: FastAPI（将来）
+- **Infra**: Cloud Run (Job/Service), GCS, Artifact Registry, Cloud Scheduler
 - **IaC**: Terraform
-- **将来**: Vertex AIへの置き換え予定
+- **CI/CD**: GitHub Actions
+- **将来**: BigQuery, Vertex AI
 
 ## GCP Setup
 
 ```bash
 gcloud init
 gcloud config set compute/region asia-northeast1
+gcloud config set run/region asia-northeast1
 ```
 
 ## Language

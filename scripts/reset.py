@@ -12,7 +12,7 @@ TF_DIR = ROOT / "terraform"
 CLEANUP_DIRS = [".terraform"]
 CLEANUP_FILES = [".terraform.lock.hcl", "terraform.tfstate", "terraform.tfstate.backup"]
 
-ML_DIR_NAME = "src/ml"
+ML_DIR_NAME = "src/batch"
 ML_CLEANUP_DIRS = ["outputs", "mlruns", "mlartifacts"]
 ML_CLEANUP_FILES = ["mlflow.db"]
 

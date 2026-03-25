@@ -1,15 +1,15 @@
 
-# study-gcp
+# study-gcp-mlops
 
 ---
 
 ## 1. 目的
 
 ```text
-MLopsをCloud Runベースで理解・実装する
+MLOpsをCloud Runベースで理解・実装する
 
 ・Kubernetesを使わない構成でMLパイプラインを構築する
-・バッチ処理主体のMLフロー（学習・評価）を確立する
+・バッチ処理主体のMLフロー（学習・評価・モデル保存）を確立する
 ・推論APIまで含めた一連の流れを実装する
 ```
 
@@ -18,60 +18,54 @@ MLopsをCloud Runベースで理解・実装する
 ## 2. 技術スタック
 
 ```text
-■ GCP
+GCP
 - Cloud Run（Job / Service）
-- GCS
-- BigQuery
+- GCS（logs / models）
 - Artifact Registry
+- Cloud Scheduler（定期実行）
 
-■ ML
-- scikit-learn（HousePredict）
-- MLflow（評価・ログ）
+ML
+- scikit-learn（California Housing / RandomForest）
+- MLflow（実験管理・メトリクス記録）
+- pandas
 
-■ API
+API（将来）
 - FastAPI
 
-■ IaC
+IaC
 - Terraform
 
-CICD
-Github Actoins
+CI/CD
+- GitHub Actions
 
-■ （将来）
-- Vertex AI（後から置き換え）
+将来
+- BigQuery（features / predictions / metrics）
+- Vertex AI
 ```
-
-※ Snowflakeは初期フェーズでは使用しない
 
 ---
 
 ## 3. アーキテクチャ
 
 ```text
-[GCS raw]
-   ↓
 [Cloud Run Job（batch）]
-   ・pandas
-   ・特徴量生成
-   ・scikit-learn
-   ・MLflow記録
-   ↓
-[GCS models]
+   ├── California Housing データ取得
+   ├── train/test 分割
+   ├── scikit-learn RandomForest 学習
+   ├── 評価（RMSE, MAE）→ MLflow記録
+   ├── モデル保存 → [GCS models/]
+   └── ログ出力 → [GCS logs/]
 
-同時に
-↓
-[BigQuery]
-・features
-・metrics
-・predictions
+[Cloud Scheduler]
+   └── 毎日 9:00 JST に batch を定期実行
 
-----------------------------
+[GitHub Actions]
+   └── main push → test → build → push → Cloud Run Job 更新
+
+---（将来）---
 
 [Cloud Run Service（API）]
-   ↓
-[GCS models] をロード
-   ↓
-推論レスポンス（FastAPI）
+   └── GCS からモデルロード → FastAPI 推論レスポンス
 ```
 
 ---
@@ -79,102 +73,22 @@ Github Actoins
 ## 4. ディレクトリ構成
 
 ```text
-study-gcp/
+study-gcp-mlops/
+├── .github/workflows/  # CI/CD（GitHub Actions）
 ├── src/
-│   ├── batch/          # Cloud Run Job（学習・集計）
+│   ├── batch/          # Cloud Run Job（ML学習パイプライン）
 │   └── api/            # Cloud Run Service（FastAPI）（将来）
 ├── terraform/          # インフラ定義（Terraform）
 ├── makefiles/          # Makefile分割ファイル
 ├── scripts/            # セットアップ・デプロイスクリプト
 ├── docs/               # 手順書・ドキュメント
-├── data/               # ローカル検証用
-├── notebooks/          # 任意
 ├── Makefile            # ビルド・デプロイコマンド
 └── README.md
 ```
 
 ---
 
-## 5. 各レイヤの役割
-
-### terraform/
-
-```text
-・Artifact Registry
-・Cloud Run（Job / Service）
-・GCS（raw / processed / models）（将来）
-・BigQuery dataset（将来）
-```
-
----
-
-### src/batch/（Cloud Run Job）
-
-```text
-役割：
-データ → 特徴量 → 学習 → 評価
-
-フロー：
-GCS → pandas → 特徴量作成 → scikit-learn → MLflow記録
-→ GCSへモデル保存 → BigQueryへ評価結果保存
-```
-
----
-
-### src/api/（Cloud Run Service）
-
-```text
-役割：推論API
-・GCSからモデルロード
-・推論結果を返す（FastAPI）
-※ 初期はDB接続不要
-```
-
----
-
-## 6. データ構造
-
-```text
-GCS
-├── raw/
-├── processed/
-└── models/
-
-BigQuery
-- features
-- predictions
-- metrics
-```
-
----
-
-## 7. MLflowの位置づけ
-
-```text
-・パラメータ / メトリクス記録
-・モデル管理
-※ 実行基盤ではない
-
-初期：ローカル or Cloud Run内（SQLite or GCS backend）
-```
-
----
-
-## 8. ロードマップ
-
-```text
-Phase1：ローカルで学習（pandas + sklearn）
-Phase2：Docker化
-Phase3：Cloud Run Job化（batch）
-Phase4：MLflow導入
-Phase5：API（FastAPI + Cloud Run Service）
-Phase6：Terraformで全体管理
-Phase7：Vertex AI検討
-```
-
----
-
-## 9. 使い方
+## 5. 使い方
 
 ### 初回セットアップ
 
@@ -182,16 +96,23 @@ Phase7：Vertex AI検討
 ./scripts/setup-gcp.sh        # GCP CLIインストール
 ./scripts/setup-terraform.sh   # Terraformインストール
 gcloud init                    # GCPログイン & プロジェクト設定
-make gcp-setup-apis            # 必要なAPI有効化
-make gcp-setup-docker          # Docker認証設定
+make gcp-setup                 # API有効化・SA権限・Docker認証
 ```
 
 ### デプロイ & 実行
 
 ```bash
 make deploy          # 全体デプロイ（インフラ + batch）
-make batch-run       # Job実行
+make batch-run       # Cloud Run Job実行
 make batch-logs      # 実行履歴確認
+```
+
+### ローカル開発
+
+```bash
+make batch-test       # テスト実行（11件）
+make batch-run-local  # ローカルでML学習実行
+make batch-ui         # MLflow UI起動
 ```
 
 ### リセット
