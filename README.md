@@ -12,6 +12,7 @@ MLOpsをCloud Runベースで理解・実装する
 ・バッチ処理主体のMLフロー（学習・評価・モデル保存）を確立する
 ・BigQueryで評価メトリクスを蓄積し、最良モデルを機械的に選択する
 ・推論APIで最良モデルを自動ロードし、MLOpsの一周を完成させる
+・監視・ドリフト検知で運用品質を担保する
 ```
 
 ---
@@ -22,7 +23,7 @@ MLOpsをCloud Runベースで理解・実装する
 GCP
 - Cloud Run（Job / Service）
 - GCS（logs / models）
-- BigQuery（評価メトリクス蓄積・最良モデル選択）
+- BigQuery（評価メトリクス蓄積・最良モデル選択・90日リテンション）
 - Artifact Registry
 - Cloud Scheduler（定期実行）
 
@@ -38,7 +39,12 @@ IaC
 - Terraform
 
 CI/CD
-- GitHub Actions
+- GitHub Actions（batch / API / Terraform 3本）
+
+監視・運用
+- Discord通知（batch監視・API健全性・モデルドリフト検知）
+- JSON構造化ログ（Cloud Logging互換）
+- エラーリトライ（exponential backoff）
 
 将来
 - Vertex AI
@@ -70,7 +76,14 @@ CI/CD
    └── 毎日 9:00 JST に batch を定期実行
 
 [GitHub Actions]
-   └── main push → test → build → push → Cloud Run Job 更新
+   ├── batch: main push(src/batch) → test → build → push → Cloud Run Job 更新
+   ├── api:   main push(src/api)   → test → build → push → Cloud Run Service 更新
+   └── tf:    main push(terraform)  → plan → apply
+
+[監視]
+   ├── batch-monitor  → Cloud Run Job実行結果 → Discord通知
+   ├── api-monitor    → /health チェック → Discord異常通知
+   └── drift-check    → RMSE閾値チェック → Discord WARNING通知
 ```
 
 ---
@@ -79,13 +92,13 @@ CI/CD
 
 ```text
 study-gcp-mlops/
-├── .github/workflows/  # CI/CD（GitHub Actions）
+├── .github/workflows/  # CI/CD（batch / API / Terraform）
 ├── src/
 │   ├── batch/          # Cloud Run Job（ML学習パイプライン）
 │   └── api/            # Cloud Run Service（FastAPI推論API）
 ├── terraform/          # インフラ定義（Terraform）
 ├── makefiles/          # Makefile分割ファイル
-├── scripts/            # セットアップ・デプロイスクリプト
+├── scripts/            # 共通ユーティリティ・監視・デプロイスクリプト
 ├── docs/               # 手順書・ドキュメント
 ├── Makefile            # ビルド・デプロイコマンド
 └── README.md
@@ -107,20 +120,28 @@ make gcp-setup                 # API有効化・SA権限・Docker認証
 ### デプロイ & 実行
 
 ```bash
-make deploy          # 全体デプロイ（インフラ + batch）
+make deploy          # 全体デプロイ（batch + API）
 make batch-run       # Cloud Run Job実行
 make batch-logs      # 実行履歴確認
-make api-deploy      # API冪等デプロイ
 make api-url         # APIのURL表示
 ```
 
 ### ローカル開発
 
 ```bash
-make batch-test       # batchテスト実行
+make test             # 全テスト一括実行（22件）
+make batch-test       # batchテスト実行（16件）
 make batch-run-local  # ローカルでML学習実行
 make batch-ui         # MLflow UI起動
-make api-test         # APIテスト実行
+make api-test         # APIテスト実行（6件）
+```
+
+### 監視
+
+```bash
+make batch-monitor    # batch実行結果チェック + Discord通知
+make api-monitor      # API健全性チェック + Discord通知
+make batch-drift      # モデルドリフト検知
 ```
 
 ### リセット

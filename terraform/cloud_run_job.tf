@@ -25,6 +25,12 @@ resource "google_cloud_run_v2_job" "ml_batch" {
     }
   }
 
+  # CI/CDがgcloud run jobs updateでイメージを更新するため、
+  # templateの変更はTerraform管理外とする（ドリフト防止）
+  lifecycle {
+    ignore_changes = [template]
+  }
+
   depends_on = [
     google_artifact_registry_repository.myrepo,
     google_storage_bucket.data,
