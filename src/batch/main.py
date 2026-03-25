@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -11,6 +12,12 @@ from bq_store import insert_metrics
 from dataset import load_data
 from model_store import save_gcs, save_local
 from train import build_model, evaluate, train
+
+logger = logging.getLogger("ml-batch")
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"severity":"%(levelname)s","message":"%(message)s","logger":"%(name)s","timestamp":"%(asctime)s"}',
+)
 
 N_ESTIMATORS = int(os.environ.get("N_ESTIMATORS", "100"))
 MAX_DEPTH = int(os.environ.get("MAX_DEPTH", "10"))
@@ -33,7 +40,7 @@ def upload_log(bucket_name: str, job_name: str, log_data: dict) -> str:
 
 def main():
     job_name = os.environ.get("JOB_NAME", "ml-batch")
-    print(f"=== ML学習パイプライン開始: {job_name} ===")
+    logger.info(f"ML学習パイプライン開始: {job_name}")
 
     try:
         experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "california-housing")
@@ -41,11 +48,11 @@ def main():
 
         with mlflow.start_run():
             # 1. データ取得
-            print("データ取得中...")
+            logger.info("データ取得中...")
             X_train, X_test, y_train, y_test = load_data(
                 test_size=TEST_SIZE, random_state=RANDOM_STATE
             )
-            print(f"  train: {len(X_train)}件, test: {len(X_test)}件")
+            logger.info(f"train: {len(X_train)}件, test: {len(X_test)}件")
 
             # 2. パラメータ記録
             mlflow.log_params({
@@ -56,7 +63,7 @@ def main():
             })
 
             # 3. 学習
-            print("モデル学習中...")
+            logger.info("モデル学習中...")
             model = build_model(
                 n_estimators=N_ESTIMATORS,
                 max_depth=MAX_DEPTH,
@@ -67,8 +74,7 @@ def main():
             # 4. 評価 & メトリクス記録
             metrics = evaluate(model, X_test, y_test)
             mlflow.log_metrics(metrics)
-            print(f"  RMSE: {metrics['rmse']:.4f}")
-            print(f"  MAE:  {metrics['mae']:.4f}")
+            logger.info(f"RMSE: {metrics['rmse']:.4f}, MAE: {metrics['mae']:.4f}")
 
             # 5. MLflowにモデル記録
             mlflow.sklearn.log_model(model, artifact_path="model")
@@ -78,7 +84,7 @@ def main():
             if bucket_name:
                 gcs_path = save_gcs(model, bucket_name)
                 mlflow.log_param("model_gcs_path", gcs_path)
-                print(f"モデル保存完了: {gcs_path}")
+                logger.info(f"モデル保存完了: {gcs_path}")
 
                 # 7. GCSにログ書き出し
                 log_data = {
@@ -91,7 +97,7 @@ def main():
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
                 log_path = upload_log(bucket_name, job_name, log_data)
-                print(f"ログ書き出し完了: gs://{bucket_name}/{log_path}")
+                logger.info(f"ログ書き出し完了: gs://{bucket_name}/{log_path}")
 
                 # 8. BigQueryにメトリクス投入
                 if os.environ.get("BQ_DATASET"):
@@ -105,17 +111,17 @@ def main():
                         "max_depth": MAX_DEPTH,
                     }
                     insert_metrics(bq_row)
-                    print("BigQueryメトリクス投入完了")
+                    logger.info("BigQueryメトリクス投入完了")
                 else:
-                    print("BQ_DATASET未設定のためBigQuery投入スキップ")
+                    logger.info("BQ_DATASET未設定のためBigQuery投入スキップ")
             else:
                 local_path = save_local(model, "outputs/model.pkl")
-                print(f"GCS_BUCKET未設定のためローカル保存: {local_path}")
+                logger.info(f"GCS_BUCKET未設定のためローカル保存: {local_path}")
 
-        print("=== ML学習パイプライン完了 ===")
+        logger.info("ML学習パイプライン完了")
 
     except Exception as e:
-        print(f"=== ML学習パイプライン失敗: {e} ===", file=sys.stderr)
+        logger.error(f"ML学習パイプライン失敗: {e}")
         sys.exit(1)
 
 

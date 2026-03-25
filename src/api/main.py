@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 import pickle
 import re
@@ -7,6 +8,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+logger = logging.getLogger("ml-api")
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"severity":"%(levelname)s","message":"%(message)s","logger":"%(name)s","timestamp":"%(asctime)s"}',
+)
 
 _model = None
 _model_path = ""
@@ -17,9 +24,9 @@ async def lifespan(application: FastAPI):
     global _model, _model_path
     try:
         _model, _model_path = load_best_model()
-        print(f"モデルロード完了: {_model_path}")
+        logger.info(f"モデルロード完了: {_model_path}")
     except Exception as e:
-        print(f"モデルロード失敗（APIは起動するが推論不可）: {e}")
+        logger.error(f"モデルロード失敗（APIは起動するが推論不可）: {e}")
     yield
 
 
@@ -66,7 +73,7 @@ def load_best_model(max_retries: int = 3) -> tuple[object, str]:
         except Exception as e:
             if attempt < max_retries - 1:
                 wait = 2 ** attempt
-                print(f"BigQuery クエリ リトライ ({attempt + 1}/{max_retries}), {wait}秒待機: {e}")
+                logger.warning(f"BigQuery クエリ リトライ ({attempt + 1}/{max_retries}), {wait}秒待機: {e}")
                 time.sleep(wait)
             else:
                 raise
@@ -87,7 +94,7 @@ def load_best_model(max_retries: int = 3) -> tuple[object, str]:
         except Exception as e:
             if attempt < max_retries - 1:
                 wait = 2 ** attempt
-                print(f"GCS ダウンロード リトライ ({attempt + 1}/{max_retries}), {wait}秒待機: {e}")
+                logger.warning(f"GCS ダウンロード リトライ ({attempt + 1}/{max_retries}), {wait}秒待機: {e}")
                 time.sleep(wait)
             else:
                 raise
