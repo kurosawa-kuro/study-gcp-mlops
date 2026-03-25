@@ -16,6 +16,11 @@ resource "google_cloud_run_v2_job" "ml_batch" {
           name  = "JOB_NAME"
           value = "ml-batch"
         }
+
+        env {
+          name  = "BQ_DATASET"
+          value = "mlops"
+        }
       }
     }
   }

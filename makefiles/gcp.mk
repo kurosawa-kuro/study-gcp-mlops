@@ -11,6 +11,7 @@ gcp-setup-apis:
 	  iam.googleapis.com \
 	  cloudresourcemanager.googleapis.com \
 	  cloudscheduler.googleapis.com \
+	  bigquery.googleapis.com \
 	  --project=$(PROJECT_ID)
 
 gcp-setup-sa:

@@ -6,6 +6,7 @@ import mlflow
 import mlflow.sklearn
 from google.cloud import storage
 
+from bq_store import insert_metrics
 from dataset import load_data
 from model_store import save_gcs, save_local
 from train import build_model, evaluate, train
@@ -89,6 +90,22 @@ def main():
             }
             log_path = upload_log(bucket_name, job_name, log_data)
             print(f"ログ書き出し完了: gs://{bucket_name}/{log_path}")
+
+            # 8. BigQueryにメトリクス投入
+            if os.environ.get("BQ_DATASET"):
+                bq_row = {
+                    "run_id": mlflow.active_run().info.run_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "rmse": metrics["rmse"],
+                    "mae": metrics["mae"],
+                    "model_path": gcs_path,
+                    "n_estimators": N_ESTIMATORS,
+                    "max_depth": MAX_DEPTH,
+                }
+                insert_metrics(bq_row)
+                print("BigQueryメトリクス投入完了")
+            else:
+                print("BQ_DATASET未設定のためBigQuery投入スキップ")
         else:
             local_path = save_local(model, "outputs/model.pkl")
             print(f"GCS_BUCKET未設定のためローカル保存: {local_path}")

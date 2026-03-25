@@ -170,3 +170,43 @@ class TestMLflowIntegration:
         loaded_model = mlflow.sklearn.load_model(model_uri)
         preds = loaded_model.predict(X_test[:5])
         assert len(preds) == 5
+
+
+class TestBQStore:
+    @patch("bq_store._get_bq_client")
+    def test_insert_metrics(self, mock_get_client, monkeypatch):
+        from bq_store import insert_metrics
+
+        mock_client = MagicMock()
+        mock_client.insert_rows_json.return_value = []
+        mock_get_client.return_value = mock_client
+
+        monkeypatch.setenv("BQ_DATASET", "mlops")
+        monkeypatch.setenv("GCP_PROJECT", "mlops-dev-a")
+
+        row = {
+            "run_id": "test-run-123",
+            "timestamp": "2026-03-26T00:00:00+00:00",
+            "rmse": 0.54,
+            "mae": 0.37,
+            "model_path": "gs://bucket/models/model.pkl",
+            "n_estimators": 100,
+            "max_depth": 10,
+        }
+        insert_metrics(row)
+
+        mock_client.insert_rows_json.assert_called_once()
+        call_args = mock_client.insert_rows_json.call_args
+        assert call_args[0][0] == "mlops-dev-a.mlops.metrics"
+        assert call_args[0][1][0]["run_id"] == "test-run-123"
+
+    @patch("bq_store._get_bq_client")
+    def test_insert_metrics_error(self, mock_get_client):
+        from bq_store import insert_metrics
+
+        mock_client = MagicMock()
+        mock_client.insert_rows_json.return_value = [{"errors": "something"}]
+        mock_get_client.return_value = mock_client
+
+        with pytest.raises(RuntimeError, match="BigQuery insert"):
+            insert_metrics({"run_id": "x", "timestamp": "t", "rmse": 0.5, "mae": 0.3})
