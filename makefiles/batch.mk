@@ -5,7 +5,7 @@ BATCH_IMAGE_URI := $(IMAGE_BASE)/$(BATCH_IMAGE):$(TAG)
 .PHONY: batch-build batch-push batch-deploy batch-run batch-logs batch-test batch-monitor batch-run-local batch-ui
 
 batch-test:  ## テスト実行
-	cd src/batch && pip install -q -r requirements-dev.txt && PYTHONPATH=. pytest -v test_main.py
+	cd src/batch && pip install -q -r requirements-dev.txt && PYTHONPATH=. pytest -v test_main.py test_e2e.py
 
 batch-run-local:  ## ローカルでML学習実行
 	cd src/batch && pip install -q -r requirements.txt && PYTHONPATH=. python3 main.py

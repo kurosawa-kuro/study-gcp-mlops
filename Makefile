@@ -55,6 +55,7 @@ help:  ## コマンド一覧表示
 	@echo "  make api-deploy         API冪等デプロイ"
 	@echo "  make api-logs           APIログ確認"
 	@echo "  make api-url            APIのURL表示"
+	@echo "  make api-monitor        API健全性チェック"
 	@echo ""
 	@echo "=== 統合 ==="
 	@echo "  make deploy             全体デプロイ（batch + API）"
