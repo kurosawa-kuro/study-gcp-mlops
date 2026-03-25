@@ -46,6 +46,7 @@ help:  ## コマンド一覧表示
 	@echo "  make batch-run          Cloud Run Job実行"
 	@echo "  make batch-logs         実行履歴確認"
 	@echo "  make batch-monitor      監視 + Discord通知"
+	@echo "  make batch-drift        モデルドリフト検知"
 	@echo "  make batch-ui           MLflow UI起動"
 	@echo ""
 	@echo "=== API (推論サービス) ==="
