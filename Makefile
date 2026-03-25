@@ -9,7 +9,6 @@ IMAGE_BASE := $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO)
 include makefiles/gcp.mk
 include makefiles/terraform.mk
 include makefiles/batch.mk
-include makefiles/ml.mk
 # include makefiles/api.mk  # API実装時に有効化
 
 # === 統合コマンド ===
@@ -36,21 +35,16 @@ help:  ## コマンド一覧表示
 	@echo "  make tf-fmt             フォーマット"
 	@echo "  make tf-validate        構文チェック"
 	@echo ""
-	@echo "=== Batch ==="
+	@echo "=== Batch (ML学習パイプライン) ==="
+	@echo "  make batch-test         テスト実行"
+	@echo "  make batch-run-local    ローカルでML学習実行"
 	@echo "  make batch-build        Dockerイメージビルド"
 	@echo "  make batch-push         ビルド & push"
 	@echo "  make batch-deploy       冪等デプロイ（repo→push→job）"
-	@echo "  make batch-run          Job実行"
+	@echo "  make batch-run          Cloud Run Job実行"
 	@echo "  make batch-logs         実行履歴確認"
 	@echo "  make batch-monitor      監視 + Discord通知"
-	@echo "  make batch-test         テスト実行"
-	@echo ""
-	@echo "=== ML ==="
-	@echo "  make ml-test            MLテスト実行"
-	@echo "  make ml-run-local       ローカルでML学習実行"
-	@echo "  make ml-build           MLイメージビルド"
-	@echo "  make ml-push            MLイメージ push"
-	@echo "  make ml-ui              MLflow UI起動"
+	@echo "  make batch-ui           MLflow UI起動"
 	@echo ""
 	@echo "=== 統合 ==="
 	@echo "  make deploy             全体デプロイ"

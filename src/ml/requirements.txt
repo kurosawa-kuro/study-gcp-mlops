@@ -1,4 +1,0 @@
-scikit-learn
-pandas
-google-cloud-storage
-mlflow

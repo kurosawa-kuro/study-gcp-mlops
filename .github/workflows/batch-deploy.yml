@@ -18,7 +18,7 @@ jobs:
         run: |
           cd src/batch
           pip install -r requirements-dev.txt
-          pytest -v test_main.py
+          PYTHONPATH=. pytest -v test_main.py
 
   deploy:
     needs: test
