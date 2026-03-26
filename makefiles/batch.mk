@@ -33,7 +33,7 @@ batch-monitor:  ## 監視 + Discord通知
 	python3 scripts/monitor_batch.py
 
 batch-drift:  ## モデルドリフト検知
-	python3 scripts/drift_check.py
+	python3 scripts/check_drift.py
 
 batch-ui:  ## MLflow UI起動（http://localhost:5000）
 	cd src/batch && mlflow ui --host 0.0.0.0 --port 5000

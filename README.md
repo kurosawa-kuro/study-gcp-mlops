@@ -111,8 +111,8 @@ study-gcp-mlops/
 ### 初回セットアップ
 
 ```bash
-./scripts/setup-gcp.sh        # GCP CLIインストール
-./scripts/setup-terraform.sh   # Terraformインストール
+./scripts/setup_gcp.sh        # GCP CLIインストール
+./scripts/setup_terraform.sh   # Terraformインストール
 gcloud init                    # GCPログイン & プロジェクト設定
 make gcp-setup                 # API有効化・SA権限・Docker認証
 ```

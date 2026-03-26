@@ -19,7 +19,7 @@ deploy: batch-deploy api-deploy  ## 全体デプロイ（インフラ + batch + 
 test: batch-test api-test  ## 全テスト一括実行
 
 reset:  ## 全リソース削除 & ローカルクリーン
-	python3 scripts/reset.py
+	python3 scripts/reset_all.py
 
 help:  ## コマンド一覧表示
 	@echo "=== Setup ==="
