@@ -221,7 +221,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     configure_logging()
     logger = get_logger("app")
-    app = FastAPI(title="bq-first hybrid search API", lifespan=lifespan)
+    app = FastAPI(title="hybrid-search-cloud hybrid search API", lifespan=lifespan)
     app_root = Path(__file__).resolve().parents[1]
     app.mount("/static", StaticFiles(directory=str(app_root / "static")), name="static")
     templates = Jinja2Templates(directory=str(app_root / "templates"))

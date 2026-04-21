@@ -7,7 +7,7 @@
 ```
 infra/
 ├── apis.tf           # google_project_service (15 API 有効化)
-├── backend.tf        # GCS backend: gs://mlops-dev-a-tfstate (prefix "bq-first")
+├── backend.tf        # GCS backend: gs://mlops-dev-a-tfstate (prefix "hybrid-search-cloud")
 ├── provider.tf       # google provider + data.google_project.current
 ├── variables.tf      # project_id / region / github_repo / 各種名称
 ├── versions.tf       # terraform >= 1.6 / google ~> 5.40

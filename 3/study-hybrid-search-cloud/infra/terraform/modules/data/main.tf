@@ -307,7 +307,7 @@ resource "google_artifact_registry_repository" "mlops" {
   location      = var.region
   repository_id = var.artifact_repo_id
   format        = "DOCKER"
-  description   = "bq-first MLOps container images (api, training job)"
+  description   = "hybrid-search-cloud MLOps container images (api, training job)"
 }
 
 # =========================================================================

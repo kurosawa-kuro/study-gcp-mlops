@@ -32,13 +32,13 @@ variable "artifacts_bucket_name" {
 variable "github_repo" {
   description = "GitHub repository (owner/name) trusted by Workload Identity Federation + used for Dataform git_remote_settings"
   type        = string
-  default     = "your-org/study-gcp-mlops-bq-first"
+  default     = "your-org/study-gcp-mlops-hybrid-search-cloud"
 }
 
 variable "dataform_repository_id" {
   description = "Dataform repository name. Must match .github/workflows/deploy-dataform.yml env.REPOSITORY"
   type        = string
-  default     = "bq-first"
+  default     = "hybrid-search-cloud"
 }
 
 variable "dataform_git_token_secret_version" {

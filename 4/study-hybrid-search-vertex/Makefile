@@ -26,7 +26,7 @@ GITHUB_REPO   ?= $(call _yaml_get,github_repo)
 ONCALL_EMAIL  ?= $(call _yaml_get,oncall_email)
 
 # Local model path produced by `make train-smoke-persist`.
-MODEL_PATH_OVERRIDE ?= /tmp/bq-first-smoke-model.txt
+MODEL_PATH_OVERRIDE ?= /tmp/hybrid-search-cloud-smoke-model.txt
 
 export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
 

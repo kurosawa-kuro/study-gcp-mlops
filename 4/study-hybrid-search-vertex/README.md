@@ -1,6 +1,6 @@
 # study-hybrid-search-vertex
 
-BigQuery + Cloud Run に閉じた軽量 MLOps パイプライン — **不動産ハイブリッド検索 × LightGBM LambdaRank**。Meilisearch (lexical) + BigQuery VECTOR_SEARCH (semantic) + RRF fusion を採用し、キャッシュは `cachetools.TTLCache` の in-memory 構成で運用する `bq-first`。
+BigQuery + Cloud Run に閉じた軽量 MLOps パイプライン — **不動産ハイブリッド検索 × LightGBM LambdaRank**。Meilisearch (lexical) + BigQuery VECTOR_SEARCH (semantic) + RRF fusion を採用し、キャッシュは `cachetools.TTLCache` の in-memory 構成で運用する `hybrid-search-cloud`。
 
 > **スコープ**: 不動産検索 (クエリ文 + フィルタ → ランキング上位 20 件) のみ。旧 California Housing 回帰は削除済 (Phase 10b/10c)。
 
@@ -47,6 +47,7 @@ raw.properties (upstream ETL)
 | `docs/` | 仕様と設計・移行ロードマップ・実装カタログ・運用 (+ ドキュメント運用ルール) |
 
 ファイル単位の一言コメントは [`docs/03_実装カタログ.md §2`](docs/03_実装カタログ.md)。
+注記: 本 Phase は Vertex/Cloud Run を実行基盤とするため、`docker-compose.yml` はルート直下に置かない。
 
 ## 設計ハイライト
 

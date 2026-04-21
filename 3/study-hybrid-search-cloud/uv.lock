@@ -11,7 +11,7 @@ resolution-markers = [
 members = [
     "app",
     "common",
-    "study-gcp-mlops-bq-first",
+    "study-gcp-mlops-hybrid-search-cloud",
 ]
 
 [[package]]
@@ -2271,7 +2271,7 @@ wheels = [
 ]
 
 [[package]]
-name = "study-gcp-mlops-bq-first"
+name = "study-gcp-mlops-hybrid-search-cloud"
 version = "0.1.0"
 source = { virtual = "." }
 

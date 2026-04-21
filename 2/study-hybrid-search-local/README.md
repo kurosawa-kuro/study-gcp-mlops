@@ -132,6 +132,7 @@
 - docker-compose: ./docker-compose.yml
 - FastAPI entrypoint: ./app/main.py
 - 非クレデンシャル設定: ./env/config/setting.yaml / クレデンシャル: ./env/secret/credential.yaml
+- 注記: 本 Phase はローカル運用 (PostgreSQL/Meilisearch/Redis) を主目的とするため、`docker-compose.yml` をルート直下に保持する。
 
 ## レイアウト互換レイヤ
 

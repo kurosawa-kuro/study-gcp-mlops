@@ -52,7 +52,7 @@ resource "google_logging_metric" "api_p95_latency" {
 # =========================================================================
 
 resource "google_monitoring_notification_channel" "email" {
-  display_name = "bq-first oncall email"
+  display_name = "hybrid-search-cloud oncall email"
   type         = "email"
   labels = {
     email_address = var.oncall_email

@@ -2,6 +2,7 @@
 
 LightGBM によるカリフォルニア住宅価格予測パイプライン。
 MLOps 教育用途として、Docker Compose で学習から推論 API まで完結する構成。
+注記: 本 Phase はローカル完結の学習フェーズのため、`docker-compose.yml` をルート直下に配置する。
 
 ## クイックスタート
 

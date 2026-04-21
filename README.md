@@ -315,16 +315,3 @@ Phase 3 の 5 ファイル lockstep（schema / feature_engineering / infra `rank
 - Vertex 側: `pipelines/.../{embed,train}_pipeline.py`（DAG）/ `jobs/.../{encoder,reranker}_server.py`（CPR server）/ `functions/pipeline_trigger/main.py`（Pipeline submit entry）/ `scripts/setup/setup_encoder_endpoint.py`（one-off setup spec）
 - 運用: `scripts/ops/promote.py`（カナリア昇格）/ 9 SA の分離 / `scripts/setup/create_schedule.py`（PipelineJobSchedule 冪等作成）
 
-
-/home/ubuntu/repos/study-gcp-mlops/4/study-hybrid-search-vertex
-/home/ubuntu/repos/study-gcp-mlops/3/study-hybrid-search-cloud
-/home/ubuntu/repos/study-gcp-mlops/2
-/home/ubuntu/repos/study-gcp-mlops/2/study-hybrid-search-local
-/home/ubuntu/repos/study-gcp-mlops/1
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations
-
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundationsを参考に
-phase2-4でもappにUI（jinaja2 picocss）をコーディング依頼
-
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/app/static
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/app/templates

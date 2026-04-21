@@ -16,7 +16,7 @@ permissions:
 env:
   REGION: asia-northeast1
   PROJECT_ID: mlops-dev-a
-  REPOSITORY: bq-first
+  REPOSITORY: hybrid-search-cloud
 
 jobs:
   push-definitions:

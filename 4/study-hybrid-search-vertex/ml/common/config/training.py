@@ -4,7 +4,7 @@ from .base import BaseAppSettings
 
 
 class TrainSettings(BaseAppSettings):
-    wandb_project: str = "bq-first-california-housing"
+    wandb_project: str = "hybrid-search-cloud-california-housing"
     wandb_api_key: str = ""  # blank => offline mode
     wandb_dir: str = "ml/wandb/wandb"
     num_leaves: int = 31

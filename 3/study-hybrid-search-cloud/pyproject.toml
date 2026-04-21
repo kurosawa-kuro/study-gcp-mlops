@@ -1,7 +1,7 @@
 [project]
-name = "study-gcp-mlops-bq-first"
+name = "study-gcp-mlops-hybrid-search-cloud"
 version = "0.1.0"
-description = "bq-first MLOps pipeline (California Housing × LightGBM)"
+description = "hybrid-search-cloud MLOps pipeline (California Housing × LightGBM)"
 requires-python = ">=3.12"
 
 [tool.uv.workspace]

@@ -23,7 +23,7 @@ GITHUB_REPO   ?= $(call _yaml_get,github_repo)
 ONCALL_EMAIL  ?= $(call _yaml_get,oncall_email)
 
 # Local model path produced by `make train-smoke-persist`.
-MODEL_PATH_OVERRIDE ?= /tmp/bq-first-smoke-model.txt
+MODEL_PATH_OVERRIDE ?= /tmp/hybrid-search-cloud-smoke-model.txt
 
 # Scripts and their make-target wrappers must stay in lockstep — adding a new
 # target should usually mean adding a sibling script under scripts/dev,

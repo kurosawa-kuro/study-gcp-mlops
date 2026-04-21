@@ -23,7 +23,7 @@ artifact_repo: mlops
 # 制約に焼き込まれる (タイポすると CI が auth できなくなる)。ONCALL_EMAIL は
 # monitoring alert policy の通知先 — `@` を含まないと variables.tf の
 # validation で落ちる。`make tf-plan` 等は env var で都度上書き可能。
-github_repo: kurosawa-kuro/study-gcp-mlops-bq-first-v2.0
+github_repo: kurosawa-kuro/study-gcp-mlops-hybrid-search-cloud-v2.0
 oncall_email: kurosawa-kuro@gmail.com
 
 # Dataform — definitions/workflow_settings.yaml は本ファイルから自動生成される

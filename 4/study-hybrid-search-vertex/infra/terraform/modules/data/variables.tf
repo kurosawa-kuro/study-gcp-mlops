@@ -42,7 +42,7 @@ variable "github_repo" {
 variable "dataform_repository_id" {
   description = "Dataform repository name (must match REPOSITORY env in .github/workflows/deploy-dataform.yml)"
   type        = string
-  default     = "bq-first"
+  default     = "hybrid-search-cloud"
 }
 
 variable "dataform_git_token_secret_version" {
