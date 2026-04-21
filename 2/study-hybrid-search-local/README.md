@@ -1,61 +1,61 @@
 # study-hybrid-search-local
 
-不動産検索ランキング基盤の学習用リポジトリです。
+不動産ハイブリッド検索を題材に、ローカル環境で MLOps パイプラインを学ぶリポジトリです。  
+Meilisearch (lexical) + ME5 (semantic) + LightGBM LambdaRank (rerank) の 3 段構成を、`docker-compose.yml` 前提で検証します。
 
-## Phase 0 実装済み範囲
+> **スコープ**: ローカル完結の検索/学習/評価。クラウド実行基盤 (Cloud Run/BigQuery/Vertex) への展開は Phase 3/4 で扱います。
 
-- FastAPI の最小 API（health エンドポイント）
-- Docker Compose によるローカル起動基盤
-- PostgreSQL / pgAdmin / Meilisearch / Redis の連携雛形
-- 初期ディレクトリ構成（現在は責務別に `api/clients/services/trainers/jobs/core/repositories` へ整理）
+## アーキテクチャ
 
-## Phase 1 実装済み範囲
+```
+PostgreSQL (properties / logs / features / eval tables)
+  └─ jobs (maintenance/features/evaluation batch)
+       ├─ migrations / daily features / KPI / reports
+       └─ Meilisearch 同期・評価ジョブ
 
-- `properties` テーブル作成 SQL
-- seed データ投入 SQL
-- PostgreSQL から Meilisearch への同期バッチ
-- `GET /search` 実装（絞り込み対応）
+ml/
+  ├─ embed   : multilingual-e5 で物件埋め込み生成
+  ├─ train   : LightGBM LambdaRank 学習・再学習
+  └─ sync    : PostgreSQL → Meilisearch 同期
 
-## Phase 2 実装済み範囲
+app (FastAPI)
+  ├─ /search   : lexical + semantic + rerank
+  ├─ /feedback : click/favorite/inquiry 収集
+  └─ /health   : livez
+```
 
-- `search_logs` / `property_stats` テーブル作成 SQL
-- 検索時ログ保存（query, user_id, result_ids）
-- impression 自動加算
-- `POST /feedback` 実装（click/favorite/inquiry）
-- click 時の `search_logs.clicked_id` 更新
+## ディレクトリ
 
-## Phase 3 実装済み範囲
+| パス | 役割 |
+|---|---|
+| `app/` | FastAPI API。`/search` / `/feedback` / `/health` を提供 |
+| `common/` | 共通コード（ports/clients/dto/core） |
+| `ml/` | ML コア処理。`embed` / `train` / `sync` に責務分離 |
+| `jobs/` | 非 ML バッチ。`maintenance` / `features` / `evaluation` |
+| `pipeline/` | `data_job` / `training_job` / `evaluation_job` / `batch_serving_job` の入口 |
+| `definitions/` | PostgreSQL migration SQL |
+| `infra/` | `terraform` / `run` 定義（ローカルでは compose 前提） |
+| `scripts/` | `ci` / `dev` / `local` の運用スクリプト |
+| `docs/` | 仕様・移行計画・実装カタログ・運用・教育資料 |
 
-- `property_features` テーブル作成 SQL
-- `batch_job_logs` テーブル作成 SQL
-- 日次バッチ（CTR/Fav/Inq再集計、特徴量更新、inactive除外）
-- バッチ実行結果ログ保存（success/failed, processed_count）
-- 特徴量レポート出力
+注記: 本 Phase はローカル運用 (PostgreSQL/Meilisearch/Redis) を主目的とするため、`docker-compose.yml` をルート直下に保持します。
 
-## Phase 4 実装済み範囲
+## デプロイ
 
-- `property_embeddings` テーブル作成 SQL
-- `search_logs.me5_scores` カラム追加
-- `property_features.me5_score` カラム追加
-- 物件埋め込み生成バッチ（ME5、オフライン時はdeterministic fallback）
-- `GET /search` でME5類似度計算と再ランキング
-- 日次特徴量更新で `me5_score` 集計反映
+本 Phase のデプロイはローカル実行のみを対象とし、`docker-compose.yml` を正とします。
 
-## Phase 5 着手済み範囲
+- `make build` / `make up` / `make down` でコンテナライフサイクルを管理
+- `make ops-bootstrap` で初期構築（migration + seed + 初回学習）を一括実行
+- `make ops-daily` / `make ops-weekly` で定常運用タスクを実行
 
-- 学習ログ拡張（`search_logs.actioned_id`, `search_logs.action_type`）
-- 学習データ生成スクリプト（`ml/training/model_builder.py`）
-- LightGBM 学習スクリプト（`ml/training/trainer.py`）
-- `GET /search` への LightGBM 推論再ランキング統合（モデル未学習時はfallback）
-- Meili順と再ランキング順の比較ログ出力（`ranking_compare_logs`）
+## ドキュメント
 
-## Phase 6 実装済み範囲
-
-- オフライン評価（NDCG@10, MAP, Recall@20）
-- オンライン KPI 日次集計（CTR, favorite_rate, inquiry_rate, CVR）
-- 週次レポート出力（CSV/Markdown）
-- モデル採用判定ルール（閾値ベース）
-- `GET /search` の Redis キャッシュ（`SEARCH_CACHE_TTL_SECONDS`、既定 120 秒）
+| ドキュメント | 目的 |
+|---|---|
+| `docs/01_仕様と設計.md` | 検索・学習・運用の設計方針 |
+| `docs/02_移行ロードマップ.md` | Phase 内の実装計画と変更履歴 |
+| `docs/03_実装カタログ.md` | ディレクトリ/ファイル/テーブル/API 一覧 |
+| `docs/04_運用.md` | ローカル運用手順（日次/週次/障害対応） |
 
 ## テスト
 
@@ -134,15 +134,14 @@
 - 非クレデンシャル設定: ./env/config/setting.yaml / クレデンシャル: ./env/secret/credential.yaml
 - 注記: 本 Phase はローカル運用 (PostgreSQL/Meilisearch/Redis) を主目的とするため、`docker-compose.yml` をルート直下に保持する。
 
-## レイアウト互換レイヤ
+## レイアウト整理方針
 
-依頼に合わせ、以下のターゲット寄せディレクトリを追加しています。
-新構成を正とし、旧 `app/src/app` 互換レイヤは撤去済みです。
+責務別ディレクトリ構成を正とし、旧構成レイヤは保持しません。
 
 - app/api, app/services, app/schemas, app/main.py
 - ml/data, ml/training, ml/evaluation, ml/registry, ml/serving, ml/common
 - pipeline/data_job, pipeline/training_job, pipeline/evaluation_job, pipeline/batch_serving_job
 - infra/terraform/modules, infra/terraform/environments, infra/run/jobs, infra/run/services
-- docs/architecture, docs/operations, docs/decisions
+- docs/ (番号付きファイル + 教育資料)
 - scripts/dev, scripts/ci, scripts/local
 - tests/unit, tests/integration, tests/e2e

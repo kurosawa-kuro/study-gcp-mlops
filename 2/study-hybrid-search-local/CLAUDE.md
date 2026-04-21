@@ -40,7 +40,7 @@
 | Reranker 目的関数 | LightGBM `objective: lambdarank` + `metric: ndcg` + `ndcg_eval_at: [10]` | ランキング学習。回帰 (`regression_l2`) や分類には戻さない |
 | キャッシュ | Redis (TTL 120 秒、graceful fallback、ヒット時はログ保存 skip) | Memorystore は本 Phase 対象外 |
 | 設定値 2 分割 | `env/config/setting.yaml` (non-credential) / `env/secret/credential.yaml` (gitignored) | Phase 3/4 と共通のパターン |
-| docker-compose 起動 | `scripts/setup/compose.sh` 経由（`credential.yaml` を env に export するラッパー） | 直接 `docker compose up` を叩くと `POSTGRES_PASSWORD` 未設定で起動失敗 |
+| docker-compose 起動 | `scripts/local/setup/compose.sh` 経由（`credential.yaml` を env に export するラッパー） | 直接 `docker compose up` を叩くと `POSTGRES_PASSWORD` 未設定で起動失敗 |
 
 ---
 
@@ -49,10 +49,10 @@
 | target | 用途 |
 |---|---|
 | `make sync` | uv sync --dev（Local 環境構築） |
-| `make up` / `make build` / `make down` / `make logs` | docker compose ライフサイクル（`scripts/setup/compose.sh` 経由） |
-| `make ops-livez` | API ヘルスチェック（`scripts/ops/health_check.py`）|
+| `make up` / `make build` / `make down` / `make logs` | docker compose ライフサイクル（`scripts/local/setup/compose.sh` 経由） |
+| `make ops-livez` | API ヘルスチェック（`scripts/local/ops/health_check.py`）|
 | `make test` | pytest |
-| `make check-layers` | AST で layer 依存ルール違反を検出（`scripts/checks/layers.py`） |
+| `make check-layers` | AST で layer 依存ルール違反を検出（`scripts/ci/layers.py`） |
 | `make ops-bootstrap` | 初期セットアップ一括（migrations → seed → index → 初回学習） |
 | `make ops-daily` | 日次運用（ops-sync / features-daily / ops-embed / kpi-daily） |
 | `make ops-weekly` | 週次運用（eval-compare / eval-offline / eval-weekly-report / ops-retrain） |
@@ -115,7 +115,7 @@ scripts/
 
 ## 紛らわしい点
 
-- **`scripts/setup/compose.sh` は docker compose のラッパー**。直接 `docker compose` を叩くと `POSTGRES_PASSWORD` が空になり postgres コンテナが起動失敗する。必ず `make up` / `make down` / `make logs` / `make build` など Makefile ターゲット経由で使う
+- **`scripts/local/setup/compose.sh` は docker compose のラッパー**。直接 `docker compose` を叩くと `POSTGRES_PASSWORD` が空になり postgres コンテナが起動失敗する。必ず `make up` / `make down` / `make logs` / `make build` など Makefile ターゲット経由で使う
 - **`me5_score` を直接順位に使わない**。Meilisearch のスコアも直接は使わず、両方とも LightGBM の特徴量として渡す
 - **LambdaRank の `group` は `request_id`**（query 単位）。行単位の回帰とは学習構造が違う
 - **Phase 3 への移行で "検索コアは不変、実装基盤だけ置換"**：設計思想は Phase 3 に引き継がれる。`02_移行ロードマップ.md` の「引き継ぐもの / 置き換えるもの」対比を参照
