@@ -17,7 +17,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[1]
 _SETTING_YAML = _ROOT / "env" / "config" / "setting.yaml"
 _CREDENTIAL_YAML = _ROOT / "env" / "secret" / "credential.yaml"
 

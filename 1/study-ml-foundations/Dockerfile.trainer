@@ -14,10 +14,11 @@ RUN pip install --no-cache-dir \
     "psycopg[binary]" \
     sqlalchemy
 
-COPY src/ src/
+COPY common/ common/
+COPY ml/ ml/
 COPY env/config/ env/config/
 
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "-m", "ml.pipeline.main"]

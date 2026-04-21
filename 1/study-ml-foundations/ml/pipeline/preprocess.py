@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from share import FEATURE_COLS, TARGET_COL, get_logger
+from common import FEATURE_COLS, TARGET_COL, get_logger
 
 logger = get_logger(__name__)
 

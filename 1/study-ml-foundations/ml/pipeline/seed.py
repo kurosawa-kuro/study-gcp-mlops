@@ -3,7 +3,7 @@
 from sklearn.datasets import fetch_california_housing
 from sqlalchemy import create_engine
 
-from share import get_logger
+from common import get_logger
 from ml.pipeline.config import Settings
 
 logger = get_logger(__name__)

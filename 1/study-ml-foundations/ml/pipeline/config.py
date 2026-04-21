@@ -1,6 +1,6 @@
 """パイプライン設定管理."""
 
-from share.config import BaseAppSettings
+from common.config import BaseAppSettings
 
 
 class Settings(BaseAppSettings):

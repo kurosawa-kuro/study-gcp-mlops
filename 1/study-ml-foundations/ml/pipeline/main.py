@@ -3,8 +3,8 @@
 実行: python3 -m ml.pipeline.main
 """
 
-from share import get_logger
-from share.run_id import generate_run_id
+from common import get_logger
+from common.run_id import generate_run_id
 from ml.pipeline.config import Settings
 from ml.pipeline.feature_engineering import engineer_features
 from ml.pipeline.preprocess import preprocess
