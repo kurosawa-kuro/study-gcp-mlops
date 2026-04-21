@@ -129,7 +129,7 @@ WANDB_API_KEY=your_key_here
 
 ```bash
 make test                          # 全テスト
-python scripts/test.py -k test_train    # 単体テスト指定
+python scripts/local/ops/test.py -k test_train    # 単体テスト指定
 ```
 
 ## ドキュメント

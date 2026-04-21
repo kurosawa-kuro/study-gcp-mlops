@@ -1,3 +1,3 @@
 # local scripts
 
-Use Makefile targets and scripts/ops for local operations.
+Phase 3/4 と同様に `local/ops`, `local/setup` を入口として利用します。

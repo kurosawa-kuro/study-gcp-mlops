@@ -72,7 +72,7 @@ make down           # Docker Compose 停止
 make clean          # Docker 停止 + 生成ファイル削除
 
 # 単体テスト指定
-python scripts/test.py -k test_train
+python scripts/local/ops/test.py -k test_train
 ```
 
 ## Scripts

@@ -148,7 +148,7 @@ clean: ## Remove caches (.venv, .terraform, pyc)
 	rm -rf .venv $(TF_DIR)/.terraform
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune -exec rm -rf {} +
 
-# ----- GCP operations (see docs/operations/04_運用.md §3) -----
+# ----- GCP operations (see docs/04_運用.md §3) -----
 
 ops-api-url: ## Print the search-api Cloud Run URL
 	@gcloud run services describe $(API_SERVICE) --project=$(PROJECT_ID) --region=$(REGION) --format='value(status.url)'

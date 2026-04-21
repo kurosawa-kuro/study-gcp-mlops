@@ -13,16 +13,16 @@ build: ## Build Docker images (docker compose build)
 	docker compose build
 
 seed: ## Seed sklearn California Housing into PostgreSQL
-	$(PYTHON) scripts/ml/seed.py
+	$(PYTHON) scripts/local/setup/seed.py
 
 train: ## Run LightGBM training → ml/registry/artifacts/{run_id}/
-	$(PYTHON) scripts/ml/train.py
+	$(PYTHON) scripts/local/setup/train.py
 
 serve: ## Start FastAPI on :8000 (docker compose up api)
-	$(PYTHON) scripts/app/serve.py
+	$(PYTHON) scripts/local/deploy/serve.py
 
 test: ## Run pytest (local)
-	$(PYTHON) scripts/test.py
+	$(PYTHON) scripts/local/ops/test.py
 
 all: build seed train ## build → seed → train
 
@@ -30,4 +30,4 @@ down: ## Stop and remove docker compose services
 	docker compose down --remove-orphans
 
 clean: ## docker compose down + remove generated files
-	$(PYTHON) scripts/clean.py
+	$(PYTHON) scripts/local/ops/clean.py

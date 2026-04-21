@@ -3,7 +3,7 @@
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,$(if $(wildcard ../.venv/bin/python),../.venv/bin/python,python3))
 
 # docker compose を直接呼ばず、env/secret/credential.yaml を読み込むラッパー経由で起動する
-DOCKER_COMPOSE ?= ./scripts/setup/compose.sh
+DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 
 .PHONY: \
 	help up build down logs test sync api-refresh \
@@ -40,7 +40,7 @@ test: ## Run pytest (local)
 	PYTHONPATH=app:common/src:jobs/src:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v
 
 check-layers: ## Enforce layer boundaries by AST (stage=5)
-	$(PYTHON) scripts/checks/layers.py --stage 5
+	$(PYTHON) scripts/ci/layers.py --stage 5
 
 api-refresh: ## Rebuild and recreate only the api service
 	$(DOCKER_COMPOSE) build api
@@ -76,22 +76,22 @@ ops-sync: ## Sync properties from PostgreSQL → Meilisearch
 	$(DOCKER_COMPOSE) exec -T api python -m ml.data.loaders.sync_properties_to_meilisearch
 
 ops-livez: ## Health check against the running api (aligned with Phase 3/4 ops-livez)
-	$(PYTHON) scripts/ops/health_check.py
+	$(PYTHON) scripts/local/ops/health_check.py
 
 ops-search: ## POST /search smoke
-	$(PYTHON) scripts/ops/search_check.py
+	$(PYTHON) scripts/local/ops/search_check.py
 
 ops-feedback: ## /search → /feedback round-trip smoke
-	$(PYTHON) scripts/ops/feedback_check.py
+	$(PYTHON) scripts/local/ops/feedback_check.py
 
 ops-ranking: ## POST /search and inspect rerank output
-	$(PYTHON) scripts/ops/ranking_check.py
+	$(PYTHON) scripts/local/ops/ranking_check.py
 
 ops-ranking-verbose: ## Detailed rerank inspection (lgbm_score / me5_score)
-	$(PYTHON) scripts/ops/ranking_check_verbose.py
+	$(PYTHON) scripts/local/ops/ranking_check_verbose.py
 
 ops-label-seed: ## Seed feedback events (click/favorite/inquiry)
-	$(PYTHON) scripts/ops/training_label_seed.py
+	$(PYTHON) scripts/local/ops/training_label_seed.py
 
 # ----- Feature / embedding batch -----
 
@@ -113,7 +113,7 @@ ops-train-fit: ## Fit LightGBM LambdaRank model
 	$(DOCKER_COMPOSE) exec -T api python -m ml.training.trainer
 
 ops-train-fit-safe: ## Fit LightGBM with graceful fallback on empty data
-	$(PYTHON) scripts/ops/training_fit_safe.py
+	$(PYTHON) scripts/local/ops/training_fit_safe.py
 
 # ----- Evaluation -----
 

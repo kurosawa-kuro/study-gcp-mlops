@@ -6,6 +6,7 @@ data/
 ml/registry/artifacts/
 artifacts/
 wandb/
+ml/wandb/
 .pytest_cache/
 tests/
 docs/

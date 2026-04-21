@@ -14,7 +14,7 @@ data/*.db
 ml/registry/artifacts/
 
 # W&B
-artifacts/wandb/
+ml/wandb/
 
 # IDE
 .vscode/

@@ -31,5 +31,5 @@ Dataform (definitions/)  -->  pipeline/data_job   -->  pipeline/training_job  --
 
 ## 参照
 
-- [docs/operations/04_運用.md](../../docs/operations/04_運用.md)
-- [docs/architecture/01_仕様と設計.md](../../docs/architecture/01_仕様と設計.md)
+- [docs/04_運用.md](../../docs/04_運用.md)
+- [docs/01_仕様と設計.md](../../docs/01_仕様と設計.md)
