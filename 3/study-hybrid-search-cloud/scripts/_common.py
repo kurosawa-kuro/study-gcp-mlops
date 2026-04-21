@@ -1,4 +1,4 @@
-"""Shared helpers for scripts/*.py and scripts/ops/*.py.
+"""Shared helpers for scripts/*.py and scripts/{dev,ci,local}/*.py.
 
 Stdlib-only by design (per scripts/README.md). The functions wrap the most
 common shell idioms (gcloud subprocess calls, IAM-gated HTTP requests,

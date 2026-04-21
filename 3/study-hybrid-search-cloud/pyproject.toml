@@ -51,7 +51,7 @@ testpaths = [
 pythonpath = [
     ".",
     "common/src",
-    "app/src",
+    "app",
     "ml/embed/src",
     "ml/train/src",
     "ml/sync/src",

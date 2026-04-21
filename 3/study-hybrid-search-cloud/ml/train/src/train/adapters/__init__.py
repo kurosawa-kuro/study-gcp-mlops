@@ -1,4 +1,4 @@
-"""Training-job concrete adapters, grouped by external system."""
+"""Backward-compatible wrapper for training adapters."""
 
 from .artifact_store import GcsArtifactUploader
 from .bigquery_ranker_repository import BigQueryRankerRepository

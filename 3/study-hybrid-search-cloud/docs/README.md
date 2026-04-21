@@ -8,10 +8,10 @@
 
 | ファイル | 役割 | 主な読者 | 更新契機 |
 |---|---|---|---|
-| [`01_仕様と設計.md`](./01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計。LLM に全体像を伝える土台 | LLM / 設計レビュー | 要件レベルの変更時 |
-| [`02_移行ロードマップ.md`](./02_移行ロードマップ.md) | **本リポジトリの決定的仕様**。何を作るか・何を作らないかの最終決定 (例: Vertex AI 不採用) | LLM / 開発者 | スコープ確定・方針変更時 |
-| [`03_実装カタログ.md`](./03_実装カタログ.md) | 実装カタログ。ディレクトリ / ファイル(一言コメント付き) / DB テーブル・リレーション / API エンドポイント / UI ページ(フォーム・リスト) / GCP リソース / Terraform を逐一掲載 | 新規参加者 / LLM | コード・IaC 変更時 |
-| [`04_運用.md`](./04_運用.md) | **PDCA メインフロー (`make deploy-all` ↔ `make destroy-all`)** + 個別 STEP 1–17 詳細 + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 学習目的の PDCA 担当 / 運用担当 | PDCA 周回手順・閾値・アラート変更時 |
+| [`architecture/01_仕様と設計.md`](./architecture/01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計。LLM に全体像を伝える土台 | LLM / 設計レビュー | 要件レベルの変更時 |
+| [`decisions/02_移行ロードマップ.md`](./decisions/02_移行ロードマップ.md) | **本リポジトリの決定的仕様**。何を作るか・何を作らないかの最終決定 (例: Vertex AI 不採用) | LLM / 開発者 | スコープ確定・方針変更時 |
+| [`architecture/03_実装カタログ.md`](./architecture/03_実装カタログ.md) | 実装カタログ。ディレクトリ / ファイル(一言コメント付き) / DB テーブル・リレーション / API エンドポイント / UI ページ(フォーム・リスト) / GCP リソース / Terraform を逐一掲載 | 新規参加者 / LLM | コード・IaC 変更時 |
+| [`operations/04_運用.md`](./operations/04_運用.md) | **PDCA メインフロー (`make deploy-all` ↔ `make destroy-all`)** + 個別 STEP 1–17 詳細 + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 学習目的の PDCA 担当 / 運用担当 | PDCA 周回手順・閾値・アラート変更時 |
 | [`../README.md`](../README.md) | 機能の簡易説明 (アーキテクチャ / ディレクトリ / 設計ハイライト / デプロイ表) + 各ドキュメントへのリンク | 初見者 | 機能・デプロイ経路変更時 |
 | [`../CLAUDE.md`](../CLAUDE.md) | Claude Code 向け作業ガイド (非負制約 / 参照リポジトリ / feature-parity invariant) | Claude Code | 作業ルール変更時 |
 
@@ -23,9 +23,9 @@
 02_移行ロードマップ.md  >  01_仕様と設計.md  >  README.md
 ```
 
-`CLAUDE.md` と `03_実装カタログ.md` は上 3 者から派生する従属ドキュメント。3 者が互いに矛盾した場合は必ず `02_移行ロードマップ.md` を正として他を合わせ、User に flag する。
+`CLAUDE.md` と `architecture/03_実装カタログ.md` は上 3 者から派生する従属ドキュメント。3 者が互いに矛盾した場合は必ず `decisions/02_移行ロードマップ.md` を正として他を合わせ、User に flag する。
 
-**具体例**: Vertex AI 不採用の決定は `02_移行ロードマップ.md` に書かれている。`README.md` や `01_仕様と設計.md` が Vertex AI を匂わせる表現で残っていたら、それは修正漏れ。
+**具体例**: Vertex AI 不採用の決定は `decisions/02_移行ロードマップ.md` に書かれている。`README.md` や `architecture/01_仕様と設計.md` が Vertex AI を匂わせる表現で残っていたら、それは修正漏れ。
 
 ---
 
@@ -33,13 +33,13 @@
 
 | 変更 | 連動して直す |
 |---|---|
-| スコープの増減 (採用 / 不採用の切り替え) | `02_移行ロードマップ.md` → `01_仕様と設計.md` → `README.md` |
-| 新しい GCP リソース / ファイル / BQ テーブル追加 | `03_実装カタログ.md` |
-| 特徴量追加・変更 | `01_仕様と設計.md` + `03_実装カタログ.md` + `04_運用.md §3.4` |
-| 運用コマンド / 閾値の変更 | `04_運用.md` + `Makefile` |
-| CI / デプロイ経路の変更 | `03_実装カタログ.md` (Phase 7) + `README.md` のデプロイ表 |
+| スコープの増減 (採用 / 不採用の切り替え) | `decisions/02_移行ロードマップ.md` → `architecture/01_仕様と設計.md` → `README.md` |
+| 新しい GCP リソース / ファイル / BQ テーブル追加 | `architecture/03_実装カタログ.md` |
+| 特徴量追加・変更 | `architecture/01_仕様と設計.md` + `architecture/03_実装カタログ.md` + `operations/04_運用.md §3.4` |
+| 運用コマンド / 閾値の変更 | `operations/04_運用.md` + `Makefile` |
+| CI / デプロイ経路の変更 | `architecture/03_実装カタログ.md` (Phase 7) + `README.md` のデプロイ表 |
 | Claude Code 向けの制約変更 | `CLAUDE.md` |
-| PDCA メインフロー / 個別 STEP の変更 (`deploy-all` / `destroy-all` / STEP 増減 / ツール変更) | `04_運用.md §1` + `04_運用.md §2` + `Makefile (doctor / deploy-all / destroy-all)` + `scripts/setup/*` |
+| PDCA メインフロー / 個別 STEP の変更 (`deploy-all` / `destroy-all` / STEP 増減 / ツール変更) | `operations/04_運用.md §1` + `operations/04_運用.md §2` + `Makefile (doctor / deploy-all / destroy-all)` + `scripts/dev/*` |
 
 **原則**: 連動する複数ドキュメントは **同一 PR で直す**。別 PR に分けると drift の温床になる。過去に Vertex AI 採否で 3 者が分岐した事例がある。
 
@@ -68,6 +68,6 @@
 
 ## 6. メンテナンス観点
 
-- `02_移行ロードマップ.md` の「本リポジトリの決定的仕様」という位置付けは絶対。ここを weaken する表現 (「暫定」「TBD」) を入れるなら必ず User に確認
-- `03_実装カタログ.md` は放置すると実態と乖離する。コード変更時に Phase 表と「未着手」節を更新すること
-- `04_運用.md §1` (PDCA メインフロー) は **`make deploy-all` 一発で完走することが品質基準**。`scripts/setup/deploy_all.py` の 7 step / `scripts/setup/destroy_all.py` の流れを変えたら、実 GCP で `make deploy-all` → `make ops-livez` → `make destroy-all` を実測して確認する。`§2` (個別 STEP 詳細) は STEP を上から順に叩いて完走できる状態を保つ
+- `decisions/02_移行ロードマップ.md` の「本リポジトリの決定的仕様」という位置付けは絶対。ここを weaken する表現 (「暫定」「TBD」) を入れるなら必ず User に確認
+- `architecture/03_実装カタログ.md` は放置すると実態と乖離する。コード変更時に Phase 表と「未着手」節を更新すること
+- `operations/04_運用.md §1` (PDCA メインフロー) は **`make deploy-all` 一発で完走することが品質基準**。`scripts/dev/deploy_all.py` の 7 step / `scripts/dev/destroy_all.py` の流れを変えたら、実 GCP で `make deploy-all` → `make ops-livez` → `make destroy-all` を実測して確認する。`§2` (個別 STEP 詳細) は STEP を上から順に叩いて完走できる状態を保つ

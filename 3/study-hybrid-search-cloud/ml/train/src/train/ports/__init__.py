@@ -1,8 +1,4 @@
-"""Training-job Ports.
-
-Re-exports Protocols consumed by ``train.cli`` + ``train.trainer``. Concrete
-adapters live under ``train.adapters``.
-"""
+"""Backward-compatible wrapper for training Ports."""
 
 from .artifact_uploader import ArtifactUploader
 from .experiment_tracker import ExperimentTracker

@@ -2,16 +2,16 @@
 
 本リポジトリで作業する Claude Code 向けのガイド。**非負制約 / 参照リポジトリ / feature-parity invariant** を最優先で載せる (`docs/README.md` §1 の CLAUDE.md 仕様に従う)。
 
-ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md)。本 CLAUDE.md はそれらに従属する。
+ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/decisions/02_移行ロードマップ.md`](docs/decisions/02_移行ロードマップ.md)。本 CLAUDE.md はそれらに従属する。
 
 ---
 
 ## 最初に読むもの (順番)
 
 1. [`docs/README.md`](docs/README.md) — ドキュメント運用ルール (権威順位 / 更新規約 / 書き方)
-2. [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) — **決定的仕様** (Meilisearch + BigQuery VECTOR_SEARCH + RRF + LambdaRank、Redis サーバ非採用)
-3. [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) — ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform の逐一掲載
-4. [`docs/04_運用.md §1`](docs/04_運用.md) — 環境構築 STEP 1–17 (上から順に叩けば完走)
+2. [`docs/decisions/02_移行ロードマップ.md`](docs/decisions/02_移行ロードマップ.md) — **決定的仕様** (Meilisearch + BigQuery VECTOR_SEARCH + RRF + LambdaRank、Redis サーバ非採用)
+3. [`docs/architecture/03_実装カタログ.md`](docs/architecture/03_実装カタログ.md) — ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform の逐一掲載
+4. [`docs/operations/04_運用.md §1`](docs/operations/04_運用.md) — 環境構築 STEP 1–17 (上から順に叩けば完走)
 
 ---
 
@@ -21,7 +21,7 @@
 - **BigQuery + Cloud Run 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`)、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI / Model Registry / BQML 非採用**
 - **Training-Serving Skew 対策が load-bearing**。Dataform SQL (`feature_mart.property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で lockstep 維持 (`ctr = SAFE_DIVIDE(click_count, impression_count)` など、分子分母の順序が訓練側と推論側で 1:1)
 - **学習 = Cloud Run Jobs (`training-job` + `embedding-job`) / 推論 = Cloud Run Service (`search-api`)**。両方を Service にしない。モデルは**コンテナ同梱せず**、FastAPI `lifespan` で `mlops.training_runs` から最新 `run_id` の `model_path` を解決 → GCS から `model.txt` を download → `lgb.Booster` にロード (Phase 6 以降)
-- **Phase 4 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/04_運用.md §1 STEP 17`
+- **Phase 4 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/operations/04_運用.md §1 STEP 17`
 - **スコープ固定**: 不動産ハイブリッド検索のみ。旧 California Housing 回帰は Phase 10b/10c で完全削除済
 
 ---
@@ -76,7 +76,7 @@
 
 ## 開発コマンド
 
-生コマンドは `docs/04_運用.md §1` の STEP 1–17、全ターゲットは `make help`。`make check` でローカル CI 同等 (ruff / ruff format / mypy strict / pytest) を走らせる。
+生コマンドは `docs/operations/04_運用.md §1` の STEP 1–17、全ターゲットは `make help`。`make check` でローカル CI 同等 (ruff / ruff format / mypy strict / pytest) を走らせる。
 
 | target | 用途 |
 |---|---|
@@ -91,7 +91,7 @@
 | `make tf-bootstrap` | Phase 0 (API 有効化 + tfstate バケット作成、冪等) |
 | `make tf-plan` | Terraform plan。`GITHUB_REPO` / `ONCALL_EMAIL` は `env/config/setting.yaml` から既定値、env で都度上書き可。1 行で叩く / backslash 改行禁止。infra/tfplan に保存 |
 | `make deploy-api-local` / `make deploy-training-job-local` | CI を経由せず Cloud Build (`cloudbuild.{api,train}.yaml`) → `gcloud run deploy/jobs update` で local から rollout |
-| `make ops-*` | 本番 GCP 操作 (`docs/04_運用.md §2`)。`ops-livez` (Cloud Run /livez 疎通) / `ops-search` / `ops-ranking` / `ops-feedback` / `ops-label-seed` / `ops-search-volume` / `ops-runs-recent` / `ops-skew-latest` 等 |
+| `make ops-*` | 本番 GCP 操作 (`docs/operations/04_運用.md §2`)。`ops-livez` (Cloud Run /livez 疎通) / `ops-search` / `ops-ranking` / `ops-feedback` / `ops-label-seed` / `ops-search-volume` / `ops-runs-recent` / `ops-skew-latest` 等 |
 
 CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `definitions/**` / `infra/**`) は top-level ディレクトリと 1:1。`common/**` は api / embed / train の 3 者に依存するため `deploy-api.yml` / `deploy-training-job.yml` / `deploy-embedding-job.yml` の 3 つに含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードなので `deploy-api.yml` / `deploy-embedding-job.yml` 双方が path filter に持つ。
 
@@ -112,10 +112,12 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 - **機能**: Dataform 定義 (`property_features_daily`) / `BigQueryCandidateRetriever` (BQ VECTOR_SEARCH) / `E5Encoder` (sentence-transformers ラッパ) / `/search` `/feedback` `/jobs/check-retrain` `/events/retrain` エンドポイント / Pub/Sub → BQ Subscription (`ranking-log` / `search-feedback`) / NDCG ベース mean-drift SQL / 4 SA 最小権限分離 / uv ワークスペース化 / Workload Identity Federation
 - **Port / Adapter 分離** (5 workspace すべて layer-based subpackage):
   - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `embeddings/` (e5_encoder — app 側 query encode と embed-job 側 passage encode で共有) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
-  - `app/src/app/`: `entrypoints/` (api) / `services/` (ranking, retrain_policy) / `ports/` (candidate_retriever, publisher, retrain_queries, training_job_runner) / `adapters/` (candidate_retriever, publisher, retrain, training_job) / `middleware/` (request_logging) / `schemas/` (search) + top-level `config.py`
-  - `ml/embed/src/embed/`: Cloud Run Job `embedding-job`。`cli.py` (entrypoint) / `runner.py` (pure orchestration) / `config.py` (EmbedSettings) / `adapters/` (embedding_writer — BQ factories)
-  - `ml/train/src/train/`: Cloud Run Job `training-job`。`cli.py` / `trainer.py` / `metrics.py` / `config.py` (TrainSettings) / `ports/` (ranker_repository, artifact_uploader, experiment_tracker) / `adapters/` (bigquery_ranker_repository, artifact_store, experiment_tracker, repository)
-  - `ml/sync/src/sync/`: CLI `meili-sync`。`meili_sync.py` 1 ファイル (BigQuery → Meilisearch インデックス upsert、Cloud Run Job には未デプロイ)
+  - `app/app/`: `api/` (FastAPI entrypoint + middleware) / `services/` / `ports/` / `adapters/` / `schemas/` + top-level `main.py` / `config.py`
+  - `ml/data/`: embedding batch / index sync / dataset settings。本体実装
+  - `ml/training/`: LambdaRank training orchestration / model_builder / experiment settings / ports
+  - `ml/evaluation/metrics/`: ranking evaluation
+  - `ml/registry/`: artifact upload / training metadata persistence
+  - `ml/embed/src/embed/`, `ml/train/src/train/`, `ml/sync/src/sync/`: 既存 Cloud Run Job / CLI を壊さないための互換 entrypoint
 - **自動検知** (`tests/` は責務別 3 サブフォルダに分割):
   - `tests/arch/test_import_boundaries.py` — AST 境界 (canonical な `RULES` は `scripts/checks/layers.py`、`make check-layers` でも CLI 単独実行可)
   - `tests/parity/test_feature_parity_ranking.py` + `tests/parity/test_feature_parity_sql_ranker.py` — 5 ファイル parity invariant
@@ -131,21 +133,21 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 ## リポジトリ状態
 
 - Phase 1–10d の実装 + scripts/tests 再編 + setting.yaml 集約が完了。California Housing 関連コード / Dataform / Python / Terraform / Scheduled Query は 10b/10c で完全削除済
-- `make check` PASS (183 tests、`tests/{arch,parity,infra}/`)
-- Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
+- `make check` PASS 基準。repo-level tests は `tests/{unit,integration,e2e}/`
+- Port / pure-logic ファイルの境界は `scripts/ci/check_layers.py::RULES` が canonical。`tests/unit/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
 - feature parity invariant (5 ファイル) は自動検知:
-  - `tests/parity/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
-  - `tests/parity/test_feature_parity_ranking.py` — Python `build_ranker_features` ↔ `schema.py` ↔ infra `ranking_log.features` RECORD + Dataform SQLX のビヘイビア列チェック
-  - `tests/parity/test_dataform_workflow_settings.py` — `env/config/setting.yaml` ↔ `scripts.config.sync_dataform.render()` (生成器) drift 検知
-- Terraform モジュール構造 (`main.tf` / `variables.tf` / `outputs.tf` / `versions.tf` + 全 variable に description) は `tests/infra/test_terraform_module_structure.py` で検証
-- 初回 apply 時に踏みやすい 4 つのハマりは `infra/modules/` 側で全て修正済 (`time_sleep` / DTS の `location` / DTS の `service_account_name` / Cloud Run image placeholder)。詳細表は `docs/04_運用.md §1 STEP 9`
+  - `tests/e2e/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
+  - `tests/e2e/test_feature_parity_ranking.py` — Python `build_ranker_features` ↔ `schema.py` ↔ infra `ranking_log.features` RECORD + Dataform SQLX のビヘイビア列チェック
+  - `tests/e2e/test_dataform_workflow_settings.py` — `env/config/setting.yaml` ↔ `scripts.dev.sync_dataform.render()` drift 検知
+- Terraform モジュール構造 (`main.tf` / `variables.tf` / `outputs.tf` / `versions.tf` + 全 variable に description) は `tests/integration/test_terraform_module_structure.py` で検証
+- 初回 apply 時に踏みやすい 4 つのハマりは `infra/modules/` 側で全て修正済 (`time_sleep` / DTS の `location` / DTS の `service_account_name` / Cloud Run image placeholder)。詳細表は `docs/operations/04_運用.md §1 STEP 9`
 - `make tf-validate` PASS (offline)、`make tf-bootstrap` で Phase 0 半自動化済
 - **残タスク**:
   - **`embedding-job` Cloud Run Job が Terraform 未定義** (drift) — `infra/modules/runtime/main.tf` に `google_cloud_run_v2_job.embedding_job` を追加する必要あり。`sa-job-embed` SA + IAM + Artifact Registry 側は揃っている。`deploy-embedding-job.yml` は NOT_FOUND を `|| true` で許容している暫定状態
   - Doppler → Cloud Run 環境変数注入は **配線されていない** (Secret Manager 容器は作るが誰も読まない、`--set-secrets` 未使用)。STEP 10 を skip しても動く
   - Monitoring 通知先差し替え (`oncall@example.com` placeholder)
   - Looker Studio ダッシュボード (IaC 対象外)
-  - VECTOR INDEX の IaC 化 (`google_bigquery_vector_index` provider 対応待ち、`docs/02_移行ロードマップ.md §14 R3`)
+  - VECTOR INDEX の IaC 化 (`google_bigquery_vector_index` provider 対応待ち、`docs/decisions/02_移行ロードマップ.md §14 R3`)
   - Phase 6 以降の LambdaRank booster 本番連携 (`/search` から `score` を出す rerank 組み込み)
 
 ---
@@ -155,7 +157,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 - `monitoring/validate_feature_skew.sql` は BQML の `ML.VALIDATE_DATA_SKEW()` 関数**ではなく**、カスタム mean-drift 実装 (`mean_drift_sigma`)
 - `FORCE_RELOAD=<ts>` は特殊な env ではなく、任意の env 変更で Cloud Run revision が再生成され lifespan が再ロードされる性質を利用した慣用。`make ops-reload-api` がラッパー
 - Doppler 連携は仕様 (Secret Manager → Cloud Run env) としては記述済みだが、deploy workflow は GitHub Secret 経由 (`secrets.DOPPLER_TOKEN_*`) で Doppler CLI を呼び、Secret Manager 容器は誰も読んでいない。当面は `--set-env-vars` 直書き運用
-- BigQuery `VECTOR_SEARCH` + `VECTOR INDEX` は Terraform google provider 未対応 (2026-04 時点)。INDEX は `docs/04_運用.md STEP 16` で手動 DDL
+- BigQuery `VECTOR_SEARCH` + `VECTOR INDEX` は Terraform google provider 未対応 (2026-04 時点)。INDEX は `docs/operations/04_運用.md STEP 16` で手動 DDL
 - `/healthz` は Cloud Run の Knative frontend が予約 (HTML 404 を返して container に到達しない) ため、deploy 後の liveness 検査には **`/livez`** (alias) を使う。local の `make api-dev` 時は `/healthz` でも届く
 - Cloud Run image は初回 apply 時 `gcr.io/cloudrun/hello` placeholder で起動 (Artifact Registry が空のため)。real image は CI もしくは `make deploy-api-local` で push する。`lifecycle.ignore_changes = [... image ...]` により Terraform は real image を差し戻さない
 

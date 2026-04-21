@@ -5,7 +5,7 @@ Parity-locked files for this 10-column set:
 1. ``definitions/features/property_features_daily.sqlx``  (training SQL)
 2. ``common/src/common/feature_engineering.py::build_ranker_features``  (serving)
 3. THIS file — ``FEATURE_COLS_RANKER`` / ``LABEL_GAIN``
-4. ``infra/modules/data/main.tf``  (``ranking_log.features`` RECORD)
+4. ``infra/terraform/modules/data/main.tf``  (``ranking_log.features`` RECORD)
 5. ``monitoring/validate_feature_skew.sql``  (drift UNPIVOT)
 
 A single added/renamed/reordered feature must touch all 5 files in the same

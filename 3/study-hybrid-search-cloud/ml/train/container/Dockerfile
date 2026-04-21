@@ -37,13 +37,15 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
+COPY ml /home/app/ml
 ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONPATH="/home/app:${PYTHONPATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     LOG_AS_JSON=1
 
 RUN useradd --system --uid 1001 --home-dir /home/app app \
-    && mkdir -p /home/app && chown -R app:app /home/app
+    && chown -R app:app /home/app
 USER app
 WORKDIR /home/app
 

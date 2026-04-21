@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 # Absolute paths keep targets idempotent regardless of invocation cwd.
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-INFRA := $(ROOT)/infra
+INFRA := $(ROOT)/infra/terraform/environments/main
 
 # Project-wide non-credential settings live in env/config/setting.yaml so
 # Python (scripts/_common.py) and Make read from one source of truth. We
@@ -26,8 +26,8 @@ ONCALL_EMAIL  ?= $(call _yaml_get,oncall_email)
 MODEL_PATH_OVERRIDE ?= /tmp/bq-first-smoke-model.txt
 
 # Scripts and their make-target wrappers must stay in lockstep — adding a new
-# target should usually mean adding a sibling script under scripts/ or
-# scripts/ops/ rather than inlining shell here.
+# target should usually mean adding a sibling script under scripts/dev,
+# scripts/ci, or scripts/local rather than inlining shell here.
 export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
@@ -50,7 +50,7 @@ help: ## Show this help
 		$(MAKEFILE_LIST)
 
 doctor: ## Verify that prerequisite tools are installed
-	uv run python -m scripts.setup.doctor
+	uv run python -m scripts.dev.doctor
 
 # ----- Python workspace -----
 
@@ -75,18 +75,18 @@ typecheck: ## mypy strict
 check: lint fmt-check typecheck test ## Run all CI-equivalent checks
 
 sync-dataform-config: ## Regenerate definitions/workflow_settings.yaml from env/config/setting.yaml
-	uv run python -m scripts.config.sync_dataform
+	uv run python -m scripts.dev.sync_dataform
 
 check-layers: ## AST-based layer boundary check (Ports / pure logic must not import concrete adapters or SDKs)
-	uv run python -m scripts.checks.layers
+	uv run python -m scripts.ci.check_layers
 
 # ----- Terraform -----
 
 tf-bootstrap: ## Phase 0: enable APIs + create tfstate bucket (idempotent, needs project owner rights)
-	uv run python -m scripts.setup.tf_bootstrap
+	uv run python -m scripts.dev.tf_bootstrap
 
 tf-init: ## terraform init (with tfstate bucket preflight check)
-	uv run python -m scripts.setup.tf_init
+	uv run python -m scripts.dev.tf_init
 
 tf-validate: ## terraform validate (backend-less, works offline)
 	terraform -chdir=$(INFRA) init -backend=false -upgrade=false >/dev/null
@@ -99,19 +99,19 @@ tf-fmt-fix: ## terraform fmt (writes)
 	terraform -chdir=$(INFRA) fmt
 
 tf-plan: ## terraform plan (requires GITHUB_REPO + ONCALL_EMAIL; saves infra/tfplan)
-	uv run python -m scripts.setup.tf_plan
+	uv run python -m scripts.dev.tf_plan
 
 deploy-all: ## End-to-end provisioning + image rollout (tf-bootstrap → apply → deploy-api/training-job-local)
-	uv run python -m scripts.setup.deploy_all
+	uv run python -m scripts.dev.deploy_all
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
-	uv run python -m scripts.setup.destroy_all
+	uv run python -m scripts.dev.destroy_all
 
 seed-test: ## Insert 5 test properties into feature_mart.{properties_cleaned,property_features_daily,property_embeddings} for PDCA smoke
-	uv run python -m scripts.setup.seed_minimal
+	uv run python -m scripts.dev.seed_minimal
 
 seed-test-clean: ## Drop the test seed data (benign if absent). Same cleanup runs as step 1/3 of `make destroy-all`
-	uv run python -m scripts.setup.seed_minimal_clean
+	uv run python -m scripts.dev.seed_minimal_clean
 
 # ----- App / Job smoke commands (local) -----
 
@@ -122,7 +122,7 @@ train-smoke-persist: ## Dry-run ranker trainer and copy the model to $(MODEL_PAT
 	uv run --package ml-train rank-train --dry-run --save-to "$(MODEL_PATH_OVERRIDE)"
 
 api-dev: ## Start uvicorn locally (rerank-free /search requires ENABLE_SEARCH=1 + BQ creds)
-	ENABLE_SEARCH=false uv run --package app uvicorn app.entrypoints.api:app --reload
+	ENABLE_SEARCH=false uv run --package app uvicorn app.main:app --reload
 
 # ----- Local deploy path (bypasses CI; uses Cloud Build) -----
 
@@ -130,10 +130,10 @@ docker-auth: ## (Optional) configure local docker for Artifact Registry — not 
 	gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
 
 deploy-api-local: ## Cloud Build + `gcloud run deploy` search-api
-	uv run python -m scripts.deploy.api_local
+	uv run python -m scripts.local.deploy_api
 
 deploy-training-job-local: ## Cloud Build + `gcloud run jobs update` training-job
-	uv run python -m scripts.deploy.training_job_local
+	uv run python -m scripts.local.deploy_training_job
 
 # ----- Housekeeping -----
 
@@ -141,8 +141,8 @@ clean: ## Remove caches (.venv, .terraform, pyc)
 	rm -rf .venv $(INFRA)/.terraform
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune -exec rm -rf {} +
 
-# ----- GCP operations (see docs/04_運用.md §3) -----
-# Each target is a thin wrapper around scripts/ops/*.sh or scripts/sql/*.sql.
+# ----- GCP operations (see docs/operations/04_運用.md §3) -----
+# Each target is a thin wrapper around scripts/local/*.py or scripts/local/sql/*.sql.
 
 ops-api-url: ## Print the search-api Cloud Run URL
 	@gcloud run services describe $(API_SERVICE) --project=$(PROJECT_ID) --region=$(REGION) --format='value(status.url)'
@@ -150,19 +150,19 @@ ops-api-url: ## Print the search-api Cloud Run URL
 ops-daily: ops-skew-latest ops-search-volume ops-runs-recent ## Run the 3 core daily checks
 
 ops-skew-latest: ## Today's per-feature skew detection results (validation_results)
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/skew_latest.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/skew_latest.sql
 
 ops-search-volume: ## /search request volume over the last 24h
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/search_volume.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/search_volume.sql
 
 ops-runs-recent: ## Last 5 LightGBM LambdaRank training runs
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/runs_recent.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/runs_recent.sql
 
 ops-skew-run: ## Ad-hoc execution of monitoring/validate_feature_skew.sql
 	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < monitoring/validate_feature_skew.sql
 
 ops-bq-scan-top: ## Top 20 BQ scans in the last 7 days (cost audit)
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/bq_scan_top.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/bq_scan_top.sql
 
 ops-train-now: ## Force-run training-job and wait for completion
 	gcloud run jobs execute $(TRAINING_JOB) --project=$(PROJECT_ID) --region=$(REGION) --wait
@@ -174,19 +174,19 @@ ops-enable-search: ## Flip search-api to ENABLE_SEARCH=true + ENCODER_MODEL_DIR=
 	gcloud run services update $(API_SERVICE) --project=$(PROJECT_ID) --region=$(REGION) --update-env-vars="ENABLE_SEARCH=true,ENCODER_MODEL_DIR=intfloat/multilingual-e5-base"
 
 ops-livez: ## Hit /livez on the deployed search-api (IAM-gated)
-	uv run python -m scripts.ops.livez_check
+	uv run python -m scripts.local.livez_check
 
 ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
-	uv run python -m scripts.ops.search_check
+	uv run python -m scripts.local.search_check
 
 ops-ranking: ## POST /search and inspect lexical_rank / final_rank / score / me5_score
-	uv run python -m scripts.ops.ranking_check
+	uv run python -m scripts.local.ranking_check
 
 ops-feedback: ## /search → /feedback round-trip (publisher path smoke)
-	uv run python -m scripts.ops.feedback_check
+	uv run python -m scripts.local.feedback_check
 
 ops-label-seed: ## Seed feedback events (click/favorite/inquiry) against /search
-	uv run python -m scripts.ops.training_label_seed
+	uv run python -m scripts.local.training_label_seed
 
 ops-check-retrain: ## POST /jobs/check-retrain with OIDC; pipe to jq
-	uv run python -m scripts.ops.check_retrain
+	uv run python -m scripts.local.check_retrain

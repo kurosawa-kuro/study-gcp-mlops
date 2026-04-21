@@ -1,16 +1,5 @@
-"""Port for model artifact upload.
+"""Backward-compatible wrapper for the artifact uploader Protocol."""
 
-Concrete adapter: :class:`train.adapters.artifact_store.GcsArtifactUploader`.
-Restored in Phase 6 (Task 1) for the ranker training pipeline.
-"""
+from ml.training.ports.artifact_uploader import ArtifactUploader
 
-from __future__ import annotations
-
-from pathlib import Path
-from typing import Protocol
-
-
-class ArtifactUploader(Protocol):
-    def upload(self, local_dir: Path, *, run_id: str, date_str: str) -> str:
-        """Upload ``local_dir`` and return the resulting ``gs://.../model.txt`` URI."""
-        ...
+__all__ = ["ArtifactUploader"]
