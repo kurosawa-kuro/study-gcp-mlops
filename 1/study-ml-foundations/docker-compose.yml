@@ -3,7 +3,7 @@ services:
     image: postgres:16
     container_name: ml-pipeline-postgres
     restart: unless-stopped
-    # 非機密: env/config/setting.yaml と一致。機密: core.sh → shell env 経由
+    # 非機密: env/config/setting.yaml と一致。機密: core.py → process env 経由
     environment:
       POSTGRES_DB: mlpipeline
       POSTGRES_USER: admin
@@ -29,7 +29,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["python", "-m", "ml.pipeline.seed"]
+    command: ["python", "-m", "pipeline.seed"]
 
   trainer:
     build:

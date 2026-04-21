@@ -1,7 +1,7 @@
 """pipeline パッケージのテスト（config, repository）."""
 
-from ml.pipeline.config import Settings
-from ml.pipeline.repository import PostgresRepository
+from pipeline.config import Settings
+from pipeline.repository import PostgresRepository
 
 
 class TestSettings:

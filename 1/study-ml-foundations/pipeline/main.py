@@ -1,14 +1,14 @@
 """学習パイプライン エントリーポイント.
 
-実行: python3 -m ml.pipeline.main
+実行: python3 -m pipeline.main
 """
 
 from common import get_logger
 from common.run_id import generate_run_id
-from ml.pipeline.config import Settings
-from ml.pipeline.feature_engineering import engineer_features
-from ml.pipeline.preprocess import preprocess
-from ml.pipeline.repository import get_repository
+from pipeline.config import Settings
+from pipeline.feature_engineering import engineer_features
+from pipeline.preprocess import preprocess
+from pipeline.repository import get_repository
 from ml.evaluation import init_wandb, log_metrics
 from ml.evaluation.config import EvalSettings
 from ml.trainer.train import train

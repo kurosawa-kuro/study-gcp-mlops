@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := help
 
+PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+
 .PHONY: help build seed train serve test all down clean
 
 help: ## Show this help
@@ -11,16 +13,16 @@ build: ## Build Docker images (docker compose build)
 	docker compose build
 
 seed: ## Seed sklearn California Housing into PostgreSQL
-	./scripts/ml/seed.sh
+	$(PYTHON) scripts/ml/seed.py
 
 train: ## Run LightGBM training → models/{run_id}/
-	./scripts/ml/train.sh
+	$(PYTHON) scripts/ml/train.py
 
 serve: ## Start FastAPI on :8000 (docker compose up api)
-	./scripts/api/serve.sh
+	$(PYTHON) scripts/app/serve.py
 
 test: ## Run pytest (local)
-	./scripts/test.sh
+	$(PYTHON) scripts/test.py
 
 all: build seed train ## build → seed → train
 
@@ -28,4 +30,4 @@ down: ## Stop and remove docker compose services
 	docker compose down --remove-orphans
 
 clean: ## docker compose down + remove generated files
-	./scripts/clean.sh
+	$(PYTHON) scripts/clean.py

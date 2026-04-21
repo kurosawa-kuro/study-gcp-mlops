@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from ml.pipeline.feature_engineering import engineer_features
-from ml.pipeline.preprocess import preprocess
+from pipeline.feature_engineering import engineer_features
+from pipeline.preprocess import preprocess
 from ml.trainer.train import train
 
 

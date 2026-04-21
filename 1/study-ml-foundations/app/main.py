@@ -14,10 +14,10 @@ from pydantic import BaseModel
 
 from app.config import Settings
 from common import FEATURE_COLS, MODEL_COLS, TARGET_COL, get_logger
-from ml.pipeline import Settings as PipelineSettings
-from ml.pipeline import get_repository
-from ml.pipeline.feature_engineering import engineer_features_input
-from ml.pipeline.preprocess import preprocess_input
+from pipeline import Settings as PipelineSettings
+from pipeline import get_repository
+from pipeline.feature_engineering import engineer_features_input
+from pipeline.preprocess import preprocess_input
 
 logger = get_logger(__name__)
 

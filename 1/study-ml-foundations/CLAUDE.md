@@ -29,7 +29,7 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 - **構造化ロギング** — `common/logging.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
 - **API DI 化** — FastAPI lifespan で `app.state.booster` にモデルをロード。グローバル状態なし
 - **エラーハンドリング** — pipeline/main.py でデータ取得・学習・W&B の各ステップを try-except で保護
-- **Makefile → scripts/ に委譲** — `scripts/core.sh` に共通設定を集約
+- **Makefile → scripts/ に委譲** — `scripts/core.py` に共通設定を集約
 
 ## Source Layout
 
@@ -40,9 +40,9 @@ app/                  推論 API (FastAPI + Jinja2)
 ├── config.py
 ├── static/
 └── templates/
+pipeline/             データ取得 + 前処理 + 特徴量生成 + オーケストレーション
 ml/                   ML コア
 ├── __init__.py
-├── pipeline/         データ取得 + 前処理 + 特徴量生成 + オーケストレーション
 ├── trainer/          LightGBM 学習
 └── evaluation/       RMSE/R² 評価 + W&B 実験ログ
 common/               共通定義
@@ -72,21 +72,21 @@ make down           # Docker Compose 停止
 make clean          # Docker 停止 + 生成ファイル削除
 
 # 単体テスト指定
-./scripts/test.sh -k test_train
+python scripts/test.py -k test_train
 ```
 
 ## Scripts
 
 ```
 scripts/
-├── core.sh          共通設定 (set -euo pipefail, cd, step関数)
-├── test.sh          pytest (ローカル)
-├── clean.sh         Docker down + ファイル削除
+├── core.py          共通設定 (credential 読み込み, compose 実行, step関数)
+├── test.py          pytest (ローカル)
+├── clean.py         Docker down + ファイル削除
 ├── ml/
-│   ├── seed.sh      docker compose run --rm seed (postgres サービス起動込み)
-│   └── train.sh     docker compose run --rm trainer
-└── api/
-    └── serve.sh     docker compose up --build api
+│   ├── seed.py      docker compose run --rm seed (postgres サービス起動込み)
+│   └── train.py     docker compose run --rm trainer
+└── app/
+    └── serve.py     docker compose up --build api
 ```
 
 ## Docker
@@ -109,7 +109,7 @@ scripts/
 
 `common/config.py::BaseAppSettings` が pydantic-settings の YamlConfigSettingsSource を 2 本積んで両方をロード。優先度: **環境変数 > credential.yaml > setting.yaml > コード既定値**。
 
-**docker-compose 連携**: postgres コンテナ（公式イメージ）は env var で `POSTGRES_PASSWORD` を要求するため、`scripts/core.sh::load_credentials` が起動前に credential.yaml を読み取り `POSTGRES_PASSWORD` / `WANDB_API_KEY` を shell にエクスポートし、compose の `${POSTGRES_PASSWORD}` 補間で注入する。Python 側のコンテナは `./env/secret` を read-only volume でマウントし、BaseAppSettings が直接 YAML を読む。
+**docker-compose 連携**: postgres コンテナ（公式イメージ）は env var で `POSTGRES_PASSWORD` を要求するため、`scripts/core.py::load_credentials` が起動前に credential.yaml を読み取り `POSTGRES_PASSWORD` / `WANDB_API_KEY` を process env に設定し、compose の `${POSTGRES_PASSWORD}` 補間で注入する。Python 側のコンテナは `./env/secret` を read-only volume でマウントし、BaseAppSettings が直接 YAML を読む。
 
 ### setting.yaml の主なキー
 

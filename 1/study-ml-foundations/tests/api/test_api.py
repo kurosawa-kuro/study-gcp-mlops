@@ -11,8 +11,8 @@ from app.main import app
 @pytest.fixture()
 def api_client(tmp_path, sample_df):
     """学習済みモデルを作成し、FastAPI TestClient を返す."""
-    from ml.pipeline.feature_engineering import engineer_features
-    from ml.pipeline.preprocess import preprocess
+    from pipeline.feature_engineering import engineer_features
+    from pipeline.preprocess import preprocess
     from ml.trainer.train import train
 
     model_dir = str(tmp_path / "models")

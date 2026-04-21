@@ -16,9 +16,10 @@ RUN pip install --no-cache-dir \
 
 COPY common/ common/
 COPY ml/ ml/
+COPY pipeline/ pipeline/
 COPY env/config/ env/config/
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "-m", "ml.pipeline.main"]
+CMD ["python", "-m", "pipeline.main"]

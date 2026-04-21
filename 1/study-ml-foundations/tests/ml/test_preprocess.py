@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from ml.pipeline.preprocess import preprocess, preprocess_input
+from pipeline.preprocess import preprocess, preprocess_input
 
 
 class TestPreprocess:
