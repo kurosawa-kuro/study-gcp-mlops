@@ -6,6 +6,7 @@ from common.config import BaseAppSettings
 class TrainSettings(BaseAppSettings):
     wandb_project: str = "bq-first-california-housing"
     wandb_api_key: str = ""  # blank => offline mode
+    wandb_dir: str = "ml/wandb/wandb"
     # LightGBM hyperparameters (shared between regressor + LambdaRank)
     num_leaves: int = 31
     learning_rate: float = 0.05

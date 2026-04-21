@@ -19,6 +19,7 @@ import os
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -44,6 +45,8 @@ from common.logging import configure_logging
 from config import ApiSettings
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from ports import (
     CacheStore,
     FeedbackRecorder,
@@ -219,6 +222,9 @@ def create_app() -> FastAPI:
     configure_logging()
     logger = get_logger("app")
     app = FastAPI(title="bq-first hybrid search API", lifespan=lifespan)
+    app_root = Path(__file__).resolve().parents[1]
+    app.mount("/static", StaticFiles(directory=str(app_root / "static")), name="static")
+    templates = Jinja2Templates(directory=str(app_root / "templates"))
     app.add_middleware(RequestLoggingMiddleware, logger=logger)
 
     # `/livez` is the canonical liveness path. `/healthz` is also registered
@@ -244,6 +250,64 @@ def create_app() -> FastAPI:
                 "rerank_enabled": booster is not None,
                 "model_path": getattr(request.app.state, "model_path", None),
             }
+        )
+
+    @app.get("/")
+    def ui(request: Request):
+        search_payload = {
+            "query": "渋谷 1LDK",
+            "filters": {
+                "max_rent": 200000,
+                "layout": "1LDK",
+                "max_walk_min": 10,
+                "pet_ok": True,
+                "max_age": 20,
+            },
+            "top_k": 20,
+        }
+        feedback_payload = {
+            "request_id": "demo-request-id",
+            "property_id": "1001",
+            "action": "click",
+        }
+        return templates.TemplateResponse(
+            request,
+            "index.html",
+            {
+                "active": "predict",
+                "search_payload": search_payload,
+                "feedback_payload": feedback_payload,
+            },
+        )
+
+    @app.get("/metrics")
+    def metrics_ui(request: Request) -> object:
+        settings: ApiSettings = request.app.state.settings
+        payload = {
+            "service": "phase3-cloud-api",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "project_id": settings.project_id,
+            "enable_search": settings.enable_search,
+            "enable_rerank": settings.enable_rerank,
+            "model_path": getattr(request.app.state, "model_path", None),
+        }
+        return templates.TemplateResponse(
+            request,
+            "metrics.html",
+            {"active": "metrics", "metrics": payload},
+        )
+
+    @app.get("/data")
+    def data_ui(request: Request) -> object:
+        rows = [
+            {"key": "search_payload", "value": '{"query":"渋谷 1LDK","top_k":20}'},
+            {"key": "feedback_payload", "value": '{"request_id":"...","action":"click"}'},
+            {"key": "retrain_check", "value": "POST /jobs/check-retrain"},
+        ]
+        return templates.TemplateResponse(
+            request,
+            "data.html",
+            {"active": "data", "columns": ["key", "value"], "rows": rows, "total": len(rows)},
         )
 
     @app.post("/search", response_model=SearchResponse)

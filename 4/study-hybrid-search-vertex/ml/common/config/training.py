@@ -6,6 +6,7 @@ from .base import BaseAppSettings
 class TrainSettings(BaseAppSettings):
     wandb_project: str = "bq-first-california-housing"
     wandb_api_key: str = ""  # blank => offline mode
+    wandb_dir: str = "ml/wandb/wandb"
     num_leaves: int = 31
     learning_rate: float = 0.05
     feature_fraction: float = 0.9

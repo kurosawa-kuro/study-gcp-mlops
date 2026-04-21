@@ -322,8 +322,7 @@ Phase 3 の 5 ファイル lockstep（schema / feature_engineering / infra `rank
 /home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations
 
 /home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundationsを参考に
-phase2-4でもwandbを導入コーディング依頼
+phase2-4でもappにUI（jinaja2 picocss）をコーディング依頼
 
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/ml/evaluation/report/tracking.py
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/ml/wandb
-/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/ml/wandb/wandb
+/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/app/static
+/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations/app/templates

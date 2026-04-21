@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Predict · Phase2{% endblock %}
+
+{% block content %}
+  <h1>Phase2 API Console</h1>
+  <p>Jinja2 + PicoCSS minimal UI for <code>/search</code> and <code>/feedback</code>.</p>
+
+  <section>
+    <h2>Search (GET /search)</h2>
+    <form id="search-form">
+      <label>q <input name="q" value="{{ search_defaults.q }}"></label>
+      <label>city <input name="city" value="{{ search_defaults.city }}"></label>
+      <label>layout <input name="layout" value="{{ search_defaults.layout }}"></label>
+      <label>price_lte <input name="price_lte" type="number" value="{{ search_defaults.price_lte }}"></label>
+      <label>walk_min <input name="walk_min" type="number" value="{{ search_defaults.walk_min }}"></label>
+      <label>limit <input name="limit" type="number" value="{{ search_defaults.limit }}"></label>
+      <label>candidate_limit <input name="candidate_limit" type="number" value="{{ search_defaults.candidate_limit }}"></label>
+      <button type="submit">Run Search</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Feedback (POST /feedback)</h2>
+    <form id="feedback-form">
+      <label>user_id <input name="user_id" type="number" value="{{ feedback_defaults.user_id }}"></label>
+      <label>property_id <input name="property_id" type="number" value="{{ feedback_defaults.property_id }}"></label>
+      <label>action
+        <select name="action">
+          <option value="click" selected>click</option>
+          <option value="favorite">favorite</option>
+          <option value="inquiry">inquiry</option>
+        </select>
+      </label>
+      <label>search_log_id <input name="search_log_id" type="number" value="{{ feedback_defaults.search_log_id }}"></label>
+      <button type="submit">Send Feedback</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Response</h2>
+    <pre id="result">{}</pre>
+  </section>
+<script>
+  const resultEl = document.getElementById("result");
+  const show = (obj) => {
+    resultEl.textContent = JSON.stringify(obj, null, 2);
+  };
+
+  document.getElementById("search-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const params = new URLSearchParams();
+    for (const [k, v] of form.entries()) {
+      if (String(v).trim() !== "") params.set(k, String(v));
+    }
+    const res = await fetch(`/search?${params.toString()}`);
+    const body = await res.json().catch(() => ({ error: "Invalid JSON response" }));
+    show({ status: res.status, body });
+  });
+
+  document.getElementById("feedback-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const payload = {
+      user_id: Number(form.get("user_id")),
+      property_id: Number(form.get("property_id")),
+      action: String(form.get("action")),
+      search_log_id: Number(form.get("search_log_id")),
+    };
+    const res = await fetch("/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({ error: "Invalid JSON response" }));
+    show({ status: res.status, body });
+  });
+</script>
+{% endblock %}

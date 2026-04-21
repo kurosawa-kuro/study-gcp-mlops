@@ -138,7 +138,7 @@ def _default_tracker_factory(settings: TrainSettings) -> TrackerFactory:
             project=settings.wandb_project,
             api_key=settings.wandb_api_key,
             run_id=run_id,
-            workdir=workdir,
+            workdir=Path(settings.wandb_dir),
         )
 
     return _build
