@@ -29,7 +29,7 @@ jobs:
 
       - name: Mypy
         if: matrix.check == 'mypy'
-        run: uv run mypy common/src app/src ml/embed/src ml/train/src ml/sync/src
+        run: uv run mypy common/src app ml
 
       - name: Pytest
         if: matrix.check == 'pytest'

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from scripts.ci.sync_dataform import REQUIRED_KEYS, render
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SETTING_YAML = REPO_ROOT / "env" / "config" / "setting.yaml"
 
 

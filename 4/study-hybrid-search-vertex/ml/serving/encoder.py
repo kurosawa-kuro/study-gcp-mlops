@@ -89,7 +89,7 @@ def _download_artifact_dir(gcs_uri: str, workdir: Path) -> Path:
     local_root.mkdir(parents=True, exist_ok=True)
     if prefix.prefix and not prefix.prefix.endswith("/"):
         raise RuntimeError("AIP_STORAGE_URI must point to a directory prefix")
-    from google.cloud import storage
+    from google.cloud import storage  # type: ignore[attr-defined]
 
     client = storage.Client()
     for blob in client.list_blobs(prefix.bucket, prefix=prefix.prefix):

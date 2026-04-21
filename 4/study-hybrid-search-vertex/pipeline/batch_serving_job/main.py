@@ -11,6 +11,7 @@ Placeholder KFP pipeline definition. The real implementation will:
 from __future__ import annotations
 
 import argparse
+from typing import Any
 
 from kfp import dsl
 
@@ -28,7 +29,7 @@ def property_search_batch_serve_pipeline(
     del project_id, vertex_location
 
 
-def get_pipeline():
+def get_pipeline() -> Any:
     return property_search_batch_serve_pipeline
 
 

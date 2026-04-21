@@ -149,9 +149,9 @@ root/
 
 | 現行 | 目標 |
 |---|---|
-| `ml/embed/src/embed/cli.py` | `pipeline/data_job/main.py` |
-| `ml/embed/src/embed/runner.py` | `ml/data/loaders/embedding_runner.py` |
-| `ml/embed/src/embed/config.py` | `ml/data/datasets/embed_settings.py` |
+| `ml/data/job.py` | `pipeline/data_job/main.py` |
+| `ml/data/preprocess/embedding_runner.py` | `ml/data/preprocess/embedding_runner.py` |
+| `ml/data/datasets/embed_settings.py` | `ml/data/datasets/embed_settings.py` |
 | `ml/embed/container/Dockerfile` | `infra/run/jobs/data_job.Dockerfile` |
 | `ml/embed/tests/test_runner.py` | `tests/unit/data_embedding_runner_test.py` |
 
@@ -159,10 +159,10 @@ root/
 
 | 現行 | 目標 |
 |---|---|
-| `ml/train/src/train/cli.py` | `pipeline/training_job/main.py` |
-| `ml/train/src/train/trainer.py` | `ml/training/trainer.py` |
-| `ml/train/src/train/metrics.py` | `ml/evaluation/metrics/training_metrics.py` |
-| `ml/train/src/train/config.py` | `ml/training/model_builder.py` または `ml/training/experiments/settings.py` |
+| `ml/training/job.py` | `pipeline/training_job/main.py` |
+| `ml/training/trainer.py` | `ml/training/trainer.py` |
+| `ml/evaluation/metrics/training_metrics.py` | `ml/evaluation/metrics/training_metrics.py` |
+| `ml/training/experiments/settings.py` | `ml/training/model_builder.py` または `ml/training/experiments/settings.py` |
 | `ml/train/container/Dockerfile` | `infra/run/jobs/training_job.Dockerfile` |
 | `ml/train/tests/test_trainer.py` | `tests/unit/training_trainer_test.py` |
 | `ml/train/tests/test_cli_run.py` | `tests/integration/training_job_test.py` |
@@ -172,7 +172,7 @@ root/
 
 | 現行 | 目標 |
 |---|---|
-| `ml/sync/src/sync/meili_sync.py` | `pipeline/data_job/main.py` または `ml/data/loaders/meili_sync.py` |
+| `ml/data/loaders/meili_sync.py` | `pipeline/data_job/main.py` または `ml/data/loaders/meili_sync.py` |
 | `ml/sync/tests/*` | `tests/integration/data_sync_test.py` |
 
 ## 7. infra/ 現行 → 目標

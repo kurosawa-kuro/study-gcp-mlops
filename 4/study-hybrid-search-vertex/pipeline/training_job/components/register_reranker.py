@@ -43,4 +43,4 @@ def register_reranker(
             service_account=service_account or None,
             sync=True,
         )
-    return uploaded_model.resource_name
+    return str(uploaded_model.resource_name)

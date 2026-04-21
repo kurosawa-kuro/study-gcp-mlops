@@ -3,9 +3,7 @@
 外部依存（DB / Meilisearch / Redis）は dependency_overrides で差し替え。
 """
 from typing import Any
-from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.dependencies import (

@@ -11,9 +11,8 @@ resolution-markers = [
 members = [
     "app",
     "common",
-    "ml-embed",
-    "ml-sync",
-    "ml-train",
+    "ml-data",
+    "ml-training",
     "study-gcp-mlops-bq-first",
 ]
 
@@ -1196,12 +1195,13 @@ wheels = [
 ]
 
 [[package]]
-name = "ml-embed"
+name = "ml-data"
 version = "0.1.0"
-source = { editable = "ml/embed" }
+source = { editable = "ml/data" }
 dependencies = [
     { name = "common" },
     { name = "google-auth" },
+    { name = "google-cloud-bigquery" },
     { name = "httpx" },
     { name = "numpy" },
 ]
@@ -1210,31 +1210,15 @@ dependencies = [
 requires-dist = [
     { name = "common", editable = "common" },
     { name = "google-auth", specifier = ">=2.36" },
+    { name = "google-cloud-bigquery", specifier = ">=3.25" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "numpy", specifier = ">=2.0" },
 ]
 
 [[package]]
-name = "ml-sync"
+name = "ml-training"
 version = "0.1.0"
-source = { editable = "ml/sync" }
-dependencies = [
-    { name = "google-auth" },
-    { name = "google-cloud-bigquery" },
-    { name = "httpx" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "google-auth", specifier = ">=2.36" },
-    { name = "google-cloud-bigquery", specifier = ">=3.25" },
-    { name = "httpx", specifier = ">=0.27" },
-]
-
-[[package]]
-name = "ml-train"
-version = "0.1.0"
-source = { editable = "ml/train" }
+source = { editable = "ml/training" }
 dependencies = [
     { name = "common" },
     { name = "google-auth" },

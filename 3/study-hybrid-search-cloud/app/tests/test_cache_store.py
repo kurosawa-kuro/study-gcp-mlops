@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from app.adapters.cache_store import InMemoryTTLCacheStore, NoopCacheStore
+from adapters.cache_store import InMemoryTTLCacheStore, NoopCacheStore
 
 
 def test_in_memory_cache_hit_and_miss() -> None:

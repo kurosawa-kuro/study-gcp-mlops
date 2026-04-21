@@ -3,7 +3,7 @@ name: Deploy Embedding Job
 # Phase 7 — deploy the `embedding-job` Cloud Run Job (property text → 768d
 # multilingual-e5 vectors → feature_mart.property_embeddings).
 #
-# Path filter fires on `ml/embed/**` (workspace-local) + `common/embeddings/**`
+# Path filter fires on `ml/data/**` (workspace-local) + `common/embeddings/**`
 # (query-side ME5 encoder is shared with search-api so changes there must
 # trigger both API + embedding-job deploys).
 #
@@ -17,7 +17,7 @@ on:
   push:
     branches: [main]
     paths:
-      - ml/embed/**
+      - ml/data/**
       - common/src/common/embeddings/**
       - common/src/common/ports/embedding_store.py
       - common/src/common/adapters/bigquery_embedding_store.py
@@ -58,7 +58,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.JOB }}
-          dockerfile: ml/embed/container/Dockerfile
+          dockerfile: infra/run/jobs/embedding.Dockerfile
 
       # Doppler-managed env is optional (encoder checkpoints do not need a
       # secret today, so most installs will skip). Kept symmetric with
@@ -82,7 +82,7 @@ jobs:
           DOPPLER_ENV: ${{ steps.doppler.outputs.vars }}
         run: |
           SHORT_SHA="${GITHUB_SHA::8}"
-          # Points the Job at the bundled `embed` console script (ml/embed/pyproject.toml).
+          # Points the Job at the bundled `embed` console script (ml/data/pyproject.toml).
           STATIC="PROJECT_ID=${{ env.PROJECT_ID }}|GIT_SHA=${SHORT_SHA}|ENCODER_MODEL_DIR="
           ENV_ARG="^|^${STATIC}"
           if [ -n "${DOPPLER_ENV}" ]; then

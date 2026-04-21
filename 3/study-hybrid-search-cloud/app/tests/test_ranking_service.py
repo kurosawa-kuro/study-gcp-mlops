@@ -19,8 +19,8 @@ from typing import Any
 
 import numpy as np
 import pytest
-from app.ports.candidate_retriever import Candidate
-from app.services.ranking import run_search
+from ports.candidate_retriever import Candidate
+from services.ranking import run_search
 
 
 @dataclass

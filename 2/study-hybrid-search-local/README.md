@@ -44,8 +44,8 @@
 ## Phase 5 着手済み範囲
 
 - 学習ログ拡張（`search_logs.actioned_id`, `search_logs.action_type`）
-- 学習データ生成スクリプト（`ml/train/src/train/dataset_builder.py`）
-- LightGBM 学習スクリプト（`ml/train/src/train/trainer.py`）
+- 学習データ生成スクリプト（`ml/training/model_builder.py`）
+- LightGBM 学習スクリプト（`ml/training/trainer.py`）
 - `GET /search` への LightGBM 推論再ランキング統合（モデル未学習時はfallback）
 - Meili順と再ランキング順の比較ログ出力（`ranking_compare_logs`）
 
@@ -61,7 +61,7 @@
 
 - `app/tests/api/test_api.py`（`/health`, `/search`, `/feedback` の正常系）
 - `common/tests/clients/test_redis_client.py`（キャッシュキー、hit/miss、障害時フォールバック）
-- `pipelines/tests/services/...`（検索・埋め込み・評価ロジック）
+- `tests/unit/pipeline/services/...`（検索・埋め込み・評価ロジック）
 - 実行コマンド: `make test`
 
 ## ローカル開発セットアップ
@@ -129,13 +129,13 @@
 ## 主要ファイル
 
 - docker-compose: ./docker-compose.yml
-- FastAPI entrypoint: ./app/src/app/main.py
+- FastAPI entrypoint: ./app/main.py
 - 非クレデンシャル設定: ./env/config/setting.yaml / クレデンシャル: ./env/secret/credential.yaml
 
 ## レイアウト互換レイヤ
 
 依頼に合わせ、以下のターゲット寄せディレクトリを追加しています。
-既存の実装パス (`app/src`, `common/src`, `pipelines/src`, `jobs/src`, `ml/*/src`) は互換性のため保持しています。
+新構成を正とし、旧 `app/src/app` 互換レイヤは撤去済みです。
 
 - app/api, app/services, app/schemas, app/main.py
 - ml/data, ml/training, ml/evaluation, ml/registry, ml/serving, ml/common

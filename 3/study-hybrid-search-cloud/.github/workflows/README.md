@@ -7,8 +7,8 @@
 | `ci.yml` | すべての PR / push | ruff + mypy + pytest をマトリクスで並列実行 (uv) |
 | `terraform.yml` | `infra/**` | plan (PR コメント) + apply (main マージ) |
 | `deploy-api.yml` | `app/**` / `common/**` | docker build → push → `gcloud run deploy search-api` |
-| `deploy-training-job.yml` | `ml/train/**` / `common/**` | docker build (`ml/train/container/Dockerfile`) → push → `gcloud run jobs update training-job` |
-| `deploy-embedding-job.yml` | `ml/embed/**` / `common/src/common/embeddings/**` | docker build (`ml/embed/container/Dockerfile`) → push → `gcloud run jobs update embedding-job` |
+| `deploy-training-job.yml` | `ml/training/**` / `common/**` | docker build (`infra/run/jobs/training.Dockerfile`) → push → `gcloud run jobs update training-job` |
+| `deploy-embedding-job.yml` | `ml/data/**` / `common/src/common/embeddings/**` | docker build (`infra/run/jobs/embedding.Dockerfile`) → push → `gcloud run jobs update embedding-job` |
 | `deploy-dataform.yml` | `definitions/**` | Dataform CLI compile + リポジトリ pull トリガー |
 
 ## 必須 GitHub Variables
@@ -27,6 +27,6 @@ Repository settings → Variables で設定:
 ## 設計上の判断
 
 - **SA Key を作らない** (`study-gcp/study-gcp-mlops` の `credentials_json: ${{ secrets.GCP_SA_KEY }}` を捨てた理由) — セキュリティポスチャ向上と、キーローテーション不要のため。
-- **path filter** で `app/**` / `ml/train/**` / `ml/embed/**` を分離 — 片方の変更で他がデプロイされない。`common/**` は 3 つ全てに影響するため 3 workflow すべての filter に含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードで、`deploy-api.yml` / `deploy-embedding-job.yml` 双方が含める。
+- **path filter** で `app/**` / `ml/training/**` / `ml/data/**` を分離 — 片方の変更で他がデプロイされない。`common/**` は 3 つ全てに影響するため 3 workflow すべての filter に含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードで、`deploy-api.yml` / `deploy-embedding-job.yml` 双方が含める。
 - **lint/typecheck/test はマトリクス並列** — 直列だとキャッシュ温存できる代わりに待ち時間が長くなるため並列優先。uv が依存を速くインストールできる前提。
 - **Cloud Run の template は `ignore_changes`** で Terraform 管轄から外し、CI が `gcloud run deploy/update` で image を更新する形にドリフト防止。

@@ -54,7 +54,7 @@ class MeilisearchLexical(LexicalSearchPort):
             headers["x-meili-api-key"] = self._api_key
         if self._require_identity_token:
             try:
-                token = id_token.fetch_id_token(Request(), self._base_url)
+                token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]
                 headers["authorization"] = f"Bearer {token}"
             except Exception:
                 self._logger.exception("Failed to mint ID token for meili-search")

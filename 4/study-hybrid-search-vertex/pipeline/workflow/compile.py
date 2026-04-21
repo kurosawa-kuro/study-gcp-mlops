@@ -82,7 +82,7 @@ def _spec(target: str) -> dict[str, object]:
         raise ValueError(f"unknown target: {target}") from exc
 
 
-def _pipeline(target: str):
+def _pipeline(target: str) -> Any:
     if target == "embed":
         from pipeline.data_job.main import get_pipeline as _get
 
@@ -114,7 +114,9 @@ def _coerce_parameter_value(raw: str) -> Any:
 
 def _merge_parameter_values(target: str, overrides: list[str]) -> dict[str, Any]:
     spec = _spec(target)
-    params = dict(spec.get("parameters", {}))  # type: ignore[arg-type]
+    raw_params = spec.get("parameters", {})
+    assert isinstance(raw_params, dict)
+    params: dict[str, Any] = dict(raw_params)
     for item in overrides:
         key, sep, value = item.partition("=")
         if not sep:

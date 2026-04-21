@@ -112,12 +112,12 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 - **機能**: Dataform 定義 (`property_features_daily`) / `BigQueryCandidateRetriever` (BQ VECTOR_SEARCH) / `E5Encoder` (sentence-transformers ラッパ) / `/search` `/feedback` `/jobs/check-retrain` `/events/retrain` エンドポイント / Pub/Sub → BQ Subscription (`ranking-log` / `search-feedback`) / NDCG ベース mean-drift SQL / 4 SA 最小権限分離 / uv ワークスペース化 / Workload Identity Federation
 - **Port / Adapter 分離** (5 workspace すべて layer-based subpackage):
   - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `embeddings/` (e5_encoder — app 側 query encode と embed-job 側 passage encode で共有) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
-  - `app/app/`: `api/` (FastAPI entrypoint + middleware) / `services/` / `ports/` / `adapters/` / `schemas/` + top-level `main.py` / `config.py`
+  - `app/`: `api/` (FastAPI entrypoint + middleware) / `services/` / `ports/` / `adapters/` / `schemas/` + top-level `main.py` / `config.py`
   - `ml/data/`: embedding batch / index sync / dataset settings。本体実装
   - `ml/training/`: LambdaRank training orchestration / model_builder / experiment settings / ports
   - `ml/evaluation/metrics/`: ranking evaluation
   - `ml/registry/`: artifact upload / training metadata persistence
-  - `ml/embed/src/embed/`, `ml/train/src/train/`, `ml/sync/src/sync/`: 既存 Cloud Run Job / CLI を壊さないための互換 entrypoint
+  - `ml/embed/`, `ml/train/`, `ml/sync/`: Cloud Run Job / CLI の配布メタデータ (`pyproject.toml`, `container/`)。実装本体は `ml/data` / `ml/training` / `ml/registry`
 - **自動検知** (`tests/` は責務別 3 サブフォルダに分割):
   - `tests/arch/test_import_boundaries.py` — AST 境界 (canonical な `RULES` は `scripts/checks/layers.py`、`make check-layers` でも CLI 単独実行可)
   - `tests/parity/test_feature_parity_ranking.py` + `tests/parity/test_feature_parity_sql_ranker.py` — 5 ファイル parity invariant
@@ -185,8 +185,8 @@ Port 定義は consumer と同居のまま動かさない (`app.candidate_retrie
 `common/` には **「app と ml/embed / ml/train のいずれか複数が使うもの」だけ** 置く。以下は common に入れない:
 
 - app だけが使う (例: FastAPI middleware、API schema) → `app/src/app/` に残す
-- ml/train だけが使う (例: LightGBM 直結) → `ml/train/src/train/` に残す
-- ml/embed だけが使う (例: embedding writer) → `ml/embed/src/embed/` に残す
+- ml/train だけが使う (例: LightGBM 直結) → `ml/training/` に残す
+- ml/embed だけが使う (例: embedding writer) → `ml/data/` に残す
 - 片側だけで使用中のファイルを `common/` に移すときは「なぜ共有が必要か」をコミットに書く
 
 判断に迷ったら「**app / embed / train のうち 2 つ以上の Dockerfile でこのモジュールが読まれるか**」を問う。片方だけなら common から外す。`tests/arch/test_import_boundaries.py` で port/pure-logic files の境界は自動検知されるが、common 配置の妥当性は人間判断 — レビュー時にここを見る。現状 `common/embeddings/e5_encoder.py` は app (query encode) と ml/embed (passage encode) の両方で load するため正しく共有。

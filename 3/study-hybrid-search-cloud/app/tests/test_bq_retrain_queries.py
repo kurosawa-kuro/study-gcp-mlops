@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-from app.adapters import BigQueryRetrainQueries
+from adapters import BigQueryRetrainQueries
 
 
 def _client_with_rows(rows: list[dict]) -> MagicMock:

@@ -8,10 +8,10 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
-      - ./app/src:/app/app/src
+      - ./app:/app/app
       - ./common/src:/app/common/src
       - ./jobs/src:/app/jobs/src
-      - ./pipelines/src:/app/pipelines/src
+      - ./pipeline:/app/pipeline
       - ./ml:/app/ml
       - ./definitions:/app/definitions
     # POSTGRES_PASSWORD は scripts/setup/compose.sh が credential.yaml から shell env に export する

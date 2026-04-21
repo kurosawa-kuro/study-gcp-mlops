@@ -184,7 +184,13 @@ class BigQueryRankerRepository:
 
             aiplatform.init(project=self._project_id, experiment=experiment_name)
             with aiplatform.start_run(run=run_id, resume=True):
-                aiplatform.log_params(dict(hyperparams))
+                aiplatform.log_params(
+                    {
+                        k: v
+                        for k, v in hyperparams.items()
+                        if isinstance(v, float | int | str) and v is not None
+                    }
+                )
                 aiplatform.log_metrics(
                     {
                         key: float(value)

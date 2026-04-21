@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from app.services.retrain_policy import RetrainThresholds, evaluate
+from services.retrain_policy import RetrainThresholds, evaluate
 
 
 class FakeQueries:

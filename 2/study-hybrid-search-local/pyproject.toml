@@ -3,17 +3,10 @@ testpaths = [
     "tests",
     "app/tests",
     "common/tests",
-    "pipelines/tests",
-    "ml/embed/tests",
-    "ml/train/tests",
-    "ml/sync/tests",
+    "tests/unit/pipeline",
 ]
 pythonpath = [
-    "app/src",
+    ".",
     "common/src",
     "jobs/src",
-    "pipelines/src",
-    "ml/embed/src",
-    "ml/train/src",
-    "ml/sync/src",
 ]

@@ -32,8 +32,8 @@ class ModelRegistry:
 
     def promote(self, *, model_id: str, version_id: str, alias: str = "default") -> None:
         """Promote ``(model_id, version_id)`` to ``alias`` (default / production)."""
-        from google.cloud import aiplatform  # type: ignore[attr-defined]
+        from google.cloud import aiplatform
 
         aiplatform.init(project=self._project, location=self._location)
         model = aiplatform.Model(model_name=model_id)
-        model.add_version_aliases(new_aliases=[alias], version=version_id)
+        model.add_version_aliases(new_aliases=[alias], version=version_id)  # type: ignore[attr-defined]

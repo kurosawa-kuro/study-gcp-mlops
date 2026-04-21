@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-from app.adapters import (
+from adapters import (
     CloudRunJobRunner,
     PubSubPublisher,
     create_retrain_queries,
@@ -31,7 +31,7 @@ def test_cloud_run_job_runner_starts_configured_job() -> None:
 
 
 def test_create_retrain_queries_wires_bigquery_client() -> None:
-    from app.adapters import BigQueryRetrainQueries
+    from adapters import BigQueryRetrainQueries
 
     fake_bq_client = MagicMock()
     fake_bq_client.query.return_value.result.return_value = iter([{"ts": None}])

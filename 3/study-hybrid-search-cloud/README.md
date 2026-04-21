@@ -37,7 +37,7 @@ raw.properties (upstream ETL)
 | `definitions/` | Dataform — `properties_cleaned` + `property_features_daily` + assertions |
 | `common/` | 共有コード — `BigQueryEmbeddingStore` / `E5Encoder` / `build_ranker_features` / ranking metrics / logging / gcs |
 | `app/` | Cloud Run Service `search-api`。`app/api`, `app/services`, `app/schemas` を中心に配置 |
-| `ml/` | 学習用の責務ベース構成。`data`, `training`, `evaluation`, `registry` が本体で、`embed/train/sync` は互換 entrypoint |
+| `ml/` | 学習用の責務ベース構成。`data`, `training`, `evaluation`, `registry` が本体で、互換レイヤは持たない |
 | `pipeline/` | `data_job` / `training_job` のトップレベル入口 |
 | `monitoring/` | feature skew Scheduled Query SQL |
 | `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api / deploy-training-job / deploy-embedding-job / deploy-dataform |
@@ -63,8 +63,8 @@ raw.properties (upstream ETL)
 |---|---|---|
 | `infra/**` | `terraform.yml` | plan (PR コメント) → push で apply |
 | `app/**`, `common/**` | `deploy-api.yml` | Docker build (`app/Dockerfile`) → Artifact Registry → `gcloud run deploy search-api` |
-| `ml/train/**`, `common/**` | `deploy-training-job.yml` | Docker build (`ml/train/container/Dockerfile` + `cloudbuild.train.yaml`) → push → `gcloud run jobs update training-job` |
-| `ml/embed/**`, `common/src/common/embeddings/**` 等 | `deploy-embedding-job.yml` | Docker build (`ml/embed/container/Dockerfile` + `cloudbuild.embed.yaml`) → push → `gcloud run jobs update embedding-job` |
+| `ml/training/**`, `common/**` | `deploy-training-job.yml` | Docker build (`infra/run/jobs/training.Dockerfile` + `cloudbuild.train.yaml`) → push → `gcloud run jobs update training-job` |
+| `ml/data/**`, `common/src/common/embeddings/**` 等 | `deploy-embedding-job.yml` | Docker build (`infra/run/jobs/embedding.Dockerfile` + `cloudbuild.embed.yaml`) → push → `gcloud run jobs update embedding-job` |
 | `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
 
 `common/**` は 3 ワークフロー (api / training-job / embedding-job) の対象に含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードなので `deploy-api.yml` / `deploy-embedding-job.yml` の両方が path filter に含める。認証はすべて WIF。

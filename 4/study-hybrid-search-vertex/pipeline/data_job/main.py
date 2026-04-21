@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 from kfp import dsl
 
@@ -79,7 +80,7 @@ def build_pipeline_spec() -> dict[str, object]:
     }
 
 
-def get_pipeline():
+def get_pipeline() -> Any:
     return property_search_embed_pipeline
 
 

@@ -70,7 +70,7 @@ fmt-check: ## ruff format --check
 	uv run ruff format --check .
 
 typecheck: ## mypy strict
-	uv run mypy common/src app/src ml/embed/src ml/train/src ml/sync/src
+	uv run mypy common/src app ml
 
 check: lint fmt-check typecheck test ## Run all CI-equivalent checks
 
@@ -116,10 +116,10 @@ seed-test-clean: ## Drop the test seed data (benign if absent). Same cleanup run
 # ----- App / Job smoke commands (local) -----
 
 train-smoke: ## Dry-run the ranker training job locally (synthetic data, no GCS/BQ)
-	uv run --package ml-train rank-train --dry-run
+	uv run --package ml-training rank-train --dry-run
 
 train-smoke-persist: ## Dry-run ranker trainer and copy the model to $(MODEL_PATH_OVERRIDE)
-	uv run --package ml-train rank-train --dry-run --save-to "$(MODEL_PATH_OVERRIDE)"
+	uv run --package ml-training rank-train --dry-run --save-to "$(MODEL_PATH_OVERRIDE)"
 
 api-dev: ## Start uvicorn locally (rerank-free /search requires ENABLE_SEARCH=1 + BQ creds)
 	ENABLE_SEARCH=false uv run --package app uvicorn app.main:app --reload

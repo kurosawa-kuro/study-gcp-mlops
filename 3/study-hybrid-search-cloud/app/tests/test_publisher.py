@@ -5,7 +5,7 @@ The concrete Pub/Sub adapter is covered by ``test_adapters.py``.
 
 from __future__ import annotations
 
-from app.ports.publisher import NoopPublisher
+from ports.publisher import NoopPublisher
 
 
 def test_noop_publisher_accepts_any_payload() -> None:

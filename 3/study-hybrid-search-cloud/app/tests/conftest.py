@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from app.config import ApiSettings
-from app.entrypoints.api import create_app
-from app.adapters.cache_store import InMemoryTTLCacheStore
+from adapters.cache_store import InMemoryTTLCacheStore
+from api.main import create_app
+from config import ApiSettings
 from fastapi.testclient import TestClient
 
 
@@ -32,7 +32,7 @@ class _StubCandidateRetriever:
         self.calls: list[dict] = []
 
     def retrieve(self, *, query_text, query_vector, filters, top_k):
-        from app.ports.candidate_retriever import Candidate
+        from ports.candidate_retriever import Candidate
 
         self.calls.append({"filters": filters, "top_k": top_k})
         return [

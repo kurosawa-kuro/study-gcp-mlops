@@ -12,14 +12,14 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/src ./app/src
+COPY app ./app
 COPY common/src ./common/src
 COPY jobs/src ./jobs/src
-COPY pipelines/src ./pipelines/src
+COPY pipeline ./pipeline
 COPY ml ./ml
 COPY definitions ./definitions
 
-ENV PYTHONPATH=/app/app/src:/app/common/src:/app/jobs/src:/app/pipelines/src:/app/ml/embed/src:/app/ml/train/src:/app/ml/sync/src
+ENV PYTHONPATH=/app:/app/common/src:/app/jobs/src:/app/pipeline
 
 EXPOSE 8000
 

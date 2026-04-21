@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from app.config import ApiSettings
+from config import ApiSettings
 from fastapi.testclient import TestClient
 
 

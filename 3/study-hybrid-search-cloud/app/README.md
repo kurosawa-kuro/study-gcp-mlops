@@ -15,7 +15,7 @@ uv sync --package app
 # モデルパスを override してローカル推論 (ADC 不要)
 MODEL_PATH_OVERRIDE=gs://mlops-dev-a-models/lgbm/2026-04-18/.../model.txt \
 PUBLISH_PREDICTIONS=false \
-uv run --package app uvicorn app.main:app --reload
+uv run --package app uvicorn main:app --reload
 ```
 
 本番では `MODEL_PATH_OVERRIDE` は空にし、起動時に `mlops.training_runs` から最新 run を取得する。

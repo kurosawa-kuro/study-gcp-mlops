@@ -21,9 +21,9 @@
 - **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1) Meilisearch BM25、(2) multilingual-e5 の cosine 類似度、(3) LightGBM `lambdarank` 再ランク
 - **Local 完結**: WSL + Docker Compose で `postgres / pgadmin / meilisearch / redis / api` を 1 コマンド起動。クラウド・IaC は含まない
 - **lexical × semantic 融合は "特徴量化" で止める**: `me5_score` を LightGBM の 1 特徴量として渡し、混ぜ方をモデルに委ねる。RRF による rank 事前融合は **Phase 3 で導入**（本 Phase ではやらない）
-- **LambdaRank + NDCG**: `ml/train/src/train/trainer.py` の `objective: lambdarank` / `metric: ndcg` で検索結果の順序を最適化。`group_sizes` によるクエリ単位グルーピングが load-bearing
+- **LambdaRank + NDCG**: `ml/training/trainer.py` の `objective: lambdarank` / `metric: ndcg` で検索結果の順序を最適化。`group_sizes` によるクエリ単位グルーピングが load-bearing
 - **フォールバック可用性**: LightGBM モデル未配置でも `/search` は動く（`ctr*0.4 + fav_rate*0.2 + inquiry_rate*0.2 + me5_score*0.2` の重み付き和で暫定順位）
-- **Port/Adapter 設計**: `common/src/common/ports/` と `pipelines/src/pipelines/adapters/` で検索エンジン / 埋め込み / reranker / キャッシュを抽象化
+- **Port/Adapter 設計**: `common/src/common/ports/` と `pipeline/adapters/` で検索エンジン / 埋め込み / reranker / キャッシュを抽象化
 - **スコープ固定**: Local 検証 + 学習用ポートフォリオ。クラウド化は Phase 3 (`3/study-hybrid-search-cloud`) で実施
 
 ---
@@ -105,7 +105,7 @@ scripts/
 
 - Phase 0–6 実装済（`docs/02_移行ロードマップ.md` 参照）
 - `make verify-pipeline` / `make ops-bootstrap` が代表スモーク
-- LambdaRank + NDCG で実装済（`ml/train/src/train/trainer.py` の `objective: lambdarank`）
+- LambdaRank + NDCG で実装済（`ml/training/trainer.py` の `objective: lambdarank`）
 - RRF は **Phase 3 で新規登場**（本 Phase では `me5_score` を LightGBM 特徴量に入れる方式）
 - `scripts/` は 2026-04-21 に lifecycle 別再分類（`checks/` / `ops/` / `setup/`）を実施
 - ML コアバッチは `ml/{embed,train,sync}/` に分離（Phase 3 との parity）、非 ML バッチは `jobs/src/jobs/{features,evaluation,maintenance}/` に残存
@@ -119,7 +119,7 @@ scripts/
 - **`me5_score` を直接順位に使わない**。Meilisearch のスコアも直接は使わず、両方とも LightGBM の特徴量として渡す
 - **LambdaRank の `group` は `request_id`**（query 単位）。行単位の回帰とは学習構造が違う
 - **Phase 3 への移行で "検索コアは不変、実装基盤だけ置換"**：設計思想は Phase 3 に引き継がれる。`02_移行ロードマップ.md` の「引き継ぐもの / 置き換えるもの」対比を参照
-- **`training.*` ルート名前空間は撤去済**。ML 学習コードは `train.*`（`ml/train/src/train/`）、`jobs/src/training/` は存在しない。古い docs の `python -m training.lgbm_trainer` / `python -m training.training_dataset_builder` 記述は `python -m train.trainer` / `python -m train.dataset_builder` に読み替える
+- **`training.*` ルート名前空間は撤去済**。ML 学習コードは `train.*`（`/train/`）、`jobs/src/training/` は存在しない。古い docs の `python -m training.lgbm_trainer` / `python -m training.training_dataset_builder` 記述は `python -m train.trainer` / `python -m train.dataset_builder` に読み替える
 
 ---
 
