@@ -10,7 +10,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./common/src:/app/common/src
-      - ./jobs/src:/app/jobs/src
+      - ./pipeline/batch:/app/pipeline/batch
       - ./pipeline:/app/pipeline
       - ./ml:/app/ml
       - ./definitions:/app/definitions

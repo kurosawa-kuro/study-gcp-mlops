@@ -33,5 +33,5 @@ testpaths = [
 pythonpath = [
     ".",
     "common/src",
-    "jobs/src",
+    "pipeline/batch",
 ]

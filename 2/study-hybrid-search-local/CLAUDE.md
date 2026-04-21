@@ -74,11 +74,10 @@ ml/                   ML コアバッチ（Phase 3 parity）
   ├── embed/src/embed/     ME5 embedding 生成（`ops-embed`）
   ├── train/src/train/     LightGBM LambdaRank 学習（`ops-train-*` / `ops-retrain`）
   └── sync/src/sync/       PostgreSQL → Meilisearch 同期（`ops-sync`）
-jobs/                 非 ML バッチ
-  └── src/jobs/
-      ├── features/         property_stats / property_features 日次更新
-      ├── evaluation/       eval-compare / eval-offline / kpi-daily / eval-weekly-report
-      └── maintenance/      DB migration ランナー
+pipeline/batch/       非 ML バッチ
+  ├── features/       property_stats / property_features 日次更新
+  ├── evaluation/     eval-compare / eval-offline / kpi-daily / eval-weekly-report
+  └── maintenance/    DB migration ランナー
 pipelines/            adapters / application / repositories / services
 ```
 
@@ -108,7 +107,7 @@ scripts/
 - LambdaRank + NDCG で実装済（`ml/training/trainer.py` の `objective: lambdarank`）
 - RRF は **Phase 3 で新規登場**（本 Phase では `me5_score` を LightGBM 特徴量に入れる方式）
 - `scripts/` は 2026-04-21 に lifecycle 別再分類（`checks/` / `ops/` / `setup/`）を実施
-- ML コアバッチは `ml/{embed,train,sync}/` に分離（Phase 3 との parity）、非 ML バッチは `jobs/src/{features,evaluation,maintenance}/` に残存
+- ML コアバッチは `ml/{embed,train,sync}/` に分離（Phase 3 との parity）、非 ML バッチは `pipeline/batch/{features,evaluation,maintenance}/` に残存
 - `make` コマンド名は Phase 3/4 と整合済（`ops-livez` / `ops-search` / `ops-feedback` / `ops-ranking` / `ops-label-seed` / `ops-sync` / `ops-embed` / `ops-train-*` / `ops-retrain`）
 
 ---
@@ -119,7 +118,7 @@ scripts/
 - **`me5_score` を直接順位に使わない**。Meilisearch のスコアも直接は使わず、両方とも LightGBM の特徴量として渡す
 - **LambdaRank の `group` は `request_id`**（query 単位）。行単位の回帰とは学習構造が違う
 - **Phase 3 への移行で "検索コアは不変、実装基盤だけ置換"**：設計思想は Phase 3 に引き継がれる。`02_移行ロードマップ.md` の「引き継ぐもの / 置き換えるもの」対比を参照
-- **`training.*` ルート名前空間は撤去済**。ML 学習コードは `train.*`（`/train/`）、`jobs/src/training/` は存在しない。古い docs の `python -m training.lgbm_trainer` / `python -m training.training_dataset_builder` 記述は `python -m train.trainer` / `python -m train.dataset_builder` に読み替える
+- **`training.*` ルート名前空間は撤去済**。ML 学習コードは `train.*`（`/train/`）、`pipeline/batch/training/` は存在しない。古い docs の `python -m training.lgbm_trainer` / `python -m training.training_dataset_builder` 記述は `python -m train.trainer` / `python -m train.dataset_builder` に読み替える
 
 ---
 

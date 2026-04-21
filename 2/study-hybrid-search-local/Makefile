@@ -37,7 +37,7 @@ sync: ## uv sync (root package + dev group)
 	uv sync --dev
 
 test: ## Run pytest (local)
-	PYTHONPATH=app:common/src:jobs/src:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v
+	PYTHONPATH=app:common/src:pipeline/batch:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v
 
 check-layers: ## Enforce layer boundaries by AST (stage=5)
 	$(PYTHON) scripts/ci/layers.py --stage 5
@@ -49,26 +49,26 @@ api-refresh: ## Rebuild and recreate only the api service
 # ----- DB migrations -----
 
 db-migrate-core: ## Migration 001: create properties
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/001_create_properties.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/001_create_properties.sql
 
 db-seed-properties: ## Migration 002: seed properties
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/002_seed_properties.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/002_seed_properties.sql
 
 db-migrate-ops: ## Migration 003: create logs and stats
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/003_create_logs_and_stats.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/003_create_logs_and_stats.sql
 
 db-migrate-features: ## Migration 004: features + batch logs
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/004_features_and_batch_logs.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/004_features_and_batch_logs.sql
 
 db-migrate-embeddings: ## Migration 005: me5 embeddings
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/005_me5.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/005_me5.sql
 
 db-migrate-learning: ## Migration 006+007: learning logs + ranking compare logs
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/006_learning_logs.sql
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/007_ranking_compare_logs.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/006_learning_logs.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/007_ranking_compare_logs.sql
 
 db-migrate-eval: ## Migration 008: eval + kpi tables
-	$(DOCKER_COMPOSE) exec -T api python -m maintenance.run_migrations definitions/migrations/008_eval_and_kpi.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/008_eval_and_kpi.sql
 
 # ----- Search / ops smoke (aligned with Phase 3/4 ops-* naming) -----
 
@@ -96,10 +96,10 @@ ops-label-seed: ## Seed feedback events (click/favorite/inquiry)
 # ----- Feature / embedding batch -----
 
 features-daily: ## Daily feature aggregation
-	$(DOCKER_COMPOSE) exec -T api python -m features.aggregate_daily_property_stats
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.features.aggregate_daily_property_stats
 
 features-report: ## Export feature report
-	$(DOCKER_COMPOSE) exec -T api python -m features.export_feature_report
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.features.export_feature_report
 
 ops-embed: ## Generate property embeddings (ME5)
 	$(DOCKER_COMPOSE) exec -T api python -m ml.data.preprocess.generate_property_embeddings
@@ -118,16 +118,16 @@ ops-train-fit-safe: ## Fit LightGBM with graceful fallback on empty data
 # ----- Evaluation -----
 
 eval-compare: ## Export ranking compare report (Meili vs rerank)
-	$(DOCKER_COMPOSE) exec -T api python -m evaluation.export_ranking_compare_report
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.evaluation.export_ranking_compare_report
 
 eval-offline: ## Offline NDCG / MAP / Recall evaluation
-	$(DOCKER_COMPOSE) exec -T api python -m evaluation.run_offline_evaluation
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.evaluation.run_offline_evaluation
 
 kpi-daily: ## Daily KPI aggregation (CTR / favorite / inquiry)
-	$(DOCKER_COMPOSE) exec -T api python -m evaluation.aggregate_daily_kpi
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.evaluation.aggregate_daily_kpi
 
 eval-weekly-report: ## Export weekly evaluation report
-	$(DOCKER_COMPOSE) exec -T api python -m evaluation.export_weekly_evaluation_report
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.evaluation.export_weekly_evaluation_report
 
 ops-retrain: ## Weekly retraining orchestration
 	$(DOCKER_COMPOSE) exec -T api python -m ml.training.job

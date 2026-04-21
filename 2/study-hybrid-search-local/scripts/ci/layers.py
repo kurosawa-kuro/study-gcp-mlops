@@ -139,10 +139,10 @@ def _rules_for_stage(stage: int) -> list[Rule]:
         rules.extend(
             [
                 Rule(
-                    name="jobs",
-                    target_dir=ROOT / "jobs" / "src" / "jobs",
+                    name="pipeline.batch",
+                    target_dir=ROOT / "pipeline" / "batch",
                     allowed_prefixes=(
-                        "jobs",
+                        "pipeline.batch",
                         "common.core",
                         "common.clients",
                         "pipelines.repositories",

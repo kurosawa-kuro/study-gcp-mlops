@@ -16,12 +16,11 @@ RUN pip install --no-cache-dir uv \
 
 COPY app ./app
 COPY common/src ./common/src
-COPY jobs/src ./jobs/src
 COPY pipeline ./pipeline
 COPY ml ./ml
 COPY definitions ./definitions
 
-ENV PYTHONPATH=/app:/app/common/src:/app/jobs/src:/app/pipeline
+ENV PYTHONPATH=/app:/app/common/src:/app/pipeline/batch:/app/pipeline
 
 EXPOSE 8000
 
