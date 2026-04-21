@@ -62,9 +62,9 @@ raw.properties (upstream ETL)
 | 変更 | 反応するワークフロー | 動作 |
 |---|---|---|
 | `infra/**` | `terraform.yml` | plan (PR コメント) → push で apply |
-| `app/**`, `common/**` | `deploy-api.yml` | Docker build (`app/Dockerfile`) → Artifact Registry → `gcloud run deploy search-api` |
-| `ml/training/**`, `common/**` | `deploy-training-job.yml` | Docker build (`infra/run/jobs/training.Dockerfile` + `cloudbuild.train.yaml`) → push → `gcloud run jobs update training-job` |
-| `ml/data/**`, `common/src/common/embeddings/**` 等 | `deploy-embedding-job.yml` | Docker build (`infra/run/jobs/embedding.Dockerfile` + `cloudbuild.embed.yaml`) → push → `gcloud run jobs update embedding-job` |
+| `app/**`, `common/**` | `deploy-api.yml` | Docker build (`infra/run/services/search_api/Dockerfile`) → Artifact Registry → `gcloud run deploy search-api` |
+| `ml/training/**`, `common/**` | `deploy-training-job.yml` | Docker build (`infra/run/jobs/training/Dockerfile` + `cloudbuild.train.yaml`) → push → `gcloud run jobs update training-job` |
+| `ml/data/**`, `common/src/common/embeddings/**` 等 | `deploy-embedding-job.yml` | Docker build (`infra/run/jobs/embedding/Dockerfile` + `cloudbuild.embed.yaml`) → push → `gcloud run jobs update embedding-job` |
 | `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
 
 `common/**` は 3 ワークフロー (api / training-job / embedding-job) の対象に含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードなので `deploy-api.yml` / `deploy-embedding-job.yml` の両方が path filter に含める。認証はすべて WIF。

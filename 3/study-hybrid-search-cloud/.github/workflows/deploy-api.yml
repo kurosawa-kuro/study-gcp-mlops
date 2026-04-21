@@ -43,7 +43,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.SERVICE }}
-          dockerfile: app/Dockerfile
+          dockerfile: infra/run/services/search_api/Dockerfile
 
       # Doppler-managed env is optional. When DOPPLER_TOKEN_API is provided,
       # secrets from the Doppler project (config mapped to that token) are

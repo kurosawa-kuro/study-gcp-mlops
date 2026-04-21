@@ -154,7 +154,7 @@ root/
 | `ml/data/job.py` | `pipeline/data_job/main.py` |
 | `ml/data/preprocess/embedding_runner.py` | `ml/data/preprocess/embedding_runner.py` |
 | `ml/data/datasets/embed_settings.py` | `ml/data/datasets/embed_settings.py` |
-| `ml/embed/container/Dockerfile` | `infra/run/jobs/data_job.Dockerfile` |
+| `infra/run/jobs/embedding/Dockerfile` | `infra/run/jobs/embedding/Dockerfile` |
 | `ml/embed/tests/test_runner.py` | `tests/unit/data_embedding_runner_test.py` |
 
 ## 5. ml/train/ 現行 → 目標
@@ -165,7 +165,7 @@ root/
 | `ml/training/trainer.py` | `ml/training/trainer.py` |
 | `ml/evaluation/metrics/training_metrics.py` | `ml/evaluation/metrics/training_metrics.py` |
 | `ml/training/experiments/settings.py` | `ml/training/model_builder.py` または `ml/training/experiments/settings.py` |
-| `ml/train/container/Dockerfile` | `infra/run/jobs/training_job.Dockerfile` |
+| `infra/run/jobs/training/Dockerfile` | `infra/run/jobs/training/Dockerfile` |
 | `ml/train/tests/test_trainer.py` | `tests/unit/training_trainer_test.py` |
 | `ml/train/tests/test_cli_run.py` | `tests/integration/training_job_test.py` |
 | `ml/train/tests/test_bigquery_ranker_repository.py` | `tests/unit/registry_metadata_store_test.py` |

@@ -58,7 +58,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.JOB }}
-          dockerfile: infra/run/jobs/embedding.Dockerfile
+          dockerfile: infra/run/jobs/embedding/Dockerfile
 
       # Doppler-managed env is optional (encoder checkpoints do not need a
       # secret today, so most installs will skip). Kept symmetric with

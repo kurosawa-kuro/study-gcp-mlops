@@ -7,7 +7,7 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
-      - --file=infra/run/jobs/embedding.Dockerfile
+      - --file=infra/run/jobs/embedding/Dockerfile
       - --tag=${_URI}
       - .
 images:

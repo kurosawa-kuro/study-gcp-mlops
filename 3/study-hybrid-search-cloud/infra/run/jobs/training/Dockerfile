@@ -1,4 +1,4 @@
-# Multi-stage build using uv — slim Cloud Run Jobs image for the embedding-job.
+# Multi-stage build using uv — slim Cloud Run Jobs image for the training-job.
 # BuildKit cache mounts removed so the Dockerfile works under Cloud Build's
 # `gcr.io/cloud-builders/docker` (no buildx) as well as GitHub Actions runners.
 
@@ -21,13 +21,18 @@ RUN uv sync --frozen --no-dev --all-packages --no-install-project
 
 # Now copy source and build the workspace packages
 COPY common/    common/
-COPY ml/data/  ml/data/
-# --no-editable: see app/Dockerfile for rationale (runtime stage only copies
+COPY ml/training/  ml/training/
+# --no-editable: see infra/run/services/search_api/Dockerfile for rationale (runtime stage only copies
 # /opt/venv, so editable installs pointing at /src/ would 404 at import time).
-RUN uv sync --frozen --no-dev --all-packages --no-editable
+RUN uv sync --frozen --no-dev --all-packages --no-editable \
+    && uv pip install --python /opt/venv/bin/python "wandb>=0.17"
 
 
 FROM python:3.12-slim-bookworm AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
 COPY ml /home/app/ml
@@ -42,4 +47,4 @@ RUN useradd --system --uid 1001 --home-dir /home/app app \
 USER app
 WORKDIR /home/app
 
-ENTRYPOINT ["embed"]
+ENTRYPOINT ["rank-train"]

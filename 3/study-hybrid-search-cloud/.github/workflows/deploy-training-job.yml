@@ -43,7 +43,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.JOB }}
-          dockerfile: infra/run/jobs/training.Dockerfile
+          dockerfile: infra/run/jobs/training/Dockerfile
 
       # Doppler-managed env (W&B key etc.) is optional. When DOPPLER_TOKEN_JOB
       # is provided, secrets from the Doppler project are appended to the

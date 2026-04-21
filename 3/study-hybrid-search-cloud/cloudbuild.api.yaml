@@ -9,7 +9,7 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
-      - --file=app/Dockerfile
+      - --file=infra/run/services/search_api/Dockerfile
       - --tag=${_URI}
       - .
 images:

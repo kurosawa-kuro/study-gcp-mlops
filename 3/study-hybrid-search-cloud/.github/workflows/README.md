@@ -7,8 +7,8 @@
 | `ci.yml` | すべての PR / push | ruff + mypy + pytest をマトリクスで並列実行 (uv) |
 | `terraform.yml` | `infra/**` | plan (PR コメント) + apply (main マージ) |
 | `deploy-api.yml` | `app/**` / `common/**` | docker build → push → `gcloud run deploy search-api` |
-| `deploy-training-job.yml` | `ml/training/**` / `common/**` | docker build (`infra/run/jobs/training.Dockerfile`) → push → `gcloud run jobs update training-job` |
-| `deploy-embedding-job.yml` | `ml/data/**` / `common/src/common/embeddings/**` | docker build (`infra/run/jobs/embedding.Dockerfile`) → push → `gcloud run jobs update embedding-job` |
+| `deploy-training-job.yml` | `ml/training/**` / `common/**` | docker build (`infra/run/jobs/training/Dockerfile`) → push → `gcloud run jobs update training-job` |
+| `deploy-embedding-job.yml` | `ml/data/**` / `common/src/common/embeddings/**` | docker build (`infra/run/jobs/embedding/Dockerfile`) → push → `gcloud run jobs update embedding-job` |
 | `deploy-dataform.yml` | `definitions/**` | Dataform CLI compile + リポジトリ pull トリガー |
 
 ## 必須 GitHub Variables

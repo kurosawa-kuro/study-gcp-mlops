@@ -7,7 +7,7 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
-      - --file=infra/run/jobs/training.Dockerfile
+      - --file=infra/run/jobs/training/Dockerfile
       - --tag=${_URI}
       - .
 images:

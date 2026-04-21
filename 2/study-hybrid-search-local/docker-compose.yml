@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: app/Dockerfile
+      dockerfile: infra/run/services/search_api/Dockerfile
     container_name: real-estate-api
     restart: unless-stopped
     ports:
