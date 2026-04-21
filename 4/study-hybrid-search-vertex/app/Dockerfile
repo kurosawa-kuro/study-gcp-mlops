@@ -12,9 +12,12 @@ ENV UV_LINK_MODE=copy \
 WORKDIR /src
 
 COPY pyproject.toml uv.lock* ./
-COPY common/pyproject.toml common/pyproject.toml
-COPY jobs/pyproject.toml    jobs/pyproject.toml
-COPY app/pyproject.toml     app/pyproject.toml
+COPY common/pyproject.toml    common/pyproject.toml
+COPY app/pyproject.toml       app/pyproject.toml
+COPY ml/embed/pyproject.toml  ml/embed/pyproject.toml
+COPY ml/train/pyproject.toml  ml/train/pyproject.toml
+COPY ml/serve/pyproject.toml  ml/serve/pyproject.toml
+COPY ml/sync/pyproject.toml   ml/sync/pyproject.toml
 
 RUN uv sync --frozen --no-dev --package app --no-install-project
 

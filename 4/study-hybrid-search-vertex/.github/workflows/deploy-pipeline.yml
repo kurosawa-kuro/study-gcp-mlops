@@ -11,7 +11,9 @@ on:
   push:
     branches: [main]
     paths:
-      - pipelines/**
+      - ml/embed/pipeline/**
+      - ml/train/pipeline/**
+      - ml/pipeline_utils/**
       - scripts/setup/create_schedule.py
       - scripts/setup/setup_model_monitoring.py
       - pyproject.toml
@@ -47,12 +49,12 @@ jobs:
 
       - name: Compile embed_pipeline
         run: |
-          uv run python -m pipelines.property_search.compile --target embed \
+          uv run python -m ml.pipeline_utils.compile --target embed \
             --output dist/pipelines/property-search-embed.yaml
 
       - name: Compile train_pipeline
         run: |
-          uv run python -m pipelines.property_search.compile --target train \
+          uv run python -m ml.pipeline_utils.compile --target train \
             --output dist/pipelines/property-search-train.yaml
 
       - name: Upload compiled templates to GCS

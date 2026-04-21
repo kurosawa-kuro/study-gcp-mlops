@@ -74,7 +74,7 @@ fmt-check: ## ruff format --check
 	uv run ruff format --check .
 
 typecheck: ## mypy strict
-	uv run mypy common/src app/src jobs/src
+	uv run mypy common/src app/src ml/embed/src ml/train/src ml/serve/src ml/sync/src
 
 check: lint fmt-check typecheck test ## Run all CI-equivalent checks
 
@@ -175,10 +175,10 @@ ops-bq-scan-top: ## Top 20 BQ scans in the last 7 days (cost audit)
 	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/bq_scan_top.sql
 
 ops-train-now: ## Submit train pipeline to Vertex AI
-	uv run --package pipelines compile-pipelines --target train --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com
+	uv run python -m ml.pipeline_utils.compile --target train --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com
 
 ops-pipeline-run: ## Submit a pipeline manually: TARGET=embed|train PARAM='key=value'
-	uv run --package pipelines compile-pipelines --target $${TARGET:-train} --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com $${PARAM:+--parameter $$PARAM}
+	uv run python -m ml.pipeline_utils.compile --target $${TARGET:-train} --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com $${PARAM:+--parameter $$PARAM}
 
 ops-promote-reranker: ## Print or apply reranker promotion plan: VERSION=vN APPLY=1
 	uv run python -m scripts.ops.promote reranker $${VERSION:-v1} $${APPLY:+--apply}

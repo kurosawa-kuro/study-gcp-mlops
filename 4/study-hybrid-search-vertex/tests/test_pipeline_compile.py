@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pipelines.property_search.compile import (
+from ml.pipeline_utils.compile import (
     _coerce_parameter_value,
     _merge_parameter_values,
     _spec,

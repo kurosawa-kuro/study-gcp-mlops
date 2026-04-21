@@ -5,11 +5,14 @@ description = "Hybrid search (Meilisearch BM25 + BigQuery VECTOR_SEARCH + RRF) w
 requires-python = ">=3.12"
 
 [tool.uv.workspace]
-members = ["common", "app", "jobs", "pipelines"]
+members = ["common", "app", "ml/embed", "ml/train", "ml/serve", "ml/sync"]
 
 [tool.uv.sources]
 common = { workspace = true }
-jobs = { workspace = true }
+embed = { workspace = true }
+train = { workspace = true }
+serve = { workspace = true }
+sync = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -41,6 +44,22 @@ ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
-testpaths = ["common/tests", "app/tests", "jobs/tests", "tests"]
-pythonpath = [".", "common/src", "app/src", "jobs/src", "pipelines/src"]
+testpaths = [
+    "common/tests",
+    "app/tests",
+    "ml/embed/tests",
+    "ml/train/tests",
+    "ml/serve/tests",
+    "ml/sync/tests",
+    "tests",
+]
+pythonpath = [
+    ".",
+    "common/src",
+    "app/src",
+    "ml/embed/src",
+    "ml/train/src",
+    "ml/serve/src",
+    "ml/sync/src",
+]
 addopts = "-ra --strict-markers"

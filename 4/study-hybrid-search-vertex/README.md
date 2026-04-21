@@ -13,15 +13,15 @@ raw.properties (upstream ETL)
   └─ Dataform ─> feature_mart.properties_cleaned
                  feature_mart.property_features_daily (ctr / fav_rate / inquiry_rate)
                                    ↑ (+ assertions)
-  └─ Cloud Run Jobs `embedding-job` (multilingual-e5-base) ─> feature_mart.property_embeddings
+  └─ Vertex AI KFP `property-search-embed` pipeline (Vertex CPR encoder, multilingual-e5-base) ─> feature_mart.property_embeddings
                                                               ↑ (768d FLOAT64 REPEATED + VECTOR INDEX)
-  └─ Cloud Run Jobs `training-job`  (LightGBM LambdaRank) ─> GCS (gs://mlops-dev-a-models/lgbm/{date}/{run_id}/) + mlops.training_runs
+  └─ Vertex AI KFP `property-search-train` pipeline (LightGBM LambdaRank) ─> GCS (gs://mlops-dev-a-models/lgbm/{date}/{run_id}/) + mlops.training_runs + Vertex Model Registry
 
          └─ Cloud Run Service `search-api` (FastAPI)
-              ├─ /search   lifespan encoder + Meilisearch(BM25) + BQ VECTOR_SEARCH → RRF → rerank (Phase 6+)
+              ├─ /search   Vertex Endpoint encoder + Meilisearch(BM25) + BQ VECTOR_SEARCH → RRF → Vertex Endpoint reranker
               │             └─ Pub/Sub "ranking-log"    ─> BQ Subscription ─> mlops.ranking_log
               ├─ /feedback └─ Pub/Sub "search-feedback" ─> BQ Subscription ─> mlops.feedback_events
-              └─ /jobs/check-retrain / /events/retrain (Cloud Scheduler 04:00 JST → Eventarc → training-job)
+              └─ /jobs/check-retrain / /events/retrain (Cloud Scheduler 04:00 JST → Eventarc → pipeline-trigger Cloud Function → PipelineJob)
 
   └─ Cloud Run Service `meili-search` (GCS FUSE `/meili_data` mount)
 
@@ -33,13 +33,18 @@ raw.properties (upstream ETL)
 
 | パス | 役割 |
 |---|---|
-| `infra/` | Terraform — BQ / GCS / Pub/Sub / Cloud Run / Scheduler / Eventarc / WIF / Monitoring |
+| `infra/` | Terraform — BQ / GCS / Pub/Sub / Cloud Run / Vertex (Endpoints, Pipelines, Feature Group, Monitoring) / Scheduler / Eventarc / WIF |
 | `definitions/` | Dataform — `properties_cleaned` + `property_features_daily` + assertions |
-| `common/` | 共有コード — `BigQueryEmbeddingStore` / `E5Encoder` / `build_ranker_features` / ranking metrics / logging / gcs |
-| `jobs/` | Cloud Run Jobs `training-job` (`rank-train` CLI) + `embedding-job` (`embed` CLI) |
+| `common/` | 共有コード — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs (app と ml/ の両方から使う) |
 | `app/` | Cloud Run Service `search-api` (`/search` / `/feedback` / `/jobs/check-retrain` / `/events/retrain`) |
+| `ml/embed/` | 埋め込みパイプライン — ME5 `E5Encoder` + Vertex CPR encoder server + KFP `property-search-embed` + BQ writer CLI (`embed`) |
+| `ml/train/` | LambdaRank パイプライン — LightGBM trainer + KFP `property-search-train` + BQ `training_runs` repository + `rank-train` CLI |
+| `ml/serve/` | Vertex CPR reranker 推論サーバ (LightGBM Booster) |
+| `ml/sync/` | Meilisearch index sync CLI (`meili-sync`) |
+| `ml/trigger/` | Gen2 Cloud Function — Eventarc → `PipelineJob.submit()` |
+| `ml/pipeline_utils/` | KFP template compile CLI (embed + train の両方) |
 | `monitoring/` | feature skew Scheduled Query SQL |
-| `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api / deploy-training-job / deploy-embedding-job / deploy-dataform |
+| `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api / deploy-encoder-image / deploy-trainer-image / deploy-reranker-image / deploy-pipeline / deploy-dataform |
 | `docs/` | 仕様と設計・移行ロードマップ・実装カタログ・運用 (+ ドキュメント運用ルール) |
 
 ファイル単位の一言コメントは [`docs/03_実装カタログ.md §2`](docs/03_実装カタログ.md)。
@@ -62,11 +67,13 @@ raw.properties (upstream ETL)
 |---|---|---|
 | `infra/**` | `terraform.yml` | plan (PR コメント) → push で apply |
 | `app/**`, `common/**` | `deploy-api.yml` | Docker build → Artifact Registry → `gcloud run deploy search-api` |
-| `jobs/**`, `common/**` | `deploy-training-job.yml` | Docker build → push → `gcloud run jobs update training-job` |
-| `common/src/common/embeddings/**`, embed/adapter 関連 | `deploy-embedding-job.yml` | Docker build → push → `gcloud run jobs update embedding-job` |
+| `ml/embed/**`, `common/src/common/storage/**` | `deploy-encoder-image.yml` | Docker build → push Vertex CPR encoder image |
+| `ml/train/**`, `common/**` | `deploy-trainer-image.yml` | Docker build → push KFP trainer image |
+| `ml/serve/**`, `common/src/common/{schema,storage}/**` | `deploy-reranker-image.yml` | Docker build → push Vertex CPR reranker image |
+| `ml/embed/pipeline/**`, `ml/train/pipeline/**`, `ml/pipeline_utils/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS + Model Monitoring + Schedule setup |
 | `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
 
-`common/**` は 3 ワークフロー (api / training-job / embedding-job) の対象に含める。認証はすべて WIF。
+認証はすべて WIF。
 
 ## ドキュメント
 

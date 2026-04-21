@@ -90,10 +90,10 @@
 | `make tf-validate` | オフライン terraform validate |
 | `make tf-bootstrap` | Phase 0 (API 有効化 + tfstate バケット作成、冪等) |
 | `make tf-plan` | Terraform plan。`GITHUB_REPO` / `ONCALL_EMAIL` は `env/config/setting.yaml` から既定値、env で都度上書き可。1 行で叩く / backslash 改行禁止。infra/tfplan に保存 |
-| `make deploy-api-local` / `make deploy-training-job-local` | CI を経由せず Cloud Build (`cloudbuild.{api,training}.yaml`) → `gcloud run deploy/jobs update` で local から rollout |
+| `make deploy-api-local` | CI を経由せず Cloud Build (`cloudbuild.api.yaml`) → `gcloud run deploy` で local から rollout。embed / train / serve の image は `cloudbuild.embed.yaml` / `cloudbuild.train.yaml` / (serve は個別 docker build) 経由 |
 | `make ops-*` | 本番 GCP 操作 (`docs/04_運用.md §2`)。`ops-livez` (Cloud Run /livez 疎通) / `ops-search` / `ops-ranking` / `ops-feedback` / `ops-label-seed` / `ops-search-volume` / `ops-runs-recent` / `ops-skew-latest` 等 |
 
-CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-level ディレクトリと 1:1。`common/**` は api / job の両方に依存するため `deploy-api.yml` / `deploy-training-job.yml` / `deploy-embedding-job.yml` の 3 つに含める (後者は `common/src/common/embeddings/**` に絞った狭い filter)。
+CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `definitions/**` / `infra/**`) は top-level ディレクトリと 1:1。`common/**` は api / ml の両方に依存するため `deploy-api.yml` / `deploy-encoder-image.yml` / `deploy-trainer-image.yml` / `deploy-reranker-image.yml` / `deploy-pipeline.yml` に含める。
 
 ---
 
@@ -109,11 +109,16 @@ CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-l
 
 本リポジトリで新規作成したもの:
 
-- **機能**: Dataform 定義 (`property_features_daily`) / `BigQueryCandidateRetriever` (BQ VECTOR_SEARCH) / `E5Encoder` (sentence-transformers ラッパ) / `/search` `/feedback` `/jobs/check-retrain` `/events/retrain` エンドポイント / Pub/Sub → BQ Subscription (`ranking-log` / `search-feedback`) / NDCG ベース mean-drift SQL / 4 SA 最小権限分離 / uv ワークスペース化 / Workload Identity Federation
-- **Port / Adapter 分離** (3 workspace すべて layer-based subpackage):
-  - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `embeddings/` (e5_encoder) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
+- **機能**: Dataform 定義 (`property_features_daily`) / `BigQueryCandidateRetriever` (BQ VECTOR_SEARCH) / `E5Encoder` (sentence-transformers ラッパ) / `/search` `/feedback` `/jobs/check-retrain` `/events/retrain` エンドポイント / Pub/Sub → BQ Subscription (`ranking-log` / `search-feedback`) / NDCG ベース mean-drift SQL / 10 SA 最小権限分離 / uv ワークスペース化 / Workload Identity Federation
+- **Port / Adapter 分離** (6 workspace すべて layer-based subpackage、`ml/` 配下に pipeline 系を集約):
+  - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
   - `app/src/app/`: `entrypoints/` (api) / `services/` (ranking, retrain_policy) / `ports/` (candidate_retriever, publisher, retrain_queries, training_job_runner) / `adapters/` (candidate_retriever, publisher, retrain, training_job) / `middleware/` (request_logging) / `schemas/` (search) + top-level `config.py`
-  - `jobs/src/training/`: `entrypoints/` (rank_cli, embed_cli) / `services/` (rank_trainer, ranking_metrics, embedding_runner) / `adapters/` (embedding_writer) + top-level `config.py`
+  - `ml/embed/src/embed/`: `cli` / `runner` / `e5_encoder` / `config` (EmbedSettings) / `adapters/` (embedding_writer) + `pipeline/` (KFP embed pipeline + 3 components) + `server/encoder_server.py` (Vertex CPR) + `container/Dockerfile`
+  - `ml/train/src/train/`: `cli` / `trainer` / `metrics` / `config` (TrainSettings) / `ports/` (ranker_repository, artifact_uploader, experiment_tracker) / `adapters/` (bigquery_ranker_repository, artifact_store, experiment_tracker, repository) + `pipeline/` (KFP train pipeline + 5 components) + `container/Dockerfile`
+  - `ml/serve/src/serve/reranker_server.py` + `container/Dockerfile` (Vertex CPR reranker)
+  - `ml/sync/src/sync/meili_sync.py` (Meilisearch index sync CLI)
+  - `ml/trigger/main.py` (Gen2 Cloud Function — Pipeline submit)
+  - `ml/pipeline_utils/compile.py` (embed + train KFP template compile CLI)
 - **自動検知** (`tests/` は責務別 3 サブフォルダに分割):
   - `tests/arch/test_import_boundaries.py` — AST 境界 (canonical な `RULES` は `scripts/checks/layers.py`、`make check-layers` でも CLI 単独実行可)
   - `tests/parity/test_feature_parity_ranking.py` + `tests/parity/test_feature_parity_sql_ranker.py` + `tests/parity/test_feature_parity_feature_group.py` — 6 ファイル parity invariant
@@ -129,7 +134,7 @@ CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-l
 ## リポジトリ状態
 
 - Phase 1–10d の実装 + scripts/tests 再編 + setting.yaml 集約が完了。California Housing 関連コード / Dataform / Python / Terraform / Scheduled Query は 10b/10c で完全削除済
-- `make check` 現行 194 tests (`tests/{arch,parity,infra}/` + workspace 別 `{app,jobs,common}/tests/`)。ただし `jobs/tests/test_rank_trainer.py` と `jobs/tests/test_rank_cli_run.py` の 4 件が FAIL 中 — `FEATURE_COLS_RANKER` に `semantic_rank` が入ったが trainer の fixture 側が追従していない (下記 残タスク 参照)
+- `make check` 現行 231 tests (`tests/{arch,parity,infra}/` + workspace 別 `{app,common,ml/embed,ml/train}/tests/`)。全通過。
 - Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
 - feature parity invariant (6 ファイル) は自動検知:
   - `tests/parity/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
@@ -140,8 +145,7 @@ CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-l
 - 初回 apply 時に踏みやすい 4 つのハマりは `infra/modules/` 側で全て修正済 (`time_sleep` / DTS の `location` / DTS の `service_account_name` / Cloud Run image placeholder)。詳細表は `docs/04_運用.md §1 STEP 9`
 - `make tf-validate` PASS (offline)、`make tf-bootstrap` で Phase 0 半自動化済
 - **残タスク**:
-  - **trainer 側の `semantic_rank` 追従漏れ** — `FEATURE_COLS_RANKER` に `semantic_rank` が追加されたが `jobs/src/training/services/rank_trainer.py` の要求列チェックとテスト fixture がこれに追随していない。`jobs/tests/test_rank_trainer.py` / `jobs/tests/test_rank_cli_run.py` の 4 件が FAIL する。feature parity invariant を完結させるには trainer 側の fixture / splitter に `semantic_rank` 列を埋める必要あり
-  - **`deploy-embedding-job.yml` のヘッダーコメント更新漏れ** — `google_cloud_run_v2_job.embedding_job` は `infra/modules/runtime/main.tf:154` で既に定義済みだが、workflow ファイル冒頭のコメント (L12–16) が「Phase 9 lands するまで未定義」「`|| true` で NOT_FOUND 許容」と古いまま。apply 本体は既に修正済 (`|| true` は除去) で、コメントだけ差分
+  - **trainer fixture の `semantic_rank` 欠落解消済** — Phase 10e リファクタで `ml/train/tests/test_trainer.py` / `test_cli_run.py` は `FEATURE_COLS_RANKER` (`semantic_rank` 含む) を揃えた synthetic frame を生成済み
   - Doppler → Cloud Run 環境変数注入は **配線されていない** (Secret Manager 容器は作るが誰も読まない、`--set-secrets` 未使用)。STEP 10 を skip しても動く
   - Monitoring 通知先差し替え (`oncall@example.com` placeholder)
   - Looker Studio ダッシュボード (IaC 対象外)
@@ -183,7 +187,7 @@ Port 定義は consumer と同居のまま動かさない (`app.candidate_retrie
 `common/` には **「app と jobs の両方が使うもの」だけ** 置く。以下は common に入れない:
 
 - app だけが使う (例: FastAPI middleware、API schema) → `app/src/app/` に残す
-- jobs だけが使う (例: LightGBM 直結) → `jobs/src/training/` に残す
+- ml/ だけが使う (例: LightGBM 直結 / KFP component / Vertex CPR) → 該当する `ml/{embed,train,serve,sync}/` に残す
 - 片側だけで使用中のファイルを `common/` に移すときは「なぜ共有が必要か」をコミットに書く
 
 判断に迷ったら「**jobs の Dockerfile でこのモジュールが読まれても意味があるか**」を問う。無ければ common から外す。`tests/arch/test_import_boundaries.py` で port/pure-logic files の境界は自動検知されるが、common 配置の妥当性は人間判断 — レビュー時にここを見る。

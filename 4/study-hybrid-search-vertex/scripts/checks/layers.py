@@ -48,7 +48,6 @@ RULES: dict[str, frozenset[str]] = {
     "common/src/common/schema/feature_schema.py": frozenset({"lightgbm", "pandas", "numpy"}),
     "common/src/common/ranking/metrics.py": frozenset({"lightgbm", "pandas"}),
     "common/src/common/ranking/label_gain.py": frozenset({"lightgbm", "pandas", "numpy"}),
-    "common/src/common/embeddings/e5_encoder.py": frozenset({"lightgbm", "pandas"}),
     "common/src/common/run_id.py": frozenset({"lightgbm", "pandas", "numpy"}),
     "common/src/common/logging/structured_logging.py": frozenset({"lightgbm", "pandas", "numpy"}),
     "common/src/common/config.py": frozenset({"lightgbm"}),
@@ -65,20 +64,32 @@ RULES: dict[str, frozenset[str]] = {
     "app/src/app/schemas/search.py": COMMON_ADAPTERS | frozenset({"lightgbm", "numpy"}),
     "app/src/app/middleware/request_logging.py": COMMON_ADAPTERS,
     "app/src/app/config.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
-    # jobs/ — Port + pure-logic layer
-    "jobs/src/training/entrypoints/rank_cli.py": frozenset(),
-    "jobs/src/training/entrypoints/embed_cli.py": frozenset(),
-    "jobs/src/training/ports/ranker_repository.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "training.adapters"}),
-    "jobs/src/training/ports/artifact_uploader.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "training.adapters"}),
-    "jobs/src/training/ports/experiment_tracker.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "training.adapters", "wandb"}),
-    "jobs/src/training/services/rank_trainer.py": COMMON_ADAPTERS,
-    "jobs/src/training/services/ranking_metrics.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
-    "jobs/src/training/services/embedding_runner.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "sentence_transformers", "training.adapters"}),
-    "jobs/src/training/config.py": frozenset({"lightgbm"}),
+    # ml/embed/ — embedding pipeline Port + pure-logic. Cross-workspace imports
+    # among ml sibling packages are banned so the boundaries embed ↔ train ↔
+    # serve stay clean.
+    "ml/embed/src/embed/cli.py": frozenset({"train", "serve", "sync", "app"}),
+    "ml/embed/src/embed/runner.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train", "serve", "sync", "app"}),
+    "ml/embed/src/embed/e5_encoder.py": frozenset(
+        {"lightgbm", "pandas", "train", "serve", "sync", "app"}
+    ),
+    "ml/embed/src/embed/config.py": frozenset(
+        {"lightgbm", "sentence_transformers", "train", "serve", "sync", "app"}
+    ),
+    # ml/train/ — LambdaRank training Port + pure-logic.
+    "ml/train/src/train/cli.py": frozenset({"embed", "serve", "sync", "app"}),
+    "ml/train/src/train/ports/ranker_repository.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train.adapters", "embed", "serve", "sync", "app"}),
+    "ml/train/src/train/ports/artifact_uploader.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train.adapters", "embed", "serve", "sync", "app"}),
+    "ml/train/src/train/ports/experiment_tracker.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train.adapters", "wandb", "embed", "serve", "sync", "app"}),
+    "ml/train/src/train/trainer.py": COMMON_ADAPTERS | frozenset({"embed", "serve", "sync", "app"}),
+    "ml/train/src/train/metrics.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "embed", "serve", "sync", "app"}),
+    "ml/train/src/train/config.py": frozenset({"lightgbm", "embed", "serve", "sync", "app"}),
+    # ml/serve/ — Vertex CPR reranker inference server (entrypoint).
+    "ml/serve/src/serve/reranker_server.py": frozenset({"embed", "train", "sync", "app"}),
 }
 
 

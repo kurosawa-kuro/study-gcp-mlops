@@ -1,0 +1,18 @@
+# Cloud Build config for the encoder CPR image (Vertex AI encoder endpoint).
+# Used by `make deploy-embed-image-local` (PR #4 split from cloudbuild.training.yaml).
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=ml/embed/container/Dockerfile
+      - --tag=${_URI}
+      - .
+images:
+  - ${_URI}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _URI: ""

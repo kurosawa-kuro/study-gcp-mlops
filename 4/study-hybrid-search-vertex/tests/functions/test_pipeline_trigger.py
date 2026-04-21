@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import json
 
-from functions.pipeline_trigger.main import (
+from ml.trigger.main import (
     _build_job_id,
     _decode_pubsub_message,
     _merge_parameters,

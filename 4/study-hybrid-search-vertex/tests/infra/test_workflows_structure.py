@@ -74,26 +74,27 @@ def test_deploy_workflows_request_oidc_token(filename: str) -> None:
 
 def test_encoder_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-encoder-image.yml").read_text()
-    assert "jobs/containers/encoder/Dockerfile" in text
-    assert "jobs/src/training/entrypoints/encoder_server.py" in text
-    assert "common/src/common/embeddings/**" in text
+    assert "ml/embed/container/Dockerfile" in text
+    assert "ml/embed/**" in text
 
 
 def test_reranker_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-reranker-image.yml").read_text()
-    assert "jobs/containers/reranker/Dockerfile" in text
-    assert "jobs/src/training/entrypoints/reranker_server.py" in text
+    assert "ml/serve/container/Dockerfile" in text
+    assert "ml/serve/**" in text
 
 
 def test_trainer_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-trainer-image.yml").read_text()
-    assert "jobs/containers/trainer/Dockerfile" in text
-    assert "jobs/src/training/services/**" in text
+    assert "ml/train/container/Dockerfile" in text
+    assert "ml/train/**" in text
 
 
 def test_pipeline_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-pipeline.yml").read_text()
-    assert "pipelines/**" in text
+    assert "ml/embed/pipeline/**" in text
+    assert "ml/train/pipeline/**" in text
+    assert "ml/pipeline_utils/**" in text
     assert "setup_model_monitoring" in text
     assert "create_schedule" in text
 

@@ -150,8 +150,8 @@ scripts/
 
 ## 何を置かないか
 
-- **本番ロジック**: `app/` / `jobs/` / `common/` に置く。`scripts/` は thin wrapper のみ。
-- **テスト**: `tests/` / `app/tests/` / `common/tests/` / `jobs/tests/` に置く。
+- **本番ロジック**: `app/` / `ml/{embed,train,serve,sync}/` / `common/` に置く。`scripts/` は thin wrapper のみ。
+- **テスト**: `tests/` / `app/tests/` / `common/tests/` / `ml/{embed,train,serve,sync}/tests/` に置く。
 - **使い捨ての一回 migration スクリプト**: 完了後に削除する (リポに残さない)。
 - **別リポからのコピー**: そのまま置かない。本リポの API スキーマ・命名・依存に合わせて書き直すか削除する。
 

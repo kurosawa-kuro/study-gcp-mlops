@@ -9,9 +9,7 @@ on:
   push:
     branches: [main]
     paths:
-      - jobs/containers/encoder/**
-      - jobs/src/training/entrypoints/encoder_server.py
-      - common/src/common/embeddings/**
+      - ml/embed/**
       - common/src/common/storage/**
       - pyproject.toml
       - uv.lock
@@ -49,4 +47,4 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.IMAGE }}
-          dockerfile: jobs/containers/encoder/Dockerfile
+          dockerfile: ml/embed/container/Dockerfile

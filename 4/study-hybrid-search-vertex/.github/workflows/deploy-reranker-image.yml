@@ -9,8 +9,7 @@ on:
   push:
     branches: [main]
     paths:
-      - jobs/containers/reranker/**
-      - jobs/src/training/entrypoints/reranker_server.py
+      - ml/serve/**
       - common/src/common/schema/**
       - common/src/common/storage/**
       - pyproject.toml
@@ -49,4 +48,4 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.IMAGE }}
-          dockerfile: jobs/containers/reranker/Dockerfile
+          dockerfile: ml/serve/container/Dockerfile

@@ -103,7 +103,7 @@ resource "google_pubsub_subscription" "monitoring_alerts_to_bq" {
 
 data "archive_file" "pipeline_trigger_source" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../functions/pipeline_trigger"
+  source_dir  = "${path.module}/../../../ml/trigger"
   output_path = "${path.module}/.pipeline-trigger.zip"
 }
 

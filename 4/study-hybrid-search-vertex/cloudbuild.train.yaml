@@ -1,0 +1,18 @@
+# Cloud Build config for the reranker trainer image (Vertex AI KFP component).
+# Used by `make deploy-train-image-local` (PR #5 split from cloudbuild.training.yaml).
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=ml/train/container/Dockerfile
+      - --tag=${_URI}
+      - .
+images:
+  - ${_URI}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _URI: ""
