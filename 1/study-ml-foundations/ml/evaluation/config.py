@@ -6,4 +6,4 @@ from ml.common.config.base import BaseAppSettings
 class EvalSettings(BaseAppSettings):
     wandb_api_key: str = ""
     wandb_project: str = "california-housing"
-    wandb_dir: str = "artifacts/wandb"
+    wandb_dir: str = "ml/wandb/wandb"

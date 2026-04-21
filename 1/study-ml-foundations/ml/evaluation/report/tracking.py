@@ -15,7 +15,7 @@ def _resolve_wandb_dir(wandb_dir: str) -> Path:
     return _REPO_ROOT / path
 
 
-def init_wandb(api_key: str, project: str, wandb_dir: str = "artifacts/wandb") -> None:
+def init_wandb(api_key: str, project: str, wandb_dir: str = "ml/wandb/wandb") -> None:
     """W&B を初期化する。API キーがなければ offline モード."""
     run_dir = _resolve_wandb_dir(wandb_dir)
     run_dir.mkdir(parents=True, exist_ok=True)

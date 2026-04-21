@@ -43,33 +43,14 @@ terraform -chdir=infra fmt -check -diff
 ```
 scripts/
   README.md                          ← 本ファイル
-  __init__.py / _common.py           ← 共通 helper (env / gcloud / cloud_run_url / identity_token / http_json)
-  setup/                             ← 環境前提・IaC ブートストラップ
-    doctor.py                        ← `make doctor`
-    tf_bootstrap.py                  ← `make tf-bootstrap`
-    tf_init.py                       ← `make tf-init`
-    tf_plan.py                       ← `make tf-plan`
-    create_schedule.py               ← Vertex Pipeline schedule 設定の雛形
-    setup_model_monitoring.py        ← Vertex Model Monitoring 設定の雛形
-  deploy/                            ← Cloud Build + Cloud Run rollout (CI 不在時の手動 deploy)
-    api_local.py                     ← `make deploy-api-local`
-    training_job_local.py            ← `make deploy-training-job-local`
-  config/                            ← 派生設定ファイル生成
-    sync_dataform.py                 ← `make sync-dataform-config` (env/config/setting.yaml → definitions/workflow_settings.yaml)
-  checks/                            ← 静的検査 (lint 系)
-    layers.py                        ← `make check-layers` (AST で Port/Adapter 境界を検証)
-  ops/                               ← デプロイ後の runtime smoke / 検査
-    livez_check.py                   ← `make ops-livez`
-    search_check.py                  ← `make ops-search`
-    ranking_check.py                 ← `make ops-ranking`
-    feedback_check.py                ← `make ops-feedback`
-    training_label_seed.py           ← `make ops-label-seed`
-    check_retrain.py                 ← `make ops-check-retrain`
-  sql/                               ← BQ クエリ (`bq query < scripts/sql/X.sql`)
-    skew_latest.sql                  ← `make ops-skew-latest`
-    search_volume.sql                ← `make ops-search-volume`
-    runs_recent.sql                  ← `make ops-runs-recent`
-    bq_scan_top.sql                  ← `make ops-bq-scan-top`
+  _common.py                         ← 共通 helper
+  ci/                                ← 静的検査・境界チェック
+    layers.py
+  local/
+    setup/                           ← doctor / terraform bootstrap / pipeline setup
+    deploy/                          ← api / training-job のローカル deploy
+    ops/                             ← livez/search/ranking/feedback 等の運用コマンド
+    sql/                             ← BQ クエリ (`bq query < scripts/local/sql/X.sql`)
 ```
 
 サブフォルダの役割境界:
@@ -91,7 +72,7 @@ scripts/
 
 - ターゲットは **1 行で script を呼ぶだけ** (`uv run python scripts/X.py` / `bash scripts/X.sh` / `bq query --project_id=$(PROJECT_ID) < scripts/sql/X.sql`)。
 - Makefile に inline shell / heredoc / SQL define ブロックを書かない (出てきたら `scripts/` に移動)。
-- ターゲット名と script ファイル名は対応させる (`make ops-livez` → `scripts/ops/livez_check.{py,sh}`)。
+- ターゲット名と script ファイル名は対応させる (`make ops-livez` → `scripts/local/ops/livez_check.py`)。
 - export しているのは `PROJECT_ID` / `REGION` / `API_SERVICE` / `TRAINING_JOB` / `ARTIFACT_REPO` の 5 変数。script 側はこれらを env から受け取り、未指定時の既定値は `env/config/setting.yaml` から読む。
 - これら 5 つの値は **`env/config/setting.yaml` が single source of truth**。Make は awk で、Python は `scripts/_common.py::_load_settings()` でその yaml を読む。yaml を編集すれば両者に反映される (どちらか一方をハードコードで上書きしないこと)。
 
@@ -140,9 +121,9 @@ scripts/
 
 1. **言語を決める**: 文字列展開が 1 つでもあれば Python、ゼロなら shell。
 2. **置き場所を決める**:
-   - 開発環境セットアップ / Terraform → `scripts/X.{py,sh}`
-   - デプロイ後の運用 / API smoke → `scripts/ops/X.{py,sh}`
-   - BQ クエリだけ → `scripts/sql/X.sql`
+   - 開発環境セットアップ / Terraform → `scripts/local/setup/X.py`
+   - デプロイ後の運用 / API smoke → `scripts/local/ops/X.py`
+   - BQ クエリだけ → `scripts/local/sql/X.sql`
 3. 上記言語別規約に従って書く。
 4. `Makefile` に対応するターゲットを **1 行で** 追加 (`X: ## description\n\tuv run python scripts/.../X.py`)。
 5. `.PHONY` リストにターゲット名を追加。
@@ -150,7 +131,7 @@ scripts/
 
 ## 何を置かないか
 
-- **本番ロジック**: `app/` / `ml/{embed,train,serve,sync}/` / `common/` に置く。`scripts/` は thin wrapper のみ。
+- **本番ロジック**: `app/` / `ml/{data,training,serving,common}/` / `pipeline/` に置く。`scripts/` は thin wrapper のみ。
 - **テスト**: `tests/` / `app/tests/` / `common/tests/` / `ml/{embed,train,serve,sync}/tests/` に置く。
 - **使い捨ての一回 migration スクリプト**: 完了後に削除する (リポに残さない)。
 - **別リポからのコピー**: そのまま置かない。本リポの API スキーマ・命名・依存に合わせて書き直すか削除する。

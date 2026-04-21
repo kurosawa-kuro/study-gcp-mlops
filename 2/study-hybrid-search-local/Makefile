@@ -37,7 +37,7 @@ sync: ## Install runtime + dev dependencies (pip)
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
 test: ## Run pytest (local)
-	PYTHONPATH=app/src:common/src:jobs/src:pipelines/src:ml/embed/src:ml/train/src:ml/sync/src $(PYTHON) -m pytest tests/ app/tests/ common/tests/ pipelines/tests/ ml/embed/tests/ ml/train/tests/ ml/sync/tests/ -v
+	PYTHONPATH=app:common/src:jobs/src:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v
 
 check-layers: ## Enforce layer boundaries by AST (stage=5)
 	$(PYTHON) scripts/checks/layers.py --stage 5
@@ -73,7 +73,7 @@ db-migrate-eval: ## Migration 008: eval + kpi tables
 # ----- Search / ops smoke (aligned with Phase 3/4 ops-* naming) -----
 
 ops-sync: ## Sync properties from PostgreSQL → Meilisearch
-	$(DOCKER_COMPOSE) exec -T api python -m sync.sync_properties_to_meilisearch
+	$(DOCKER_COMPOSE) exec -T api python -m ml.data.loaders.sync_properties_to_meilisearch
 
 ops-livez: ## Health check against the running api (aligned with Phase 3/4 ops-livez)
 	$(PYTHON) scripts/ops/health_check.py
@@ -102,15 +102,15 @@ features-report: ## Export feature report
 	$(DOCKER_COMPOSE) exec -T api python -m jobs.features.export_feature_report
 
 ops-embed: ## Generate property embeddings (ME5)
-	$(DOCKER_COMPOSE) exec -T api python -m embed.generate_property_embeddings
+	$(DOCKER_COMPOSE) exec -T api python -m ml.data.preprocess.generate_property_embeddings
 
 # ----- Training -----
 
 ops-train-build: ## Build training dataset
-	$(DOCKER_COMPOSE) exec -T api python -m train.dataset_builder
+	$(DOCKER_COMPOSE) exec -T api python -m ml.training.model_builder
 
 ops-train-fit: ## Fit LightGBM LambdaRank model
-	$(DOCKER_COMPOSE) exec -T api python -m train.trainer
+	$(DOCKER_COMPOSE) exec -T api python -m ml.training.trainer
 
 ops-train-fit-safe: ## Fit LightGBM with graceful fallback on empty data
 	$(PYTHON) scripts/ops/training_fit_safe.py
@@ -130,7 +130,7 @@ eval-weekly-report: ## Export weekly evaluation report
 	$(DOCKER_COMPOSE) exec -T api python -m jobs.evaluation.export_weekly_evaluation_report
 
 ops-retrain: ## Weekly retraining orchestration
-	$(DOCKER_COMPOSE) exec -T api python -m train.cli
+	$(DOCKER_COMPOSE) exec -T api python -m ml.training.job
 
 # ----- Aggregates -----
 

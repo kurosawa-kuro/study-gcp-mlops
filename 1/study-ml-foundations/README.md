@@ -119,7 +119,7 @@ curl -X POST http://localhost:8000/predict \
 
 ## W&B 連携
 
-`.env` に API キーを設定するとクラウドにログ送信。未設定時は offline モードで `artifacts/wandb/` に保存され、パイプライン本体の動作には影響しない。
+`.env` に API キーを設定するとクラウドにログ送信。未設定時は offline モードで `ml/wandb/wandb/` に保存され、パイプライン本体の動作には影響しない。
 
 ```
 WANDB_API_KEY=your_key_here

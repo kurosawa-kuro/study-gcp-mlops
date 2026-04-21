@@ -35,14 +35,13 @@ raw.properties (upstream ETL)
 |---|---|
 | `infra/` | Terraform — BQ / GCS / Pub/Sub / Cloud Run / Vertex (Endpoints, Pipelines, Feature Group, Monitoring) / Scheduler / Eventarc / WIF |
 | `definitions/` | Dataform — `properties_cleaned` + `property_features_daily` + assertions |
-| `common/` | 共有コード — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs (app と ml/ の両方から使う) |
+| `ml/common/` | 共有コード — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs (app と ml/ の両方から使う) |
 | `app/` | Cloud Run Service `search-api` (`/search` / `/feedback` / `/jobs/check-retrain` / `/events/retrain`) |
-| `ml/embed/` | 埋め込みパイプライン — ME5 `E5Encoder` + Vertex CPR encoder server + KFP `property-search-embed` + BQ writer CLI (`embed`) |
-| `ml/train/` | LambdaRank パイプライン — LightGBM trainer + KFP `property-search-train` + BQ `training_runs` repository + `rank-train` CLI |
-| `ml/serve/` | Vertex CPR reranker 推論サーバ (LightGBM Booster) |
-| `ml/sync/` | Meilisearch index sync CLI (`meili-sync`) |
-| `ml/trigger/` | Gen2 Cloud Function — Eventarc → `PipelineJob.submit()` |
-| `ml/pipeline_utils/` | KFP template compile CLI (embed + train の両方) |
+| `ml/data/` | 埋め込み/ローダー系の実装 (`loaders`, `preprocess`, `feature_engineering`) |
+| `ml/training/` | LambdaRank 学習本体 (`trainer`, `model_builder`, experiments) |
+| `ml/serving/` | 推論補助ロジック (`predictor`, `response_builder`) |
+| `pipeline/` | KFP エントリポイント (`data_job`, `training_job`, `evaluation_job`, `batch_serving_job`) |
+| `scripts/local/` | deploy/setup/ops の運用コマンド群 |
 | `monitoring/` | feature skew Scheduled Query SQL |
 | `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api / deploy-encoder-image / deploy-trainer-image / deploy-reranker-image / deploy-pipeline / deploy-dataform |
 | `docs/` | 仕様と設計・移行ロードマップ・実装カタログ・運用 (+ ドキュメント運用ルール) |
@@ -67,10 +66,10 @@ raw.properties (upstream ETL)
 |---|---|---|
 | `infra/**` | `terraform.yml` | plan (PR コメント) → push で apply |
 | `app/**`, `common/**` | `deploy-api.yml` | Docker build → Artifact Registry → `gcloud run deploy search-api` |
-| `ml/embed/**`, `common/src/common/storage/**` | `deploy-encoder-image.yml` | Docker build → push Vertex CPR encoder image |
-| `ml/train/**`, `common/**` | `deploy-trainer-image.yml` | Docker build → push KFP trainer image |
-| `ml/serve/**`, `common/src/common/{schema,storage}/**` | `deploy-reranker-image.yml` | Docker build → push Vertex CPR reranker image |
-| `ml/embed/pipeline/**`, `ml/train/pipeline/**`, `ml/pipeline_utils/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS + Model Monitoring + Schedule setup |
+| `pipeline/data_job/**`, `ml/data/**`, `ml/common/**` | `deploy-encoder-image.yml` | Docker build → push Vertex CPR encoder image |
+| `pipeline/training_job/**`, `ml/training/**`, `ml/common/**` | `deploy-trainer-image.yml` | Docker build → push KFP trainer image |
+| `ml/serving/**`, `ml/common/**` | `deploy-reranker-image.yml` | Docker build → push Vertex CPR reranker image |
+| `pipeline/**`, `scripts/local/setup/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS + Model Monitoring + Schedule setup |
 | `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
 
 認証はすべて WIF。
