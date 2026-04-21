@@ -20,7 +20,7 @@
   <rect x="720" y="180" width="180" height="70" class="box"/><text x="810" y="210" text-anchor="middle" class="txt">特徴量生成</text><text x="810" y="235" text-anchor="middle" class="txt">engineering.py</text>
   <rect x="960" y="180" width="160" height="70" class="accent"/><text x="1040" y="210" text-anchor="middle" class="txt">学習</text><text x="1040" y="235" text-anchor="middle" class="txt">train.py</text>
   <rect x="1180" y="180" width="160" height="70" class="accent"/><text x="1260" y="210" text-anchor="middle" class="txt">評価</text><text x="1260" y="235" text-anchor="middle" class="txt">metrics.py</text>
-  <rect x="960" y="330" width="170" height="70" class="db"/><text x="1045" y="360" text-anchor="middle" class="txt">models/{run_id}</text><text x="1045" y="385" text-anchor="middle" class="txt">model.lgb</text>
+  <rect x="960" y="330" width="170" height="70" class="db"/><text x="1045" y="360" text-anchor="middle" class="txt">ml/registry/artifacts/{run_id}</text><text x="1045" y="385" text-anchor="middle" class="txt">model.lgb</text>
   <rect x="1180" y="330" width="160" height="70" class="box"/><text x="1260" y="360" text-anchor="middle" class="txt">FastAPI</text><text x="1260" y="385" text-anchor="middle" class="txt">/predict</text>
   <rect x="500" y="330" width="240" height="70" class="db"/><text x="620" y="360" text-anchor="middle" class="txt">W&B / SQLite</text><text x="620" y="385" text-anchor="middle" class="txt">実験管理</text>
   <line x1="220" y1="215" x2="280" y2="215" class="line"/>

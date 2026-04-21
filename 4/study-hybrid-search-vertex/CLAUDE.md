@@ -54,7 +54,7 @@
 1. `definitions/features/property_features_daily.sqlx` (訓練側 SQL — ctr / fav_rate / inquiry_rate の SAFE_DIVIDE 式)
 2. `common/src/common/feature_engineering.py::build_ranker_features` (推論側 Python、10 列の組み立て)
 3. `common/src/common/schema/feature_schema.py` の `FEATURE_COLS_RANKER` (10 列の順序と名前)
-4. `infra/modules/data/main.tf` の `ranking_log.features` RECORD スキーマ (API publish のキー名と 1:1、FLOAT64 NULLABLE)
+4. `infra/terraform/modules/data/main.tf` の `ranking_log.features` RECORD スキーマ (API publish のキー名と 1:1、FLOAT64 NULLABLE)
 5. `monitoring/validate_feature_skew.sql` の UNPIVOT (訓練側・推論側とも property-side 7 列を列挙、`tests/parity/test_feature_parity_sql_ranker.py` で検証)
 6. `infra/modules/vertex/main.tf::google_vertex_ai_feature_group_feature` × 7 (Vertex Feature Group の property-side 7 列、`tests/parity/test_feature_parity_feature_group.py` で `FEATURE_COLS_RANKER` との 1:1 を検査)
 

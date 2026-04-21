@@ -1,5 +1,5 @@
 -- Last 5 LightGBM LambdaRank training runs.
--- Schema reference: infra/modules/data/main.tf::training_runs.
+-- Schema reference: infra/terraform/modules/data/main.tf::training_runs.
 -- (rmse / mae lived in the prior California regressor schema and are no
 --  longer present.)
 

@@ -15,7 +15,7 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
       → pipelines/housing_prices: 特徴量エンジニアリング (BedroomRatio・RoomsPerPerson)
         → training: LightGBM 学習
           → training/evaluation: 精度評価 (RMSE, R²) + W&B ログ
-            → models/{run_id}/ に保存 + PostgreSQL に精度記録 + latest シンボリックリンク更新
+            → ml/registry/artifacts/{run_id}/ に保存 + PostgreSQL に精度記録 + latest シンボリックリンク更新
               → app: FastAPI lifespan でモデルロード → 前処理 → 特徴量生成 → 推論
 ```
 
@@ -25,7 +25,7 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 - **Repository pattern** — `PostgresRepository` (SQLAlchemy + psycopg)、`DATA_SOURCE` env var で切り替え
 - **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`ml/evaluation/metrics.py`)
 - **W&B はオプション** — API キーなしで offline モード動作。精度評価・モデル保存に影響なし
-- **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`models/latest` シンボリックリンクで最新を参照
+- **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`ml/registry/artifacts/latest` シンボリックリンクで最新を参照
 - **構造化ロギング** — `common/logging.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
 - **API DI 化** — FastAPI lifespan で `app.state.booster` にモデルをロード。グローバル状態なし
 - **エラーハンドリング** — pipeline/main.py でデータ取得・学習・W&B の各ステップを try-except で保護
@@ -64,7 +64,7 @@ Dockerfile.trainer    seed / trainer イメージ
 ```bash
 make build          # Docker イメージビルド
 make seed           # sklearn データを PostgreSQL に投入 (Docker)
-make train          # LightGBM 学習 → models/{run_id}/ に保存 (Docker)
+make train          # LightGBM 学習 → ml/registry/artifacts/{run_id}/ に保存 (Docker)
 make serve          # FastAPI 起動 (port 8000, Docker)
 make test           # pytest 全テスト実行 (ローカル)
 make all            # build → seed → train
@@ -120,8 +120,8 @@ scripts/
 | `postgres_port` | PostgreSQL ポート | `5432` |
 | `postgres_db` | DB 名 | `mlpipeline` |
 | `postgres_user` | DB ユーザー | `admin` |
-| `model_dir` | モデル出力先 | `models` |
-| `model_path` | API が読むモデルパス | `models/latest/model.lgb` |
+| `model_dir` | モデル出力先 | `ml/registry/artifacts` |
+| `model_path` | API が読むモデルパス | `ml/registry/artifacts/latest/model.lgb` |
 | `wandb_project` | W&B プロジェクト名 | `california-housing` |
 
 ### credential.yaml の主なキー

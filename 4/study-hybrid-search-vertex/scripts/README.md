@@ -111,9 +111,9 @@ scripts/
 
 ## SQL ファイルの規約
 
-- 1 ファイル 1 SQL。先頭コメントに **何のためのクエリか + 参照テーブルのスキーマ位置** (`infra/modules/data/main.tf::training_runs` 等) を書く。
+- 1 ファイル 1 SQL。先頭コメントに **何のためのクエリか + 参照テーブルのスキーマ位置** (`infra/terraform/modules/data/main.tf::training_runs` 等) を書く。
 - リテラル `mlops-dev-a` / `asia-northeast1` を直書きしてよい (本リポは単一プロジェクト前提、CLAUDE.md 非負制約)。
-- 旧 California 残骸 (`predictions_log` / `metrics.rmse` / `validate_data_skew.sql`) を参照しない — schema は `infra/modules/data/main.tf` を権威とする。
+- 旧 California 残骸 (`predictions_log` / `metrics.rmse` / `validate_data_skew.sql`) を参照しない — schema は `infra/terraform/modules/data/main.tf` を権威とする。
 
 ---
 

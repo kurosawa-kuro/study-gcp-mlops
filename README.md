@@ -42,7 +42,7 @@ Dockerfile 配置の共通ルールは `docs/05_Docker配置規約.md` を参照
 - 評価指標 RMSE / R²（numpy で自前実装、scikit-learn 不使用）
 - オフライン評価（デプロイ前、テストデータ）と オンライン評価（デプロイ後、本番監視）の違い
 - 推論 = 本番リクエスト処理相当、学習と比べて計算コストは軽い
-- モデルのバージョニング（`Run ID = YYYYMMDD_HHMMSS_xxxxxx`、`models/latest` シンボリックリンクで最新参照）
+- モデルのバージョニング（`Run ID = YYYYMMDD_HHMMSS_xxxxxx`、`ml/registry/artifacts/latest` シンボリックリンクで最新参照）
 - 実験管理（W&B）の位置付け — 精度計算は numpy、W&B は「蓄積・可視化担当」
 
 **技術スタック**
@@ -149,7 +149,7 @@ Dockerfile 配置の共通ルールは `docs/05_Docker配置規約.md` を参照
 | 再学習起動 | 手動（`make retrain-weekly`） | **Cloud Scheduler → `/jobs/check-retrain` → Pub/Sub → Eventarc → Cloud Run Job** |
 | 権限管理 | 単一 DB ユーザ | **5 SA 分離**（`sa-api` / `sa-job-train` / `sa-job-embed` / `sa-dataform` / `sa-scheduler`）+ `sa-github-deployer`（WIF 専用） |
 | CI/CD | なし | GitHub Actions + **WIF**（SA Key 禁止）+ `cloudbuild.*.yaml` |
-| モデル成果物 | `models/{run_id}/lgbm_ranker.txt` ローカル | **GCS**（`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`）+ `mlops.training_runs` BQ 系譜 |
+| モデル成果物 | `ml/registry/artifacts/{run_id}/lgbm_ranker.txt` ローカル | **GCS**（`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`）+ `mlops.training_runs` BQ 系譜 |
 
 **Phase 2 から引き継がれる設計**
 - 3 段構成（lexical 候補 → semantic 候補 → rerank）の思想

@@ -38,7 +38,7 @@ from scripts.setup.seed_minimal_clean import main as seed_clean_main
 INFRA = Path(__file__).resolve().parent.parent.parent / "infra"
 
 # Resource addresses for the 7 BQ tables that carry deletion_protection.
-# Kept in sync with infra/modules/data/main.tf — if a new protected table
+# Kept in sync with infra/terraform/modules/data/main.tf — if a new protected table
 # is added, append it here.
 PROTECTED_TABLE_TARGETS = [
     "module.data.google_bigquery_table.training_runs",
