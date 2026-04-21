@@ -38,7 +38,7 @@ def train(train_df: pd.DataFrame, test_df: pd.DataFrame, model_dir: str, run_id:
     metrics = evaluate(y_test, y_pred)
     metrics["run_id"] = run_id
 
-    # モデル保存: models/{run_id}/
+    # モデル保存: ml/registry/artifacts/{run_id}/
     run_dir = Path(model_dir) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     booster.save_model(str(run_dir / "model.lgb"))

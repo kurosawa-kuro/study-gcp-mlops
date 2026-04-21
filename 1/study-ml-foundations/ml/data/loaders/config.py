@@ -15,7 +15,7 @@ class Settings(BaseAppSettings):
     postgres_password: str = "password"
 
     # モデル出力先
-    model_dir: str = "models"
+    model_dir: str = "ml/registry/artifacts"
 
     @property
     def postgres_dsn(self) -> str:

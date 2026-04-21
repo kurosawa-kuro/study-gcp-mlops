@@ -15,7 +15,7 @@ build: ## Build Docker images (docker compose build)
 seed: ## Seed sklearn California Housing into PostgreSQL
 	$(PYTHON) scripts/ml/seed.py
 
-train: ## Run LightGBM training → models/{run_id}/
+train: ## Run LightGBM training → ml/registry/artifacts/{run_id}/
 	$(PYTHON) scripts/ml/train.py
 
 serve: ## Start FastAPI on :8000 (docker compose up api)

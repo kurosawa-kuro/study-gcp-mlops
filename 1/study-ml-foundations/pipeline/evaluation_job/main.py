@@ -7,7 +7,7 @@ logger = get_logger(__name__)
 
 
 def main() -> None:
-    metrics_path = Path("models/latest/metrics.json")
+    metrics_path = Path("ml/registry/artifacts/latest/metrics.json")
     if not metrics_path.exists():
         logger.warning("No metrics found at %s", metrics_path)
         return

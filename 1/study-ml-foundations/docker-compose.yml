@@ -36,7 +36,7 @@ services:
       context: .
       dockerfile: Dockerfile.trainer
     volumes:
-      - ./models:/app/models
+      - ./ml/registry/artifacts:/app/ml/registry/artifacts
       - ./artifacts:/app/artifacts
       - ./env/secret:/app/env/secret:ro
     environment:
@@ -55,7 +55,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./models:/app/models
+      - ./ml/registry/artifacts:/app/ml/registry/artifacts
       - ./env/secret:/app/env/secret:ro
     depends_on:
       postgres:

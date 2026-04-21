@@ -3,7 +3,7 @@ __pycache__/
 *.pyo
 .env
 data/
-models/
+ml/registry/artifacts/
 artifacts/
 wandb/
 .pytest_cache/

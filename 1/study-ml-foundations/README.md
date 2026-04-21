@@ -19,7 +19,7 @@ make serve
 |---|---|
 | `make build` | Docker イメージビルド |
 | `make seed` | sklearn データを PostgreSQL に投入 |
-| `make train` | LightGBM モデル学習 → `models/{run_id}/` に保存 |
+| `make train` | LightGBM モデル学習 → `ml/registry/artifacts/{run_id}/` に保存 |
 | `make serve` | FastAPI 推論サーバー起動 (port 8000) |
 | `make test` | pytest 全テスト実行 (ローカル) |
 | `make all` | build → seed → train を順番に実行 |
@@ -37,7 +37,7 @@ PostgreSQL (docker-compose: postgres サービス)
       → ml/data/feature_engineering: 特徴量エンジニアリング (BedroomRatio・RoomsPerPerson)
         → ml/training: LightGBM 学習
         → ml/evaluation: 精度評価 (RMSE, R²) + W&B ログ
-          → models/{run_id}/ に保存 + PostgreSQL に精度記録 + latest 更新
+          → ml/registry/artifacts/{run_id}/ に保存 + PostgreSQL に精度記録 + latest 更新
             → api: FastAPI で推論 (前処理込み) + Web UI
 ```
 
@@ -80,7 +80,7 @@ PostgreSQL (docker-compose: postgres サービス)
 学習を実行するたびに一意な Run ID (`YYYYMMDD_HHMMSS_{UUID}`) が付与され、モデルが蓄積される。
 
 ```
-models/
+ml/registry/artifacts/
 ├── 20260416_222525_5bfd5f/   ← 1回目
 │   ├── model.lgb
 │   └── metrics.json
@@ -90,7 +90,7 @@ models/
 └── latest -> 20260416_222540_05f983
 ```
 
-API は `models/latest/model.lgb` を参照するため、再学習後にサーバーを再起動すれば最新モデルに切り替わる。
+API は `ml/registry/artifacts/latest/model.lgb` を参照するため、再学習後にサーバーを再起動すれば最新モデルに切り替わる。
 
 ## 推論 API
 

@@ -10,7 +10,7 @@ def main() -> None:
 
     compose(["down", "--remove-orphans", "--volumes"], check=False)
 
-    models_dir = root / "models"
+    models_dir = root / "ml" / "registry" / "artifacts"
     wandb_dir = root / "ml" / "wandb" / "wandb"
     if models_dir.exists() or wandb_dir.exists():
         run(

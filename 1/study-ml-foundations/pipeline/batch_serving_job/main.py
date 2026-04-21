@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 
 def main() -> None:
-    model_path = Path("models/latest/model.lgb")
+    model_path = Path("ml/registry/artifacts/latest/model.lgb")
     if not model_path.exists():
         logger.warning("No model found at %s", model_path)
         return

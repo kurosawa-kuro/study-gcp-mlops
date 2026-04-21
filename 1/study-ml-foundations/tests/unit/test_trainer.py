@@ -11,7 +11,7 @@ class TestTrain:
     def test_train_saves_model_and_metrics(self, sample_df, tmp_path):
         train_df = engineer_features(preprocess(sample_df.iloc[:80]))
         test_df = engineer_features(preprocess(sample_df.iloc[80:]))
-        model_dir = str(tmp_path / "models")
+        model_dir = str(tmp_path / "ml" / "registry" / "artifacts")
         run_id = "test_run_001"
 
         metrics = train(train_df, test_df, model_dir, run_id)

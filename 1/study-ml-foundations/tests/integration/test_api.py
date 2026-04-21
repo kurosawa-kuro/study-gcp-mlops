@@ -15,12 +15,14 @@ def api_client(tmp_path, sample_df):
     from ml.data.preprocess.preprocess import preprocess
     from ml.training.trainer import train
 
-    model_dir = str(tmp_path / "models")
+    model_dir = str(tmp_path / "ml" / "registry" / "artifacts")
     train_df = engineer_features(preprocess(sample_df.iloc[:80]))
     test_df = engineer_features(preprocess(sample_df.iloc[80:]))
     train(train_df, test_df, model_dir, "test_run")
 
-    os.environ["MODEL_PATH"] = str(tmp_path / "models" / "latest" / "model.lgb")
+    os.environ["MODEL_PATH"] = str(
+        tmp_path / "ml" / "registry" / "artifacts" / "latest" / "model.lgb"
+    )
 
     with TestClient(app) as client:
         yield client

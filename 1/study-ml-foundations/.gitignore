@@ -11,7 +11,7 @@ __pycache__/
 data/*.db
 
 # Models
-models/
+ml/registry/artifacts/
 
 # W&B
 artifacts/wandb/

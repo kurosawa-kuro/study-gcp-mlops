@@ -11,7 +11,7 @@ class TestSettings:
         assert s.postgres_db == "mlpipeline"
         assert s.postgres_user == "admin"
         assert s.postgres_port == 5432
-        assert s.model_dir == "models"
+        assert s.model_dir == "ml/registry/artifacts"
 
     def test_postgres_dsn(self):
         s = Settings(
