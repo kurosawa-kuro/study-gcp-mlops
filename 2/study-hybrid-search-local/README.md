@@ -131,3 +131,16 @@
 - docker-compose: ./docker-compose.yml
 - FastAPI entrypoint: ./app/src/app/main.py
 - 非クレデンシャル設定: ./env/config/setting.yaml / クレデンシャル: ./env/secret/credential.yaml
+
+## レイアウト互換レイヤ
+
+依頼に合わせ、以下のターゲット寄せディレクトリを追加しています。
+既存の実装パス (`app/src`, `common/src`, `pipelines/src`, `jobs/src`, `ml/*/src`) は互換性のため保持しています。
+
+- app/api, app/services, app/schemas, app/main.py
+- ml/data, ml/training, ml/evaluation, ml/registry, ml/serving, ml/common
+- pipeline/data_job, pipeline/training_job, pipeline/evaluation_job, pipeline/batch_serving_job
+- infra/terraform/modules, infra/terraform/environments, infra/run/jobs, infra/run/services
+- docs/architecture, docs/operations, docs/decisions
+- scripts/dev, scripts/ci, scripts/local
+- tests/unit, tests/integration, tests/e2e
