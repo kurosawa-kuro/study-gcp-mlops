@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.so
+
+.venv/
+.env
+
+.vscode/
+.DS_Store
+
+# Secrets: README のみコミット (credential.yaml は非追跡)
+env/secret/*
+!env/secret/README.md

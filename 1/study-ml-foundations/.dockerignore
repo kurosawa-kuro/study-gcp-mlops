@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+data/
+models/
+src/ml/wandb/
+wandb/
+.pytest_cache/
+tests/
+docs/
+.git/
+.gitignore
+.dockerignore
+*.md
+Makefile
+scripts/

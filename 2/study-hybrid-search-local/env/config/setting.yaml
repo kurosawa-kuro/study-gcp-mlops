@@ -1,0 +1,64 @@
+# プロジェクト全体の非クレデンシャル設定 — ここが single source of truth。
+#
+# - docker compose から: `.env` 経由で参照される変数は同名で並べる
+#   (API_PORT / POSTGRES_* / PGADMIN_* / MEILI_* / REDIS_* / ME5_MODEL_NAME)
+# - Python から: src/ 以下の os.getenv() 参照キーをここに集約
+#
+# 既存値を変えた場合の影響範囲:
+#   api_port                     — docker-compose.yml の api ポート公開, README アクセス先
+#   postgres_host/port/db/user   — src/core/db.py が参照。値変更時は全 DB 依存ジョブに影響
+#   meili_http_addr / meili_port — src/clients/meilisearch_client.py と docker-compose
+#   meili_index                  — src/adapters/inbound/fastapi/dependencies.py
+#   redis_host / redis_port      — src/clients/redis_client.py, dependencies.py
+#   search_cache_ttl_seconds     — GET /search キャッシュ TTL (redis_client.py)
+#   me5_model_name               — src/services/embeddings/me5_embedding_service.py
+#   lgbm_model_path              — src/services/ranking/lgbm_reranker.py
+#   phase6_*                     — src/jobs/evaluation/export_weekly_evaluation_report.py
+#                                  採用判定ルール。緩めると未検証モデルが本番採用され得る。
+#
+# Credentials / secrets は **ここに置かない**。env/secret/ に個別ファイルで配置し、
+# env/secret/ 自体を .gitignore する想定。
+
+# API (FastAPI)
+api_port: 8000
+
+# PostgreSQL (コンテナ間通信は host=postgres / ローカルからは localhost)
+postgres_host: postgres
+postgres_port: 5432
+postgres_db: estate
+postgres_user: admin
+postgres_pool_min_size: 1
+postgres_pool_max_size: 10
+postgres_pool_timeout: 10
+
+# pgAdmin
+pgadmin_default_email: admin@example.com
+pgadmin_port: 5050
+
+# Meilisearch
+meili_http_addr: meilisearch:7700
+meili_port: 7700
+meili_index: properties
+meili_no_analytics: true
+meili_task_timeout_seconds: 30
+meili_task_poll_interval_seconds: 0.2
+
+# Redis (GET /search キャッシュ)
+redis_host: redis
+redis_port: 6379
+search_cache_ttl_seconds: 120
+
+# モデル
+me5_model_name: intfloat/multilingual-e5-large
+lgbm_model_path: /app/artifacts/models/lgbm_ranker.txt
+
+# Phase 6 — モデル採用判定閾値 (eval-weekly-report)。
+# 閾値を下げると未検証モデルが採用され得るので変更は慎重に。
+phase6_min_eval_queries: 10
+phase6_min_ndcg_gain: 0.02
+phase6_min_map_gain: 0.01
+phase6_require_recall_non_decrease: true
+
+# ロギング
+log_format: console   # "json" にすると src/core/logging.py が JSON フォーマッタに切替
+log_level: INFO

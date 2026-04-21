@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ml-pipeline-postgres
+    restart: unless-stopped
+    # 非機密: env/config/setting.yaml と一致。機密: core.sh → shell env 経由
+    environment:
+      POSTGRES_DB: mlpipeline
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d mlpipeline"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  seed:
+    build:
+      context: .
+      dockerfile: jobs/containers/trainer/Dockerfile
+    volumes:
+      - ./env/secret:/app/env/secret:ro
+    environment:
+      WANDB_API_KEY: ${WANDB_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["python", "-m", "pipelines.housing_prices.seed"]
+
+  trainer:
+    build:
+      context: .
+      dockerfile: jobs/containers/trainer/Dockerfile
+    volumes:
+      - ./models:/app/models
+      - ./env/secret:/app/env/secret:ro
+    environment:
+      WANDB_API_KEY: ${WANDB_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./env/secret:/app/env/secret:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

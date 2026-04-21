@@ -1,0 +1,66 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    container_name: real-estate-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./app/src:/app/app/src
+      - ./common/src:/app/common/src
+      - ./jobs/src:/app/jobs/src
+      - ./pipelines/src:/app/pipelines/src
+      - ./definitions:/app/definitions
+    # POSTGRES_PASSWORD は scripts/setup/compose.sh が credential.yaml から shell env に export する
+    # その他の変数は各パッケージ側で os.getenv("...", "<default>") のフォールバックに任せる
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    depends_on:
+      - postgres
+      - meilisearch
+
+  postgres:
+    image: postgres:16
+    container_name: real-estate-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-estate}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:9.14
+    container_name: real-estate-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-password}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.7
+    container_name: real-estate-search
+    restart: always
+    environment:
+      MEILI_NO_ANALYTICS: ${MEILI_NO_ANALYTICS:-true}
+    ports:
+      - "${MEILI_PORT:-7700}:7700"
+
+  redis:
+    image: redis:7
+    container_name: real-estate-redis
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+volumes:
+  postgres_data:

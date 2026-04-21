@@ -1,0 +1,201 @@
+# ----- Runtime Service Accounts (5 SA 分離) -----
+
+resource "google_service_account" "api" {
+  account_id   = "sa-api"
+  display_name = "Cloud Run Service (FastAPI) runtime SA"
+}
+
+resource "google_service_account" "job_train" {
+  account_id   = "sa-job-train"
+  display_name = "Cloud Run Jobs (LightGBM LambdaRank training) runtime SA"
+}
+
+resource "google_service_account" "job_embed" {
+  account_id   = "sa-job-embed"
+  display_name = "Cloud Run Jobs (multilingual-e5 embedding batch) runtime SA"
+}
+
+resource "google_service_account" "dataform" {
+  account_id   = "sa-dataform"
+  display_name = "Dataform service SA (feature mart writer)"
+}
+
+resource "google_service_account" "scheduler" {
+  account_id   = "sa-scheduler"
+  display_name = "Cloud Scheduler SA (invoke API / publish retrain trigger)"
+}
+
+resource "google_service_account" "pipeline" {
+  account_id   = "sa-pipeline"
+  display_name = "Vertex AI Pipelines runtime SA"
+}
+
+resource "google_service_account" "endpoint_encoder" {
+  account_id   = "sa-endpoint-encoder"
+  display_name = "Vertex AI encoder endpoint runtime SA"
+}
+
+resource "google_service_account" "endpoint_reranker" {
+  account_id   = "sa-endpoint-reranker"
+  display_name = "Vertex AI reranker endpoint runtime SA"
+}
+
+resource "google_service_account" "pipeline_trigger" {
+  account_id   = "sa-pipeline-trigger"
+  display_name = "Vertex pipeline trigger runtime SA"
+}
+
+# ----- Workload Identity Federation for GitHub Actions -----
+
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github"
+  display_name              = "GitHub Actions"
+}
+
+resource "google_iam_workload_identity_pool_provider" "github" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-oidc"
+  display_name                       = "GitHub OIDC"
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.repository" = "assertion.repository"
+    "attribute.ref"        = "assertion.ref"
+  }
+
+  attribute_condition = "assertion.repository == \"${var.github_repo}\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+resource "google_service_account" "github_deployer" {
+  account_id   = "sa-github-deployer"
+  display_name = "GitHub Actions deployer (via WIF)"
+}
+
+resource "google_service_account_iam_member" "github_wif_binding" {
+  service_account_id = google_service_account.github_deployer.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
+}
+
+# Deployer needs enough power to run terraform apply + gcloud deploys.
+# Keep it a single role for this PoC; tighten later.
+resource "google_project_iam_member" "github_deployer_editor" {
+  project = var.project_id
+  role    = "roles/editor"
+  member  = "serviceAccount:${google_service_account.github_deployer.email}"
+}
+
+resource "google_project_iam_member" "github_deployer_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.github_deployer.email}"
+}
+
+# ----- Project-level IAM for runtime SAs -----
+
+resource "google_project_iam_member" "api_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "api_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_project_iam_member" "train_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.job_train.email}"
+}
+
+resource "google_project_iam_member" "train_bq_read_session" {
+  project = var.project_id
+  role    = "roles/bigquery.readSessionUser"
+  member  = "serviceAccount:${google_service_account.job_train.email}"
+}
+
+resource "google_project_iam_member" "embed_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.job_embed.email}"
+}
+
+resource "google_project_iam_member" "embed_bq_read_session" {
+  project = var.project_id
+  role    = "roles/bigquery.readSessionUser"
+  member  = "serviceAccount:${google_service_account.job_embed.email}"
+}
+
+resource "google_project_iam_member" "dataform_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.dataform.email}"
+}
+
+resource "google_project_iam_member" "pipeline_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.pipeline.email}"
+}
+
+resource "google_project_iam_member" "pipeline_bq_read_session" {
+  project = var.project_id
+  role    = "roles/bigquery.readSessionUser"
+  member  = "serviceAccount:${google_service_account.pipeline.email}"
+}
+
+resource "google_project_iam_member" "pipeline_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.pipeline.email}"
+}
+
+resource "google_project_iam_member" "pipeline_trigger_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.pipeline_trigger.email}"
+}
+
+resource "google_project_iam_member" "pipeline_trigger_eventarc_receiver" {
+  project = var.project_id
+  role    = "roles/eventarc.eventReceiver"
+  member  = "serviceAccount:${google_service_account.pipeline_trigger.email}"
+}
+
+resource "google_project_iam_member" "pipeline_trigger_pubsub_subscriber" {
+  project = var.project_id
+  role    = "roles/pubsub.subscriber"
+  member  = "serviceAccount:${google_service_account.pipeline_trigger.email}"
+}
+
+resource "google_project_iam_member" "pipeline_trigger_logging_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.pipeline_trigger.email}"
+}
+
+resource "google_service_account_iam_member" "pipeline_trigger_can_use_pipeline_sa" {
+  service_account_id = google_service_account.pipeline.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.pipeline_trigger.email}"
+}
+
+resource "google_project_iam_member" "endpoint_encoder_logging_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.endpoint_encoder.email}"
+}
+
+resource "google_project_iam_member" "endpoint_reranker_logging_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.endpoint_reranker.email}"
+}
+

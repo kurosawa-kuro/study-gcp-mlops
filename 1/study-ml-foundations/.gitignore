@@ -1,0 +1,21 @@
+# Environment
+.env
+env/secret/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Data
+data/*.db
+
+# Models
+models/
+
+# W&B
+src/ml/wandb/
+
+# IDE
+.vscode/
+.idea/

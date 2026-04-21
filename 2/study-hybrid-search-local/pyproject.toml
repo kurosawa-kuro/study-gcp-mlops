@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+testpaths = ["tests", "app/tests", "common/tests", "pipelines/tests"]
+pythonpath = ["app/src", "common/src", "jobs/src", "pipelines/src"]
