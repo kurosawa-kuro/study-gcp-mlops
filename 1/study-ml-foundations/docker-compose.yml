@@ -21,7 +21,7 @@ services:
   seed:
     build:
       context: .
-      dockerfile: jobs/containers/trainer/Dockerfile
+      dockerfile: Dockerfile.trainer
     volumes:
       - ./env/secret:/app/env/secret:ro
     environment:
@@ -29,12 +29,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["python", "-m", "pipelines.housing_prices.seed"]
+    command: ["python", "-m", "ml.pipeline.seed"]
 
   trainer:
     build:
       context: .
-      dockerfile: jobs/containers/trainer/Dockerfile
+      dockerfile: Dockerfile.trainer
     volumes:
       - ./models:/app/models
       - ./env/secret:/app/env/secret:ro
@@ -49,7 +49,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: app/Dockerfile
+      dockerfile: Dockerfile.api
     ports:
       - "8000:8000"
     volumes:

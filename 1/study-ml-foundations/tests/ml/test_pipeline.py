@@ -1,7 +1,7 @@
 """pipeline パッケージのテスト（config, repository）."""
 
-from pipelines.housing_prices.config import Settings
-from pipelines.housing_prices.repository import PostgresRepository
+from ml.pipeline.config import Settings
+from ml.pipeline.repository import PostgresRepository
 
 
 class TestSettings:

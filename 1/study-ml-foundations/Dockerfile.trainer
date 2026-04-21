@@ -14,12 +14,10 @@ RUN pip install --no-cache-dir \
     "psycopg[binary]" \
     sqlalchemy
 
-COPY common/src/ common/src/
-COPY jobs/src/ jobs/src/
-COPY pipelines/src/ pipelines/src/
+COPY src/ src/
 COPY env/config/ env/config/
 
-ENV PYTHONPATH=/app/common/src:/app/jobs/src:/app/pipelines/src
+ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "-m", "pipelines.housing_prices.main"]
+CMD ["python", "-m", "ml.pipeline.main"]

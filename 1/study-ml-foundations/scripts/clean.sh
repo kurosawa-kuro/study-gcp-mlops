@@ -6,11 +6,11 @@ step "Cleaning"
 docker compose down --remove-orphans --volumes 2>/dev/null || true
 
 # Docker が root で作成したファイルをコンテナ経由で削除
-if [ -d models ] || [ -d jobs/src/training/wandb ]; then
+if [ -d models ] || [ -d src/ml/wandb ]; then
   docker run --rm \
     -v "$(pwd)/models:/work/models" \
-    -v "$(pwd)/jobs/src/training:/work/training" \
-    alpine sh -c "rm -rf /work/models/* /work/training/wandb" 2>/dev/null || true
+    -v "$(pwd)/src/ml:/work/ml" \
+    alpine sh -c "rm -rf /work/models/* /work/ml/wandb" 2>/dev/null || true
 fi
 
 echo "Done."

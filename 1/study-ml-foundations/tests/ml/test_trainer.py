@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from pipelines.housing_prices.feature_engineering import engineer_features
-from pipelines.housing_prices.preprocess import preprocess
-from training.train import train
+from ml.pipeline.feature_engineering import engineer_features
+from ml.pipeline.preprocess import preprocess
+from ml.trainer.train import train
 
 
 class TestTrain:

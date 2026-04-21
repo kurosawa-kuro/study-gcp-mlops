@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
-from training.evaluation.metrics import evaluate, r2_score, rmse, save_metrics
-from training.evaluation.tracking import init_wandb, log_metrics
+from ml.evaluation.metrics import evaluate, r2_score, rmse, save_metrics
+from ml.evaluation.tracking import init_wandb, log_metrics
 
 
 class TestMetrics:

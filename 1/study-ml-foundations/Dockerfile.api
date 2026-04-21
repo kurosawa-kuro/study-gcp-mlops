@@ -15,14 +15,12 @@ RUN pip install --no-cache-dir \
     "psycopg[binary]" \
     sqlalchemy
 
-COPY app/src/ app/src/
-COPY common/src/ common/src/
-COPY pipelines/src/ pipelines/src/
+COPY src/ src/
 COPY env/config/ env/config/
 
-ENV PYTHONPATH=/app/app/src:/app/common/src:/app/pipelines/src
+ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

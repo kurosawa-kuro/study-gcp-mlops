@@ -26,7 +26,7 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 - **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`jobs/src/training/evaluation/metrics.py`)
 - **W&B はオプション** — API キーなしで offline モード動作。精度評価・モデル保存に影響なし
 - **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`models/latest` シンボリックリンクで最新を参照
-- **構造化ロギング** — `common/src/common/logging.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
+- **構造化ロギング** — `src/share/logging.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
 - **API DI 化** — FastAPI lifespan で `app.state.booster` にモデルをロード。グローバル状態なし
 - **エラーハンドリング** — pipeline/main.py でデータ取得・学習・W&B の各ステップを try-except で保護
 - **Makefile → scripts/ に委譲** — `scripts/core.sh` に共通設定を集約
