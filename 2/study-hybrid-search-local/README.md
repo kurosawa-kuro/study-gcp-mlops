@@ -44,8 +44,8 @@
 ## Phase 5 着手済み範囲
 
 - 学習ログ拡張（`search_logs.actioned_id`, `search_logs.action_type`）
-- 学習データ生成スクリプト（`jobs/src/training/training_dataset_builder.py`）
-- LightGBM 学習スクリプト（`jobs/src/training/lgbm_trainer.py`）
+- 学習データ生成スクリプト（`ml/train/src/train/dataset_builder.py`）
+- LightGBM 学習スクリプト（`ml/train/src/train/trainer.py`）
 - `GET /search` への LightGBM 推論再ランキング統合（モデル未学習時はfallback）
 - Meili順と再ランキング順の比較ログ出力（`ranking_compare_logs`）
 
@@ -112,7 +112,7 @@
 
 補足:
 
-- 新規運用は責務ベースターゲット（`search-sync`, `features-daily`, `training-fit` など）を使用
+- 新規運用は責務ベースターゲット（`ops-sync`, `ops-embed`, `ops-train-build`, `ops-train-fit`, `ops-retrain`, `features-daily` など）を使用
 - `make verify-pipeline` は `ops-livez` / `ops-search` / `ops-feedback` / `ops-ranking` / `ops-ranking-verbose` / `eval-compare` / `eval-offline` を順に実行します
 - `app/common/jobs/pipelines` 配下の構成変更やブランチ切替後に API コンテナが古いイメージを参照していると import で失敗することがあります。その場合は次を実行して API イメージを再作成してください
 

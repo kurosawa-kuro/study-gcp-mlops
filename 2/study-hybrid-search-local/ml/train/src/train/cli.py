@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from pipelines.repositories.evaluation_report_repository import latest_adoption_decision
-from training.lgbm_trainer import train_model
-from training.training_dataset_builder import fetch_training_rows, write_csv
+from train.dataset_builder import fetch_training_rows, write_csv
+from train.trainer import train_model
 
 
 def run_weekly_retrain() -> dict[str, object]:

@@ -51,7 +51,7 @@ def count_rows_and_positive(csv_text: str) -> tuple[int, int]:
 
 def run_training() -> int:
     return subprocess.run(
-        ["docker", "compose", "exec", "-T", "api", "python", "-m", "training.lgbm_trainer"],
+        ["docker", "compose", "exec", "-T", "api", "python", "-m", "train.trainer"],
         check=False,
     ).returncode
 
@@ -61,10 +61,10 @@ def main() -> int:
     rows, positive = count_rows_and_positive(csv_text)
 
     if rows > 0 and positive > 0:
-        print(f"training-fit-safe: rows={rows}, positive={positive} -> run training-fit")
+        print(f"ops-train-fit-safe: rows={rows}, positive={positive} -> run ops-train-fit")
         return run_training()
 
-    print(f"training-fit-safe: skip training-fit (rows={rows}, positive={positive})")
+    print(f"ops-train-fit-safe: skip ops-train-fit (rows={rows}, positive={positive})")
     return 0
 
 

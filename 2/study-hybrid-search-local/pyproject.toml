@@ -1,3 +1,19 @@
 [tool.pytest.ini_options]
-testpaths = ["tests", "app/tests", "common/tests", "pipelines/tests"]
-pythonpath = ["app/src", "common/src", "jobs/src", "pipelines/src"]
+testpaths = [
+    "tests",
+    "app/tests",
+    "common/tests",
+    "pipelines/tests",
+    "ml/embed/tests",
+    "ml/train/tests",
+    "ml/sync/tests",
+]
+pythonpath = [
+    "app/src",
+    "common/src",
+    "jobs/src",
+    "pipelines/src",
+    "ml/embed/src",
+    "ml/train/src",
+    "ml/sync/src",
+]

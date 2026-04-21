@@ -16,9 +16,10 @@ COPY app/src ./app/src
 COPY common/src ./common/src
 COPY jobs/src ./jobs/src
 COPY pipelines/src ./pipelines/src
+COPY ml ./ml
 COPY definitions ./definitions
 
-ENV PYTHONPATH=/app/app/src:/app/common/src:/app/jobs/src:/app/pipelines/src
+ENV PYTHONPATH=/app/app/src:/app/common/src:/app/jobs/src:/app/pipelines/src:/app/ml/embed/src:/app/ml/train/src:/app/ml/sync/src
 
 EXPOSE 8000
 

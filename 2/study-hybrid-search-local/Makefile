@@ -9,11 +9,11 @@ DOCKER_COMPOSE ?= ./scripts/setup/compose.sh
 	help up build down logs test sync api-refresh \
 	check-layers \
 	db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval \
-	search-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed \
+	ops-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed \
 	features-daily features-report \
-	embeddings-generate \
-	training-generate training-fit training-fit-safe \
-	eval-compare eval-offline kpi-daily eval-weekly-report retrain-weekly \
+	ops-embed \
+	ops-train-build ops-train-fit ops-train-fit-safe \
+	eval-compare eval-offline kpi-daily eval-weekly-report ops-retrain \
 	ops-bootstrap ops-daily ops-weekly verify-pipeline
 
 help: ## Show this help
@@ -37,7 +37,7 @@ sync: ## Install runtime + dev dependencies (pip)
 	$(PYTHON) -m pip install -r requirements-dev.txt
 
 test: ## Run pytest (local)
-	PYTHONPATH=app/src:common/src:jobs/src:pipelines/src $(PYTHON) -m pytest tests/ app/tests/ common/tests/ pipelines/tests/ -v
+	PYTHONPATH=app/src:common/src:jobs/src:pipelines/src:ml/embed/src:ml/train/src:ml/sync/src $(PYTHON) -m pytest tests/ app/tests/ common/tests/ pipelines/tests/ ml/embed/tests/ ml/train/tests/ ml/sync/tests/ -v
 
 check-layers: ## Enforce layer boundaries by AST (stage=5)
 	$(PYTHON) scripts/checks/layers.py --stage 5
@@ -72,8 +72,8 @@ db-migrate-eval: ## Migration 008: eval + kpi tables
 
 # ----- Search / ops smoke (aligned with Phase 3/4 ops-* naming) -----
 
-search-sync: ## Sync properties from PostgreSQL → Meilisearch
-	$(DOCKER_COMPOSE) exec -T api python -m jobs.indexing.sync_properties_to_meilisearch
+ops-sync: ## Sync properties from PostgreSQL → Meilisearch
+	$(DOCKER_COMPOSE) exec -T api python -m sync.sync_properties_to_meilisearch
 
 ops-livez: ## Health check against the running api (aligned with Phase 3/4 ops-livez)
 	$(PYTHON) scripts/ops/health_check.py
@@ -101,18 +101,18 @@ features-daily: ## Daily feature aggregation
 features-report: ## Export feature report
 	$(DOCKER_COMPOSE) exec -T api python -m jobs.features.export_feature_report
 
-embeddings-generate: ## Generate property embeddings (ME5)
-	$(DOCKER_COMPOSE) exec -T api python -m jobs.embeddings.generate_property_embeddings
+ops-embed: ## Generate property embeddings (ME5)
+	$(DOCKER_COMPOSE) exec -T api python -m embed.generate_property_embeddings
 
 # ----- Training -----
 
-training-generate: ## Build training dataset
-	$(DOCKER_COMPOSE) exec -T api python -m training.training_dataset_builder
+ops-train-build: ## Build training dataset
+	$(DOCKER_COMPOSE) exec -T api python -m train.dataset_builder
 
-training-fit: ## Fit LightGBM LambdaRank model
-	$(DOCKER_COMPOSE) exec -T api python -m training.lgbm_trainer
+ops-train-fit: ## Fit LightGBM LambdaRank model
+	$(DOCKER_COMPOSE) exec -T api python -m train.trainer
 
-training-fit-safe: ## Fit LightGBM with graceful fallback on empty data
+ops-train-fit-safe: ## Fit LightGBM with graceful fallback on empty data
 	$(PYTHON) scripts/ops/training_fit_safe.py
 
 # ----- Evaluation -----
@@ -129,24 +129,24 @@ kpi-daily: ## Daily KPI aggregation (CTR / favorite / inquiry)
 eval-weekly-report: ## Export weekly evaluation report
 	$(DOCKER_COMPOSE) exec -T api python -m jobs.evaluation.export_weekly_evaluation_report
 
-retrain-weekly: ## Weekly retraining orchestration
-	$(DOCKER_COMPOSE) exec -T api python -m jobs.training.run_weekly_retraining
+ops-retrain: ## Weekly retraining orchestration
+	$(DOCKER_COMPOSE) exec -T api python -m train.cli
 
 # ----- Aggregates -----
 
-ops-bootstrap: db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval search-sync embeddings-generate ops-label-seed training-generate training-fit-safe ## One-time setup (migrations + seed + index + model prep)
+ops-bootstrap: db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval ops-sync ops-embed ops-label-seed ops-train-build ops-train-fit-safe ## One-time setup (migrations + seed + index + model prep)
 
 ops-daily: ## Daily sync/feature/embed/kpi tasks
-	$(MAKE) search-sync
+	$(MAKE) ops-sync
 	$(MAKE) features-daily
-	$(MAKE) embeddings-generate
+	$(MAKE) ops-embed
 	$(MAKE) kpi-daily
 
 ops-weekly: ## Weekly evaluate/report/retrain tasks
 	$(MAKE) eval-compare
 	$(MAKE) eval-offline
 	$(MAKE) eval-weekly-report
-	$(MAKE) retrain-weekly
+	$(MAKE) ops-retrain
 
 verify-pipeline: ## Representative end-to-end smoke checks
 	$(MAKE) check-layers
