@@ -49,7 +49,11 @@ def main() -> None:
 
     # W&B 初期化
     try:
-        init_wandb(eval_settings.wandb_api_key, eval_settings.wandb_project)
+        init_wandb(
+            eval_settings.wandb_api_key,
+            eval_settings.wandb_project,
+            eval_settings.wandb_dir,
+        )
     except Exception as e:
         logger.warning("W&B initialization failed, continuing without it: %s", e)
 

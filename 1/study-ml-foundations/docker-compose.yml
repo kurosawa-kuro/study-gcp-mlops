@@ -37,6 +37,7 @@ services:
       dockerfile: Dockerfile.trainer
     volumes:
       - ./models:/app/models
+      - ./artifacts:/app/artifacts
       - ./env/secret:/app/env/secret:ro
     environment:
       WANDB_API_KEY: ${WANDB_API_KEY:-}

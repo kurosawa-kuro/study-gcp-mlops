@@ -119,7 +119,7 @@ curl -X POST http://localhost:8000/predict \
 
 ## W&B 連携
 
-`.env` に API キーを設定するとクラウドにログ送信。未設定時は offline モードで動作し、パイプライン本体の動作には影響しない。
+`.env` に API キーを設定するとクラウドにログ送信。未設定時は offline モードで `artifacts/wandb/` に保存され、パイプライン本体の動作には影響しない。
 
 ```
 WANDB_API_KEY=your_key_here
@@ -134,8 +134,8 @@ python scripts/test.py -k test_train    # 単体テスト指定
 
 ## ドキュメント
 
-- [設計書](docs/設計書.md) — 全体設計・本番 (GCP) 対応表・フェーズ計画
-- [運用手順書](docs/運用.md) — セットアップ・実行手順・環境変数一覧
+- [設計書](docs/01_仕様と設計.md) — 全体設計・構成・設定
+- [運用手順書](docs/04_運用.md) — セットアップ・実行手順・環境変数一覧
 
 ## スクリーンショット
 

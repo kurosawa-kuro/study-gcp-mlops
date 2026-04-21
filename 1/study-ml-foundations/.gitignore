@@ -14,7 +14,7 @@ data/*.db
 models/
 
 # W&B
-ml/wandb/
+artifacts/wandb/
 
 # IDE
 .vscode/

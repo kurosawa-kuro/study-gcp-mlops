@@ -11,8 +11,8 @@ def main() -> None:
     compose(["down", "--remove-orphans", "--volumes"], check=False)
 
     models_dir = root / "models"
-    ml_dir = root / "ml"
-    wandb_dir = ml_dir / "wandb"
+    artifacts_dir = root / "artifacts"
+    wandb_dir = artifacts_dir / "wandb"
     if models_dir.exists() or wandb_dir.exists():
         run(
             [
@@ -22,11 +22,11 @@ def main() -> None:
                 "-v",
                 f"{models_dir}:/work/models",
                 "-v",
-                f"{ml_dir}:/work/ml",
+                f"{artifacts_dir}:/work/artifacts",
                 "alpine",
                 "sh",
                 "-c",
-                "rm -rf /work/models/* /work/ml/wandb",
+                "rm -rf /work/models/* /work/artifacts/wandb",
             ],
             check=False,
         )

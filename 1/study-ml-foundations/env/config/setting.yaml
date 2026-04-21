@@ -25,3 +25,4 @@ model_path: models/latest/model.lgb
 
 # 実験ログ (W&B)
 wandb_project: california-housing
+wandb_dir: artifacts/wandb

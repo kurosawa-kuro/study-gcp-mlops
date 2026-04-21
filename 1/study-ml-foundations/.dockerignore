@@ -4,7 +4,7 @@ __pycache__/
 .env
 data/
 models/
-ml/wandb/
+artifacts/
 wandb/
 .pytest_cache/
 tests/

@@ -5,18 +5,26 @@ from pathlib import Path
 
 import wandb
 
-WANDB_DIR = Path(__file__).resolve().parents[2] / "wandb"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def init_wandb(api_key: str, project: str) -> None:
+def _resolve_wandb_dir(wandb_dir: str) -> Path:
+    path = Path(wandb_dir)
+    if path.is_absolute():
+        return path
+    return _REPO_ROOT / path
+
+
+def init_wandb(api_key: str, project: str, wandb_dir: str = "artifacts/wandb") -> None:
     """W&B を初期化する。API キーがなければ offline モード."""
-    WANDB_DIR.mkdir(parents=True, exist_ok=True)
-    os.environ["WANDB_DIR"] = str(WANDB_DIR)
+    run_dir = _resolve_wandb_dir(wandb_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["WANDB_DIR"] = str(run_dir)
     if api_key:
         os.environ["WANDB_API_KEY"] = api_key
-        wandb.init(project=project, dir=str(WANDB_DIR))
+        wandb.init(project=project, dir=str(run_dir))
     else:
-        wandb.init(project=project, mode="offline", dir=str(WANDB_DIR))
+        wandb.init(project=project, mode="offline", dir=str(run_dir))
 
 
 def log_metrics(metrics: dict) -> None:
