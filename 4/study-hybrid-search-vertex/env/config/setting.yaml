@@ -31,7 +31,7 @@ pipeline_template_gcs_path: gs://mlops-dev-a-pipeline-root/templates
 github_repo: kurosawa-kuro/study-gcp-mlops-hybrid-search-cloud-v2.0
 oncall_email: kurosawa-kuro@gmail.com
 
-# Dataform — definitions/workflow_settings.yaml は本ファイルから自動生成される
+# Dataform — pipeline/data_job/dataform/workflow_settings.yaml は本ファイルから自動生成される
 # (Makefile の `make sync-dataform-config` を実行)。Dataform の YAML スキーマは
 # 固定キー (defaultProject / defaultLocation 等) なので、こちらに対応する値を
 # 並べる方針。drift は tests/test_dataform_workflow_settings.py が検知する。

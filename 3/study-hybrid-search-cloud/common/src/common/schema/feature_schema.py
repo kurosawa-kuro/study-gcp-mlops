@@ -2,7 +2,7 @@
 
 Parity-locked files for this 10-column set:
 
-1. ``definitions/features/property_features_daily.sqlx``  (training SQL)
+1. ``pipeline/data_job/dataform/features/property_features_daily.sqlx``  (training SQL)
 2. ``common/src/common/feature_engineering.py::build_ranker_features``  (serving)
 3. THIS file — ``FEATURE_COLS_RANKER`` / ``LABEL_GAIN``
 4. ``infra/terraform/modules/data/main.tf``  (``ranking_log.features`` RECORD)

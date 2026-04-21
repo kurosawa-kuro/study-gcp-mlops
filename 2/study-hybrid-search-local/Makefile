@@ -49,26 +49,26 @@ api-refresh: ## Rebuild and recreate only the api service
 # ----- DB migrations -----
 
 db-migrate-core: ## Migration 001: create properties
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/001_create_properties.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/001_create_properties.sql
 
 db-seed-properties: ## Migration 002: seed properties
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/002_seed_properties.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.seed_properties_from_dataset
 
 db-migrate-ops: ## Migration 003: create logs and stats
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/003_create_logs_and_stats.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/003_create_logs_and_stats.sql
 
 db-migrate-features: ## Migration 004: features + batch logs
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/004_features_and_batch_logs.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/004_features_and_batch_logs.sql
 
 db-migrate-embeddings: ## Migration 005: me5 embeddings
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/005_me5.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/005_me5.sql
 
 db-migrate-learning: ## Migration 006+007: learning logs + ranking compare logs
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/006_learning_logs.sql
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/007_ranking_compare_logs.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/006_learning_logs.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/007_ranking_compare_logs.sql
 
 db-migrate-eval: ## Migration 008: eval + kpi tables
-	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations definitions/migrations/008_eval_and_kpi.sql
+	$(DOCKER_COMPOSE) exec -T api python -m pipeline.batch.maintenance.run_migrations infra/run/jobs/migrations/008_eval_and_kpi.sql
 
 # ----- Search / ops smoke (aligned with Phase 3/4 ops-* naming) -----
 

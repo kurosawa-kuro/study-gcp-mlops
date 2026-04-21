@@ -1,4 +1,4 @@
-"""The Dataform repo root file `definitions/workflow_settings.yaml` is not
+"""The Dataform repo root file `pipeline/data_job/dataform/workflow_settings.yaml` is not
 committed — it is regenerated from `env/config/setting.yaml` by
 `scripts/sync_dataform_config.py` (Makefile: `make sync-dataform-config`)
 before any Dataform compile. CI runs the generator in both ci.yml and

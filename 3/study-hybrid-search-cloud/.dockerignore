@@ -10,7 +10,7 @@
 .github/
 docs/
 infra/
-definitions/
+pipeline/data_job/dataform/
 **/tests/
 **/data/
 **/models/

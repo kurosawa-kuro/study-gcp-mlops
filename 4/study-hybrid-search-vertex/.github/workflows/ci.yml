@@ -44,5 +44,5 @@ jobs:
       - name: Generate Dataform settings from env/config/setting.yaml
         run: uv run python -m scripts.ci.sync_dataform
       - name: Verify Dataform settings present
-        run: test -f definitions/workflow_settings.yaml
+        run: test -f pipeline/data_job/dataform/workflow_settings.yaml
       # Dataform CLI compile currently needs a service account. Gate on WIF in deploy-dataform.yml.

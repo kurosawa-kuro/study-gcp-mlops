@@ -63,14 +63,14 @@ crash.log
 crash.*.log
 
 # ----- Dataform -----
-definitions/node_modules/
-definitions/.df-credentials.json
-definitions/.tmp/
-# definitions/workflow_settings.yaml は env/config/setting.yaml から
+pipeline/data_job/dataform/node_modules/
+pipeline/data_job/dataform/.df-credentials.json
+pipeline/data_job/dataform/.tmp/
+# pipeline/data_job/dataform/workflow_settings.yaml は env/config/setting.yaml から
 # `make sync-dataform-config` で生成する build artifact。git 管理対象外にして
 # 設定ファイルの commit 元を setting.yaml に一本化する。
-definitions/workflow_settings.yaml
-definitions/dist/
+pipeline/data_job/dataform/workflow_settings.yaml
+pipeline/data_job/dataform/dist/
 
 # ----- Editors / OS -----
 .vscode/

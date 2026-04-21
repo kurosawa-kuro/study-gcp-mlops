@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - definitions/**
+      - pipeline/data_job/dataform/**
       - .github/workflows/deploy-dataform.yml
       - .github/actions/**
   workflow_dispatch:
@@ -36,14 +36,14 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      - name: Generate definitions/workflow_settings.yaml from env/config/setting.yaml
+      - name: Generate dataform workflow_settings from env/config/setting.yaml
         run: uv run python -m scripts.ci.sync_dataform
 
       - name: Install Dataform CLI
         run: npm i -g @dataform/cli@^3.0.0
 
       - name: Compile
-        working-directory: definitions
+        working-directory: pipeline/data_job/dataform
         run: dataform compile
 
       # Dataform git-connected repositories pull from GitHub on schedule — if the

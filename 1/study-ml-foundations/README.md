@@ -21,7 +21,7 @@ make serve
 | コマンド | 説明 |
 |---|---|
 | `make build` | Docker イメージビルド |
-| `make seed` | sklearn データを PostgreSQL に投入 |
+| `make seed` | sklearn データを `ml/data/datasets/california_housing.csv` に保存して PostgreSQL に投入 |
 | `make train` | LightGBM モデル学習 → `ml/registry/artifacts/{run_id}/` に保存 |
 | `make serve` | FastAPI 推論サーバー起動 (port 8000) |
 | `make test` | pytest 全テスト実行 (ローカル) |

@@ -74,7 +74,7 @@ typecheck: ## mypy strict
 
 check: lint fmt-check typecheck test ## Run all CI-equivalent checks
 
-sync-dataform-config: ## Regenerate definitions/workflow_settings.yaml from env/config/setting.yaml
+sync-dataform-config: ## Regenerate pipeline/data_job/dataform/workflow_settings.yaml
 	uv run python -m scripts.dev.sync_dataform
 
 check-layers: ## AST-based layer boundary check (Ports / pure logic must not import concrete adapters or SDKs)

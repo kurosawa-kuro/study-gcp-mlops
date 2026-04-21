@@ -21,6 +21,9 @@ and rewrites.
 
 from __future__ import annotations
 
+import csv
+from pathlib import Path
+
 from scripts._common import env, run
 
 PROPERTIES = [
@@ -31,6 +34,38 @@ PROPERTIES = [
     ("p004", "港区赤羽橋 1K", "東京都", "港区", 110000, "1K", 4, 15, 25.0, False),
     ("p005", "目黒区中目黒 2DK", "東京都", "目黒区", 140000, "2DK", 6, 10, 42.0, True),
 ]
+DATASET_DIR = Path("ml/data/datasets")
+DATASET_PATH = DATASET_DIR / "seed_minimal_properties.csv"
+
+
+def _store_and_load_properties() -> list[tuple[str, str, str, str, int, str, int, int, float, bool]]:
+    DATASET_DIR.mkdir(parents=True, exist_ok=True)
+
+    with DATASET_PATH.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["property_id", "title", "city", "ward", "rent", "layout", "walk_min", "age_years", "area_m2", "pet_ok"])
+        for p in PROPERTIES:
+            writer.writerow(p)
+
+    loaded: list[tuple[str, str, str, str, int, str, int, int, float, bool]] = []
+    with DATASET_PATH.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            loaded.append(
+                (
+                    r["property_id"],
+                    r["title"],
+                    r["city"],
+                    r["ward"],
+                    int(r["rent"]),
+                    r["layout"],
+                    int(r["walk_min"]),
+                    int(r["age_years"]),
+                    float(r["area_m2"]),
+                    r["pet_ok"].strip().lower() in {"1", "true", "t", "yes", "y"},
+                )
+            )
+    return loaded
 
 
 def _vec_literal(idx: int, dim: int = 768) -> str:
@@ -56,6 +91,8 @@ def _bq(query: str) -> None:
 
 def main() -> int:
     project_id = env("PROJECT_ID")
+    properties = _store_and_load_properties()
+    print(f"==> dataset staged at {DATASET_PATH} ({len(properties)} rows)")
 
     # 1. properties_cleaned (would normally be a Dataform view)
     rows_props = ",\n  ".join(
@@ -71,7 +108,7 @@ def main() -> int:
             area=p[8],
             pet="TRUE" if p[9] else "FALSE",
         )
-        for p in PROPERTIES
+        for p in properties
     )
     _bq(
         f"""
@@ -89,7 +126,7 @@ def main() -> int:
     rows_feat = ",\n  ".join(
         f"(CURRENT_DATE('Asia/Tokyo'), {p[0]!r}, {p[4]}, {p[6]}, {p[7]}, "
         f"{p[8]}, 0.05, 0.10, 0.02, 0.5)"
-        for p in PROPERTIES
+        for p in properties
     )
     _bq(
         f"""
@@ -107,7 +144,7 @@ def main() -> int:
     rows_emb = ",\n  ".join(
         f"({p[0]!r}, {_vec_literal(i)}, 'seed-{p[0]}', "
         f"'intfloat/multilingual-e5-base', CURRENT_TIMESTAMP())"
-        for i, p in enumerate(PROPERTIES)
+        for i, p in enumerate(properties)
     )
     _bq(
         f"""
@@ -132,7 +169,7 @@ def main() -> int:
     )
 
     print()
-    print(f"==> seed-minimal complete. {len(PROPERTIES)} properties materialised.")
+    print(f"==> seed-minimal complete. {len(properties)} properties materialised.")
     return 0
 
 

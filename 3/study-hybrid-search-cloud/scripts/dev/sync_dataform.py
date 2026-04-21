@@ -1,4 +1,4 @@
-"""Generate definitions/workflow_settings.yaml from env/config/setting.yaml.
+"""Generate pipeline/data_job/dataform/workflow_settings.yaml from setting.yaml.
 
 Dataform's workflow_settings.yaml has a fixed schema (defaultProject /
 defaultLocation / defaultDataset / defaultAssertionDataset / dataformCoreVersion)
@@ -15,7 +15,13 @@ from pathlib import Path
 
 from scripts._common import DEFAULTS
 
-OUTPUT = Path(__file__).resolve().parent.parent.parent / "definitions" / "workflow_settings.yaml"
+OUTPUT = (
+    Path(__file__).resolve().parent.parent.parent
+    / "pipeline"
+    / "data_job"
+    / "dataform"
+    / "workflow_settings.yaml"
+)
 
 REQUIRED_KEYS = (
     "PROJECT_ID",

@@ -24,7 +24,7 @@ What this does NOT touch (preserved for the next `make deploy-all`):
 
 - The tfstate bucket (`<PROJECT_ID>-tfstate`).
 - API enablements (cost nothing when no resource exists).
-- Local artifacts (`infra/tfplan`, `definitions/workflow_settings.yaml`,
+- Local artifacts (`infra/tfplan`, `pipeline/data_job/dataform/workflow_settings.yaml`,
   `.venv`) — `make clean` covers these.
 """
 

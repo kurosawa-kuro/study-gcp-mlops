@@ -6,7 +6,7 @@
    `make destroy-all` left them soft-deleted (GCP keeps WIF resources for
    30 days after delete; recreating with the same ID otherwise hits HTTP
    409 "already exists")
-4. `sync_dataform` — regenerate definitions/workflow_settings.yaml
+4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
 6. `terraform apply tfplan -auto-approve` — apply infra
 7. `deploy/api_local` — Cloud Build + gcloud run deploy search-api
