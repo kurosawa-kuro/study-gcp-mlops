@@ -108,7 +108,7 @@ scripts/
 - LambdaRank + NDCG で実装済（`ml/training/trainer.py` の `objective: lambdarank`）
 - RRF は **Phase 3 で新規登場**（本 Phase では `me5_score` を LightGBM 特徴量に入れる方式）
 - `scripts/` は 2026-04-21 に lifecycle 別再分類（`checks/` / `ops/` / `setup/`）を実施
-- ML コアバッチは `ml/{embed,train,sync}/` に分離（Phase 3 との parity）、非 ML バッチは `jobs/src/jobs/{features,evaluation,maintenance}/` に残存
+- ML コアバッチは `ml/{embed,train,sync}/` に分離（Phase 3 との parity）、非 ML バッチは `jobs/src/{features,evaluation,maintenance}/` に残存
 - `make` コマンド名は Phase 3/4 と整合済（`ops-livez` / `ops-search` / `ops-feedback` / `ops-ranking` / `ops-label-seed` / `ops-sync` / `ops-embed` / `ops-train-*` / `ops-retrain`）
 
 ---

@@ -1,4 +1,6 @@
-# ML Pipeline — カリフォルニア住宅価格予測
+# study-ml-foundations
+
+ML Pipeline — カリフォルニア住宅価格予測
 
 LightGBM によるカリフォルニア住宅価格予測パイプライン。
 MLOps 教育用途として、Docker Compose で学習から推論 API まで完結する構成。

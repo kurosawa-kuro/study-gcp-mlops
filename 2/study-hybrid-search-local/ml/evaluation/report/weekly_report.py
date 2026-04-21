@@ -1,3 +1,3 @@
-from jobs.evaluation.export_weekly_evaluation_report import main
+from evaluation.export_weekly_evaluation_report import main
 
 __all__ = ["main"]

@@ -1,4 +1,4 @@
-# study-llm-reranking-mlops
+# study-hybrid-search-local
 
 不動産検索ランキング基盤の学習用リポジトリです。
 
