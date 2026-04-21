@@ -23,10 +23,10 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 - **Docker 前提** — seed / train / serve は全て `docker compose` 経由で実行。DB も同じ network 上の `postgres` サービスを使用
 - **パッケージ間の責務分離**: pipelines(データ+オーケストレーション) / training(学習) / training/evaluation(評価+W&B) / app(推論) / common(共通)
 - **Repository pattern** — `PostgresRepository` (SQLAlchemy + psycopg)、`DATA_SOURCE` env var で切り替え
-- **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`jobs/src/training/evaluation/metrics.py`)
+- **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`ml/evaluation/metrics.py`)
 - **W&B はオプション** — API キーなしで offline モード動作。精度評価・モデル保存に影響なし
 - **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`models/latest` シンボリックリンクで最新を参照
-- **構造化ロギング** — `src/share/logging.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
+- **構造化ロギング** — `common/logging.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
 - **API DI 化** — FastAPI lifespan で `app.state.booster` にモデルをロード。グローバル状態なし
 - **エラーハンドリング** — pipeline/main.py でデータ取得・学習・W&B の各ステップを try-except で保護
 - **Makefile → scripts/ に委譲** — `scripts/core.sh` に共通設定を集約
@@ -34,19 +34,29 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 ## Source Layout
 
 ```
-app/
-├── Dockerfile
-├── src/app/          推論API
-└── tests/            API テスト
-common/
-└── src/common/       共通設定・スキーマ・ロギング
-jobs/
-├── containers/trainer/Dockerfile
-├── src/training/     学習・評価
-└── tests/            学習系テスト
-pipelines/
-├── src/pipelines/housing_prices/  データパイプライン
-└── tests/                        パイプラインテスト
+app/                  推論 API (FastAPI + Jinja2)
+├── __init__.py
+├── main.py           lifespan + /health, /predict, /metrics, /data
+├── config.py
+├── static/
+└── templates/
+ml/                   ML コア
+├── __init__.py
+├── pipeline/         データ取得 + 前処理 + 特徴量生成 + オーケストレーション
+├── trainer/          LightGBM 学習
+└── evaluation/       RMSE/R² 評価 + W&B 実験ログ
+common/               共通定義
+├── __init__.py
+├── config.py         BaseAppSettings (YAML loader)
+├── logging.py        get_logger
+├── schema.py         FEATURE_COLS / ENGINEERED_COLS / MODEL_COLS / TARGET_COL
+└── run_id.py         generate_run_id
+tests/
+├── conftest.py       共通フィクスチャ (sample_df / postgres_url / sample_db)
+├── api/              FastAPI TestClient テスト
+└── ml/               trainer / evaluation / pipeline / preprocess テスト
+Dockerfile.api        api イメージ
+Dockerfile.trainer    seed / trainer イメージ
 ```
 
 ## Commands
@@ -84,9 +94,9 @@ scripts/
 | サービス | Image / Dockerfile | ポート | 用途 |
 |---|---|---|---|
 | postgres | postgres:16 | 5432 | データ永続化 (volume: `postgres_data`) |
-| seed | `jobs/containers/trainer/Dockerfile` | — | PostgreSQL データ投入 (run して終了) |
-| trainer | `jobs/containers/trainer/Dockerfile` | — | 学習 (seed 完了後に実行) |
-| api | `app/Dockerfile` | 8000 | FastAPI 推論 + Web UI |
+| seed | `Dockerfile.trainer` | — | PostgreSQL データ投入 (run して終了) |
+| trainer | `Dockerfile.trainer` | — | 学習 (seed 完了後に実行) |
+| api | `Dockerfile.api` | 8000 | FastAPI 推論 + Web UI |
 
 ## Configuration
 
@@ -97,7 +107,7 @@ scripts/
 | `env/config/setting.yaml` | 非クレデンシャル（DB ホスト・ポート・DB 名・モデルパス等） | track |
 | `env/secret/credential.yaml` | クレデンシャル（postgres_password, wandb_api_key） | **gitignore** (`env/secret/` ごと) |
 
-`share/config.py::BaseAppSettings` が pydantic-settings の YamlConfigSettingsSource を 2 本積んで両方をロード。優先度: **環境変数 > credential.yaml > setting.yaml > コード既定値**。
+`common/config.py::BaseAppSettings` が pydantic-settings の YamlConfigSettingsSource を 2 本積んで両方をロード。優先度: **環境変数 > credential.yaml > setting.yaml > コード既定値**。
 
 **docker-compose 連携**: postgres コンテナ（公式イメージ）は env var で `POSTGRES_PASSWORD` を要求するため、`scripts/core.sh::load_credentials` が起動前に credential.yaml を読み取り `POSTGRES_PASSWORD` / `WANDB_API_KEY` を shell にエクスポートし、compose の `${POSTGRES_PASSWORD}` 補間で注入する。Python 側のコンテナは `./env/secret` を read-only volume でマウントし、BaseAppSettings が直接 YAML を読む。
 
@@ -129,17 +139,16 @@ lightgbm, pandas, numpy, scikit-learn (データ取得のみ), wandb, pydantic-s
 
 ## Testing
 
-pytest + `pyproject.toml` で設定。`pythonpath = ["app/src", "common/src", "jobs/src", "pipelines/src"]`。
+pytest + `pyproject.toml` で設定。`pythonpath = ["."]`, `testpaths = ["tests"]`。
 
 ```
 tests/
 ├── conftest.py              共通フィクスチャ (sample_df, postgres_url, sample_db)
-app/tests/api/
-└── test_api.py              /health, /predict エンドポイント
-jobs/tests/
-├── test_evaluation.py       RMSE, R², save_metrics, W&B offline
-└── test_trainer.py          LightGBM 学習 + run ID + symlink
-pipelines/tests/
-├── test_pipeline.py         Settings, PostgresRepository (testcontainers)
-└── test_preprocess.py       前処理
+├── api/
+│   └── test_api.py          /health, /predict エンドポイント
+└── ml/
+    ├── test_evaluation.py   RMSE, R², save_metrics, W&B offline
+    ├── test_trainer.py      LightGBM 学習 + run ID + symlink
+    ├── test_pipeline.py     Settings, PostgresRepository (testcontainers)
+    └── test_preprocess.py   前処理
 ```

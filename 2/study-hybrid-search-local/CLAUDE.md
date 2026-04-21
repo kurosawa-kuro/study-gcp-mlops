@@ -86,7 +86,6 @@ pipelines/            adapters / application / repositories / services
 scripts/
 ├── checks/layers.py        AST で layer 依存ルール検査（Makefile check-layers）
 ├── setup/compose.sh        credential.yaml → env export → docker compose 起動
-├── setup/rename_structure.py  ディレクトリ構成リネーム補助
 └── ops/*.py                各 make ops-* target の実装
 ```
 

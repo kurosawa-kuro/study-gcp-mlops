@@ -14,7 +14,7 @@ data/*.db
 models/
 
 # W&B
-src/ml/wandb/
+ml/wandb/
 
 # IDE
 .vscode/

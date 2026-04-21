@@ -45,11 +45,11 @@ PostgreSQL (docker-compose: postgres サービス)
 
 | パッケージ | 責務 |
 |---|---|
-| `src/ml/pipeline/` | データパイプライン + オーケストレーション (エントリーポイント) |
-| `src/ml/trainer/` | LightGBM 学習アルゴリズム |
-| `src/ml/evaluation/` | 精度評価 (RMSE, R²) + W&B 実験ログ |
-| `src/api/` | FastAPI 推論 API + Jinja2 フロントエンド |
-| `src/share/` | 共通定義 (特徴量カラム, 設定ベースクラス, ロギング, Run ID 生成) |
+| `ml/pipeline/` | データパイプライン + オーケストレーション (エントリーポイント) |
+| `ml/trainer/` | LightGBM 学習アルゴリズム |
+| `ml/evaluation/` | 精度評価 (RMSE, R²) + W&B 実験ログ |
+| `app/` | FastAPI 推論 API + Jinja2 フロントエンド |
+| `common/` | 共通定義 (特徴量カラム, 設定ベースクラス, ロギング, Run ID 生成) |
 
 ### 技術スタック
 
