@@ -5,7 +5,7 @@ description = "bq-first MLOps pipeline (California Housing × LightGBM)"
 requires-python = ">=3.12"
 
 [tool.uv.workspace]
-members = ["common", "app", "jobs"]
+members = ["common", "app", "ml/embed", "ml/train", "ml/sync"]
 
 [tool.uv.sources]
 common = { workspace = true }
@@ -40,6 +40,20 @@ ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
-testpaths = ["common/tests", "app/tests", "jobs/tests", "tests"]
-pythonpath = [".", "common/src", "app/src", "jobs/src"]
+testpaths = [
+    "common/tests",
+    "app/tests",
+    "ml/embed/tests",
+    "ml/train/tests",
+    "ml/sync/tests",
+    "tests",
+]
+pythonpath = [
+    ".",
+    "common/src",
+    "app/src",
+    "ml/embed/src",
+    "ml/train/src",
+    "ml/sync/src",
+]
 addopts = "-ra --strict-markers"

@@ -5,10 +5,10 @@ keep the deploy pipeline coherent with the repo layout:
 
 * every workflow specifies a ``name``, path-triggered pushes, and an ``id-token: write``
   permission (required for WIF OIDC),
-* the new ``deploy-embedding-job.yml`` uses ``JOB: embedding-job`` and a service
-  account from ``sa-job-train`` (per the roadmap §9.1 5-SA decision default),
-* legacy workflows keep their broader ``jobs/**`` / ``app/**`` path filters so
-  Phase 7 did not silently narrow the existing deploy coverage.
+* ``deploy-embedding-job.yml`` uses ``JOB: embedding-job``, ``ml/embed/**`` path
+  filter, and ``sa-job-embed`` service account (5-SA separation per CLAUDE.md),
+* ``deploy-training-job.yml`` / ``deploy-api.yml`` each keep their workspace
+  path filter (``ml/train/**`` / ``app/**``) + broad ``common/**`` filter.
 """
 
 from __future__ import annotations
@@ -51,9 +51,9 @@ def test_deploy_workflows_request_oidc_token(filename: str) -> None:
 def test_embedding_workflow_points_at_embedding_job() -> None:
     text = (WORKFLOWS_DIR / "deploy-embedding-job.yml").read_text()
     assert "JOB: embedding-job" in text
-    assert "embed_cli.py" in text, (
-        "deploy-embedding-job.yml path filter must include embed_cli.py so the "
-        "workflow fires when the embedding entrypoint changes"
+    assert "- ml/embed/**" in text, (
+        "deploy-embedding-job.yml path filter must include ml/embed/** so the "
+        "workflow fires when the embedding entrypoint / runner / adapters change"
     )
     assert "common/src/common/embeddings/**" in text, (
         "path filter must include common/src/common/embeddings/** — the encoder "
@@ -65,11 +65,10 @@ def test_embedding_workflow_points_at_embedding_job() -> None:
     )
 
 
-def test_legacy_training_workflow_keeps_broad_filter() -> None:
-    """Phase 7 must NOT narrow the legacy deploy-training-job path filter."""
+def test_training_workflow_filter() -> None:
     text = (WORKFLOWS_DIR / "deploy-training-job.yml").read_text()
-    # Broad filter — triggers on any jobs/ or common/ change.
-    assert "- jobs/**" in text
+    # ml-based layout — triggers on any ml/train/ or common/ change.
+    assert "- ml/train/**" in text
     assert "- common/**" in text
 
 

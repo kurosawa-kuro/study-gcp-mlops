@@ -1,7 +1,7 @@
 """Training-job Ports.
 
-Re-exports Protocols consumed by ``training.entrypoints.rank_cli`` +
-``training.services.*``. Concrete adapters live under ``training.adapters``.
+Re-exports Protocols consumed by ``train.cli`` + ``train.trainer``. Concrete
+adapters live under ``train.adapters``.
 """
 
 from .artifact_uploader import ArtifactUploader

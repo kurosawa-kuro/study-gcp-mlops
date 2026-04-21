@@ -9,8 +9,7 @@ Mirrors the two-stage split of :mod:`.trainer`:
   ``feature_importance.csv`` under ``output_dir``.
 
 Metrics reported: NDCG@10 (primary), MAP, Recall@20.
-Origin: trainer shape copied from jobs/src/training/services/trainer.py;
-hyperparameters adapted from study-llm-reranking-mlops/src/trainers/lgbm_trainer.py.
+Origin: hyperparameters adapted from study-llm-reranking-mlops/src/trainers/lgbm_trainer.py.
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ import pandas as pd
 
 from common import FEATURE_COLS_RANKER, RANKER_GROUP_COL, RANKER_LABEL_COL, get_logger
 
-from .ranking_metrics import evaluate
+from .metrics import evaluate
 
 logger = get_logger(__name__)
 

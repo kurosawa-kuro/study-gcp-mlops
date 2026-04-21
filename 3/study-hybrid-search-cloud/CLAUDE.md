@@ -90,10 +90,10 @@
 | `make tf-validate` | オフライン terraform validate |
 | `make tf-bootstrap` | Phase 0 (API 有効化 + tfstate バケット作成、冪等) |
 | `make tf-plan` | Terraform plan。`GITHUB_REPO` / `ONCALL_EMAIL` は `env/config/setting.yaml` から既定値、env で都度上書き可。1 行で叩く / backslash 改行禁止。infra/tfplan に保存 |
-| `make deploy-api-local` / `make deploy-training-job-local` | CI を経由せず Cloud Build (`cloudbuild.{api,training}.yaml`) → `gcloud run deploy/jobs update` で local から rollout |
+| `make deploy-api-local` / `make deploy-training-job-local` | CI を経由せず Cloud Build (`cloudbuild.{api,train}.yaml`) → `gcloud run deploy/jobs update` で local から rollout |
 | `make ops-*` | 本番 GCP 操作 (`docs/04_運用.md §2`)。`ops-livez` (Cloud Run /livez 疎通) / `ops-search` / `ops-ranking` / `ops-feedback` / `ops-label-seed` / `ops-search-volume` / `ops-runs-recent` / `ops-skew-latest` 等 |
 
-CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-level ディレクトリと 1:1。`common/**` は api / job の両方に依存するため `deploy-api.yml` / `deploy-training-job.yml` / `deploy-embedding-job.yml` の 3 つに含める (後者は `common/src/common/embeddings/**` に絞った狭い filter)。
+CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `definitions/**` / `infra/**`) は top-level ディレクトリと 1:1。`common/**` は api / embed / train の 3 者に依存するため `deploy-api.yml` / `deploy-training-job.yml` / `deploy-embedding-job.yml` の 3 つに含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードなので `deploy-api.yml` / `deploy-embedding-job.yml` 双方が path filter に持つ。
 
 ---
 
@@ -110,10 +110,12 @@ CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-l
 本リポジトリで新規作成したもの:
 
 - **機能**: Dataform 定義 (`property_features_daily`) / `BigQueryCandidateRetriever` (BQ VECTOR_SEARCH) / `E5Encoder` (sentence-transformers ラッパ) / `/search` `/feedback` `/jobs/check-retrain` `/events/retrain` エンドポイント / Pub/Sub → BQ Subscription (`ranking-log` / `search-feedback`) / NDCG ベース mean-drift SQL / 4 SA 最小権限分離 / uv ワークスペース化 / Workload Identity Federation
-- **Port / Adapter 分離** (3 workspace すべて layer-based subpackage):
-  - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `embeddings/` (e5_encoder) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
+- **Port / Adapter 分離** (5 workspace すべて layer-based subpackage):
+  - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `embeddings/` (e5_encoder — app 側 query encode と embed-job 側 passage encode で共有) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
   - `app/src/app/`: `entrypoints/` (api) / `services/` (ranking, retrain_policy) / `ports/` (candidate_retriever, publisher, retrain_queries, training_job_runner) / `adapters/` (candidate_retriever, publisher, retrain, training_job) / `middleware/` (request_logging) / `schemas/` (search) + top-level `config.py`
-  - `jobs/src/training/`: `entrypoints/` (rank_cli, embed_cli) / `services/` (rank_trainer, ranking_metrics, embedding_runner) / `adapters/` (embedding_writer) + top-level `config.py`
+  - `ml/embed/src/embed/`: Cloud Run Job `embedding-job`。`cli.py` (entrypoint) / `runner.py` (pure orchestration) / `config.py` (EmbedSettings) / `adapters/` (embedding_writer — BQ factories)
+  - `ml/train/src/train/`: Cloud Run Job `training-job`。`cli.py` / `trainer.py` / `metrics.py` / `config.py` (TrainSettings) / `ports/` (ranker_repository, artifact_uploader, experiment_tracker) / `adapters/` (bigquery_ranker_repository, artifact_store, experiment_tracker, repository)
+  - `ml/sync/src/sync/`: CLI `meili-sync`。`meili_sync.py` 1 ファイル (BigQuery → Meilisearch インデックス upsert、Cloud Run Job には未デプロイ)
 - **自動検知** (`tests/` は責務別 3 サブフォルダに分割):
   - `tests/arch/test_import_boundaries.py` — AST 境界 (canonical な `RULES` は `scripts/checks/layers.py`、`make check-layers` でも CLI 単独実行可)
   - `tests/parity/test_feature_parity_ranking.py` + `tests/parity/test_feature_parity_sql_ranker.py` — 5 ファイル parity invariant
@@ -165,7 +167,7 @@ CI path filters (`app/**` / `jobs/**` / `definitions/**` / `infra/**`) は top-l
 
 ### layer サブパッケージの拡張方針
 
-3 workspace とも layer-based subpackage (`entrypoints` / `services` / `ports` / `adapters` + 周辺) に整備済み。新しいコードを追加するときの基準:
+5 workspace (`common` / `app` / `ml/embed` / `ml/train` / `ml/sync`) とも layer-based subpackage (`entrypoints`/`cli.py` / `services`/`runner.py`/`trainer.py` / `ports` / `adapters` + 周辺) に整備済み。新しいコードを追加するときの基準:
 
 - **Port**（新しい Protocol） → `ports/<name>.py` を追加し `ports/__init__.py` で re-export
 - **Service**（新しい純粋ロジック） → `services/<name>.py`。Port だけを import、adapter は import しない
@@ -178,13 +180,14 @@ Port 定義は consumer と同居のまま動かさない (`app.candidate_retrie
 
 ### `common/` 肥大化抑制
 
-`common/` には **「app と jobs の両方が使うもの」だけ** 置く。以下は common に入れない:
+`common/` には **「app と ml/embed / ml/train のいずれか複数が使うもの」だけ** 置く。以下は common に入れない:
 
 - app だけが使う (例: FastAPI middleware、API schema) → `app/src/app/` に残す
-- jobs だけが使う (例: LightGBM 直結) → `jobs/src/training/` に残す
+- ml/train だけが使う (例: LightGBM 直結) → `ml/train/src/train/` に残す
+- ml/embed だけが使う (例: embedding writer) → `ml/embed/src/embed/` に残す
 - 片側だけで使用中のファイルを `common/` に移すときは「なぜ共有が必要か」をコミットに書く
 
-判断に迷ったら「**jobs の Dockerfile でこのモジュールが読まれても意味があるか**」を問う。無ければ common から外す。`tests/arch/test_import_boundaries.py` で port/pure-logic files の境界は自動検知されるが、common 配置の妥当性は人間判断 — レビュー時にここを見る。
+判断に迷ったら「**app / embed / train のうち 2 つ以上の Dockerfile でこのモジュールが読まれるか**」を問う。片方だけなら common から外す。`tests/arch/test_import_boundaries.py` で port/pure-logic files の境界は自動検知されるが、common 配置の妥当性は人間判断 — レビュー時にここを見る。現状 `common/embeddings/e5_encoder.py` は app (query encode) と ml/embed (passage encode) の両方で load するため正しく共有。
 
 ---
 

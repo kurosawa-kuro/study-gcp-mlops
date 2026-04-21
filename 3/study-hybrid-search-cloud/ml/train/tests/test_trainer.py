@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from training.services.rank_trainer import (
+from train.trainer import (
     _group_sizes,
     build_rank_params,
     train,

@@ -1,4 +1,4 @@
-"""End-to-end wiring tests for training.entrypoints.rank_cli.run."""
+"""End-to-end wiring tests for train.cli.run."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from typing import Any
 
 import pandas as pd
 import pytest
-from training.entrypoints import rank_cli
-from training.entrypoints.rank_cli import _split_by_request_id, run
+from train import cli as rank_cli
+from train.cli import _split_by_request_id, run
 
 
 class _InMemoryRepo:

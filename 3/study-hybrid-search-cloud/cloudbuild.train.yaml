@@ -1,11 +1,13 @@
 # Cloud Build config for the training-job image.
-# Used by `make deploy-training-job-local`. See cloudbuild.api.yaml for rationale.
+# Used by `make deploy-training-job-local` and
+# `.github/workflows/deploy-training-job.yml`. See cloudbuild.api.yaml for
+# rationale.
 
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
-      - --file=jobs/Dockerfile
+      - --file=ml/train/container/Dockerfile
       - --tag=${_URI}
       - .
 images:

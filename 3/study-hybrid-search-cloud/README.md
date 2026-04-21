@@ -61,12 +61,12 @@ raw.properties (upstream ETL)
 | 変更 | 反応するワークフロー | 動作 |
 |---|---|---|
 | `infra/**` | `terraform.yml` | plan (PR コメント) → push で apply |
-| `app/**`, `common/**` | `deploy-api.yml` | Docker build → Artifact Registry → `gcloud run deploy search-api` |
-| `jobs/**`, `common/**` | `deploy-training-job.yml` | Docker build → push → `gcloud run jobs update training-job` |
-| `common/src/common/embeddings/**`, embed/adapter 関連 | `deploy-embedding-job.yml` | Docker build → push → `gcloud run jobs update embedding-job` |
+| `app/**`, `common/**` | `deploy-api.yml` | Docker build (`app/Dockerfile`) → Artifact Registry → `gcloud run deploy search-api` |
+| `ml/train/**`, `common/**` | `deploy-training-job.yml` | Docker build (`ml/train/container/Dockerfile` + `cloudbuild.train.yaml`) → push → `gcloud run jobs update training-job` |
+| `ml/embed/**`, `common/src/common/embeddings/**` 等 | `deploy-embedding-job.yml` | Docker build (`ml/embed/container/Dockerfile` + `cloudbuild.embed.yaml`) → push → `gcloud run jobs update embedding-job` |
 | `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
 
-`common/**` は 3 ワークフロー (api / training-job / embedding-job) の対象に含める。認証はすべて WIF。
+`common/**` は 3 ワークフロー (api / training-job / embedding-job) の対象に含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードなので `deploy-api.yml` / `deploy-embedding-job.yml` の両方が path filter に含める。認証はすべて WIF。
 
 ## ドキュメント
 

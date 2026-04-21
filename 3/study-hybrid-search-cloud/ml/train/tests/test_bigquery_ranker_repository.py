@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pandas as pd
-from training.adapters.bigquery_ranker_repository import BigQueryRankerRepository
+from train.adapters.bigquery_ranker_repository import BigQueryRankerRepository
 
 
 def _make_repo(client: MagicMock) -> BigQueryRankerRepository:

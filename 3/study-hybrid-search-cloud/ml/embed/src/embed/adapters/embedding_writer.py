@@ -1,6 +1,6 @@
 """Factory for BigQuery-backed embedding store + property text repository.
 
-Thin wrappers that translate ``TrainSettings`` into the fully-qualified table
+Thin wrappers that translate ``EmbedSettings`` into the fully-qualified table
 names expected by the ``common.adapters`` classes. The embedding-job entrypoint
 injects these into the pure-logic orchestrator so unit tests can swap them out.
 """
@@ -12,11 +12,11 @@ from common.adapters.bigquery_embedding_store import (
     BigQueryPropertyTextRepository,
 )
 
-from ..config import TrainSettings
+from ..config import EmbedSettings
 
 
 def create_property_text_repository(
-    settings: TrainSettings,
+    settings: EmbedSettings,
 ) -> BigQueryPropertyTextRepository:
     cleaned_table = f"{settings.project_id}.{settings.bq_dataset_feature_mart}.properties_cleaned"
     return BigQueryPropertyTextRepository(
@@ -25,7 +25,7 @@ def create_property_text_repository(
     )
 
 
-def create_embedding_store(settings: TrainSettings) -> BigQueryEmbeddingStore:
+def create_embedding_store(settings: EmbedSettings) -> BigQueryEmbeddingStore:
     embeddings_table = (
         f"{settings.project_id}.{settings.bq_dataset_feature_mart}.property_embeddings"
     )

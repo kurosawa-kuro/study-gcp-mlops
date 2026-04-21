@@ -29,11 +29,11 @@ jobs:
 
       - name: Mypy
         if: matrix.check == 'mypy'
-        run: uv run mypy common/src app/src jobs/src
+        run: uv run mypy common/src app/src ml/embed/src ml/train/src ml/sync/src
 
       - name: Pytest
         if: matrix.check == 'pytest'
-        run: uv run pytest --cov=common --cov=app --cov=jobs --cov-report=term
+        run: uv run pytest --cov=common --cov=app --cov=embed --cov=train --cov=sync --cov-report=term
 
   dataform-check:
     runs-on: ubuntu-latest

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - jobs/**
+      - ml/train/**
       - common/**
       - pyproject.toml
       - uv.lock
@@ -43,7 +43,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.JOB }}
-          dockerfile: jobs/Dockerfile
+          dockerfile: ml/train/container/Dockerfile
 
       # Doppler-managed env (W&B key etc.) is optional. When DOPPLER_TOKEN_JOB
       # is provided, secrets from the Doppler project are appended to the

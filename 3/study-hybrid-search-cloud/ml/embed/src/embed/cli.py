@@ -31,9 +31,9 @@ from common.ports.embedding_store import (
 
 from common import get_logger
 
-from ..adapters import create_embedding_store, create_property_text_repository
-from ..config import TrainSettings
-from ..services.embedding_runner import run_embedding_batch
+from .adapters import create_embedding_store, create_property_text_repository
+from .config import EmbedSettings
+from .runner import run_embedding_batch
 
 logger = get_logger(__name__)
 
@@ -96,7 +96,7 @@ def run(
     model_dir: str | None = None,
 ) -> int:
     configure_logging()
-    settings = TrainSettings()
+    settings = EmbedSettings()
     started = datetime.now(timezone.utc)
 
     repo: object

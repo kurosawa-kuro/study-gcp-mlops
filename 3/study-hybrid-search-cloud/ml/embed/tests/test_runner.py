@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from common.ports.embedding_store import EmbeddingRow, PropertyText
-from training.services.embedding_runner import run_embedding_batch
+from embed.runner import run_embedding_batch
 
 
 @dataclass

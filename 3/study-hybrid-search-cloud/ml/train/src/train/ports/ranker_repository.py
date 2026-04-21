@@ -1,7 +1,7 @@
 """Port for ranker training data + run metadata persistence.
 
-Concrete adapter: :class:`training.adapters.bigquery_ranker_repository.BigQueryRankerRepository`.
-Kept free of GCP SDK imports so unit tests + rank_cli orchestration depend on
+Concrete adapter: :class:`train.adapters.bigquery_ranker_repository.BigQueryRankerRepository`.
+Kept free of GCP SDK imports so unit tests + train.cli orchestration depend on
 the Protocol rather than the BigQuery client surface.
 """
 

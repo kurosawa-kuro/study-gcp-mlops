@@ -66,20 +66,22 @@ RULES: dict[str, frozenset[str]] = {
     "app/src/app/schemas/search.py": COMMON_ADAPTERS | frozenset({"lightgbm", "numpy"}),
     "app/src/app/middleware/request_logging.py": COMMON_ADAPTERS,
     "app/src/app/config.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
-    # jobs/ — Port + pure-logic layer
-    "jobs/src/training/entrypoints/rank_cli.py": frozenset(),
-    "jobs/src/training/entrypoints/embed_cli.py": frozenset(),
-    "jobs/src/training/ports/ranker_repository.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "training.adapters"}),
-    "jobs/src/training/ports/artifact_uploader.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "training.adapters"}),
-    "jobs/src/training/ports/experiment_tracker.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "training.adapters", "wandb"}),
-    "jobs/src/training/services/rank_trainer.py": COMMON_ADAPTERS,
-    "jobs/src/training/services/ranking_metrics.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
-    "jobs/src/training/services/embedding_runner.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "sentence_transformers", "training.adapters"}),
-    "jobs/src/training/config.py": frozenset({"lightgbm"}),
+    # ml/train/ — Cloud Run Job training-job (Port + pure-logic layer)
+    "ml/train/src/train/cli.py": frozenset(),
+    "ml/train/src/train/ports/ranker_repository.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train.adapters", "embed"}),
+    "ml/train/src/train/ports/artifact_uploader.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train.adapters", "embed"}),
+    "ml/train/src/train/ports/experiment_tracker.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train.adapters", "wandb", "embed"}),
+    "ml/train/src/train/trainer.py": COMMON_ADAPTERS | frozenset({"embed"}),
+    "ml/train/src/train/metrics.py": COMMON_ADAPTERS | frozenset({"lightgbm", "embed"}),
+    "ml/train/src/train/config.py": frozenset({"lightgbm", "embed"}),
+    # ml/embed/ — Cloud Run Job embedding-job
+    "ml/embed/src/embed/cli.py": frozenset(),
+    "ml/embed/src/embed/runner.py": COMMON_ADAPTERS
+    | frozenset({"lightgbm", "train", "train.adapters"}),
+    "ml/embed/src/embed/config.py": frozenset({"lightgbm", "train"}),
 }
 
 

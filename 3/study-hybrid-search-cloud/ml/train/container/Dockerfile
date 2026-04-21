@@ -1,4 +1,4 @@
-# Multi-stage uv build for Cloud Run Service (FastAPI + LightGBM).
+# Multi-stage build using uv — slim Cloud Run Jobs image for the training-job.
 # BuildKit cache mounts removed so the Dockerfile works under Cloud Build's
 # `gcr.io/cloud-builders/docker` (no buildx) as well as GitHub Actions runners.
 
@@ -11,6 +11,7 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /src
 
+# Copy workspace manifests first for better caching
 COPY pyproject.toml uv.lock* ./
 COPY common/pyproject.toml    common/pyproject.toml
 COPY app/pyproject.toml       app/pyproject.toml
@@ -18,15 +19,15 @@ COPY ml/embed/pyproject.toml  ml/embed/pyproject.toml
 COPY ml/train/pyproject.toml  ml/train/pyproject.toml
 COPY ml/sync/pyproject.toml   ml/sync/pyproject.toml
 
-RUN uv sync --frozen --no-dev --package app --no-install-project
+# Sync only the ml-train package and its transitive deps
+RUN uv sync --frozen --no-dev --package ml-train --no-install-project
 
-COPY common/ common/
-COPY app/    app/
-# --no-editable: workspace packages (`common`, `app`) are physically copied
-# into /opt/venv/lib/python3.12/site-packages instead of being registered as
-# editable installs that point at /src/. The runtime stage only copies
-# /opt/venv, so an editable install would produce ModuleNotFoundError.
-RUN uv sync --frozen --no-dev --package app --no-editable
+# Now copy source and build the workspace packages
+COPY common/    common/
+COPY ml/train/  ml/train/
+# --no-editable: see app/Dockerfile for rationale (runtime stage only copies
+# /opt/venv, so editable installs pointing at /src/ would 404 at import time).
+RUN uv sync --frozen --no-dev --package ml-train --no-editable
 
 
 FROM python:3.12-slim-bookworm AS runtime
@@ -39,15 +40,11 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=8080 \
-    LOG_AS_JSON=1 \
-    GCP_LOGGING_ENABLED=1
+    LOG_AS_JSON=1
 
 RUN useradd --system --uid 1001 --home-dir /home/app app \
-    && mkdir -p /home/app /tmp/model \
-    && chown -R app:app /home/app /tmp/model
+    && mkdir -p /home/app && chown -R app:app /home/app
 USER app
 WORKDIR /home/app
 
-EXPOSE 8080
-CMD ["sh", "-c", "uvicorn app.entrypoints.api:app --host 0.0.0.0 --port ${PORT}"]
+ENTRYPOINT ["rank-train"]

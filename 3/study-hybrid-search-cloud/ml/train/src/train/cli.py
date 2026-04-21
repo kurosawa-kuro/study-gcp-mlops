@@ -29,14 +29,14 @@ from common import (
     get_logger,
 )
 
-from ..adapters import (
+from .adapters import (
     GcsArtifactUploader,
     WandbExperimentTracker,
     create_rank_repository,
 )
-from ..config import TrainSettings
-from ..ports import ArtifactUploader, ExperimentTracker, RankerTrainingRepository
-from ..services.rank_trainer import build_rank_params, train, write_artifacts
+from .config import TrainSettings
+from .ports import ArtifactUploader, ExperimentTracker, RankerTrainingRepository
+from .trainer import build_rank_params, train, write_artifacts
 
 logger = get_logger(__name__)
 

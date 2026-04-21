@@ -1,7 +1,7 @@
 [project]
 name = "common"
 version = "0.1.0"
-description = "Shared utilities for app/ and jobs/ (config, logging, GCS, BQ repository)"
+description = "Shared utilities for app/ and ml/ (config, logging, GCS, BQ repository, E5 encoder)"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.8",
@@ -14,8 +14,9 @@ dependencies = [
     "pyarrow>=16",
     "db-dtypes>=1.3",
     # E5Encoder lives in common/embeddings/e5_encoder.py and is used by both
-    # app (lifespan when ENABLE_SEARCH=true) and jobs (embedding-job). Pulled
-    # in here so neither package has to re-declare it.
+    # app (lifespan when ENABLE_SEARCH=true, query encoding) and ml/embed
+    # (embedding-job, passage encoding). Pulled in here so neither package
+    # has to re-declare it.
     "sentence-transformers>=3.0",
 ]
 

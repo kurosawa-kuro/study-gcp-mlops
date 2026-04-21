@@ -1,6 +1,6 @@
 """Port for model artifact upload.
 
-Concrete adapter: :class:`training.adapters.artifact_store.GcsArtifactUploader`.
+Concrete adapter: :class:`train.adapters.artifact_store.GcsArtifactUploader`.
 Restored in Phase 6 (Task 1) for the ranker training pipeline.
 """
 

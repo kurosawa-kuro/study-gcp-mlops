@@ -2,7 +2,7 @@
 
 Context-manager semantics so callers can ``with tracker: ...``; the enter
 returns the tracker itself for chaining ``log_metrics``. Concrete adapter:
-:class:`training.adapters.experiment_tracker.WandbExperimentTracker`.
+:class:`train.adapters.experiment_tracker.WandbExperimentTracker`.
 """
 
 from __future__ import annotations
