@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import sys
 
 
@@ -67,8 +68,57 @@ def _check_unexpected_suffix_dockerfiles() -> list[CheckResult]:
     return results
 
 
+def _check_phase_layout_and_naming() -> list[CheckResult]:
+    phase_roots = [
+        ROOT / "2/study-hybrid-search-local",
+        ROOT / "3/study-hybrid-search-cloud",
+        ROOT / "4/study-hybrid-search-vertex",
+    ]
+    snake_case = re.compile(r"^[a-z0-9_]+$")
+    results: list[CheckResult] = []
+
+    for phase_root in phase_roots:
+        rel_phase = phase_root.relative_to(ROOT).as_posix()
+        dockerfiles = [p for p in phase_root.glob("**/Dockerfile") if p.is_file()]
+        if not dockerfiles:
+            results.append(
+                CheckResult(ok=False, message=f"dockerfile-present: {rel_phase} has none")
+            )
+            continue
+
+        for path in sorted(dockerfiles):
+            rel = path.relative_to(ROOT).as_posix()
+            parts = path.relative_to(phase_root).parts
+
+            # Must be infra/run/jobs/<name>/Dockerfile or infra/run/services/<name>/Dockerfile.
+            ok_shape = (
+                len(parts) == 5
+                and parts[0] == "infra"
+                and parts[1] == "run"
+                and parts[2] in {"jobs", "services"}
+                and parts[4] == "Dockerfile"
+            )
+            if not ok_shape:
+                results.append(CheckResult(ok=False, message=f"layout: {rel}"))
+                continue
+
+            name = parts[3]
+            results.append(
+                CheckResult(
+                    ok=bool(snake_case.fullmatch(name)),
+                    message=f"name: {rel}",
+                )
+            )
+
+    return results
+
+
 def main() -> int:
-    checks = [*_check_required(), *_check_unexpected_suffix_dockerfiles()]
+    checks = [
+        *_check_required(),
+        *_check_unexpected_suffix_dockerfiles(),
+        *_check_phase_layout_and_naming(),
+    ]
     failed = [c for c in checks if not c.ok]
 
     print("Docker layout check")

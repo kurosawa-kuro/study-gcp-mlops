@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-INFRA_PATH = REPO_ROOT / "infra" / "modules" / "data" / "main.tf"
+INFRA_PATH = REPO_ROOT / "infra" / "terraform" / "modules" / "data" / "main.tf"
 
 
 def _read() -> str:

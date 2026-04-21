@@ -21,7 +21,7 @@ from common.feature_engineering import build_ranker_features
 from common.schema.feature_schema import FEATURE_COLS_RANKER
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-INFRA_PATH = REPO_ROOT / "infra" / "modules" / "data" / "main.tf"
+INFRA_PATH = REPO_ROOT / "infra" / "terraform" / "modules" / "data" / "main.tf"
 SQLX_PATH = REPO_ROOT / "definitions" / "features" / "property_features_daily.sqlx"
 
 _RANKING_LOG_FEATURES_BLOCK_RE = re.compile(

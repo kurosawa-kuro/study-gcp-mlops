@@ -19,6 +19,8 @@
 
 - Dockerfile 名は原則 **`Dockerfile` 固定**
 - `Dockerfile.api` / `Dockerfile.trainer` のような接尾辞付き命名は **legacy 扱い**
+- `infra/run/jobs/<job_name>/Dockerfile`, `infra/run/services/<service_name>/Dockerfile` の
+  `<job_name>`, `<service_name>` は **snake_case（`[a-z0-9_]+`）** に統一する
 
 ## 4. Phase ごとの運用方針
 
@@ -50,6 +52,8 @@ python3 tools/check_docker_layout.py
 このチェックは以下を検証する:
 
 - Phase2/3/4 の required Dockerfile が規約パスに存在すること
+- Phase2/3/4 の Dockerfile が `infra/run/{jobs,services}/<name>/Dockerfile` 形式に一致すること
+- `<name>` が snake_case に一致すること
 - 定義外の `.Dockerfile` 接尾辞ファイルが紛れ込んでいないこと
 
 ## 8. 今後の移行ターゲット
