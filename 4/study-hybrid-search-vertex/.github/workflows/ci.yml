@@ -29,11 +29,11 @@ jobs:
 
       - name: Mypy
         if: matrix.check == 'mypy'
-        run: uv run mypy common/src app/src jobs/src
+        run: uv run mypy app ml pipeline
 
       - name: Pytest
         if: matrix.check == 'pytest'
-        run: uv run pytest --cov=common --cov=app --cov=jobs --cov-report=term
+        run: uv run pytest --cov=app --cov=ml --cov=pipeline --cov-report=term
 
   dataform-check:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-env
       - name: Generate Dataform settings from env/config/setting.yaml
-        run: uv run python -m scripts.config.sync_dataform
+        run: uv run python -m scripts.ci.sync_dataform
       - name: Verify Dataform settings present
         run: test -f definitions/workflow_settings.yaml
       # Dataform CLI compile currently needs a service account. Gate on WIF in deploy-dataform.yml.

@@ -36,18 +36,18 @@ jobs:
           terraform_version: 1.9.8
 
       - name: Terraform fmt check
-        run: terraform -chdir=infra fmt -check -recursive
+        run: terraform -chdir=infra/terraform/environments/dev fmt -check -recursive
 
       - name: Terraform init
-        run: terraform -chdir=infra init -input=false
+        run: terraform -chdir=infra/terraform/environments/dev init -input=false
 
       - name: Terraform validate
-        run: terraform -chdir=infra validate -no-color
+        run: terraform -chdir=infra/terraform/environments/dev validate -no-color
 
       - name: Terraform plan
         id: plan
         run: |
-          terraform -chdir=infra plan -no-color \
+          terraform -chdir=infra/terraform/environments/dev plan -no-color \
             -var="github_repo=${{ github.repository }}" \
             -var="oncall_email=${{ vars.ONCALL_EMAIL }}" \
             -out=tfplan
@@ -73,7 +73,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: infra/tfplan
+          path: infra/terraform/environments/dev/tfplan
           retention-days: 5
 
   apply:
@@ -95,10 +95,10 @@ jobs:
           terraform_version: 1.9.8
 
       - name: Terraform init
-        run: terraform -chdir=infra init -input=false
+        run: terraform -chdir=infra/terraform/environments/dev init -input=false
 
       - name: Terraform apply
         run: |
-          terraform -chdir=infra apply -auto-approve -input=false \
+          terraform -chdir=infra/terraform/environments/dev apply -auto-approve -input=false \
             -var="github_repo=${{ github.repository }}" \
             -var="oncall_email=${{ vars.ONCALL_EMAIL }}"

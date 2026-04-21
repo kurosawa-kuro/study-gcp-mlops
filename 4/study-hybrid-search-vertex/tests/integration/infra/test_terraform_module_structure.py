@@ -1,6 +1,6 @@
 """Terraform module-structure invariants.
 
-Each sub-module under ``infra/modules/`` must carry the 4-file convention:
+Each sub-module under ``infra/terraform/modules/`` must carry the 4-file convention:
 ``main.tf`` / ``variables.tf`` / ``outputs.tf`` / ``versions.tf``. Every
 variable must have a ``description`` attribute so module consumers see intent
 without reading implementation.
@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-MODULES_DIR = REPO_ROOT / "infra" / "modules"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+MODULES_DIR = REPO_ROOT / "infra" / "terraform" / "modules"
 
 REQUIRED_FILES = ("main.tf", "variables.tf", "outputs.tf", "versions.tf")
 
@@ -33,7 +33,7 @@ def _modules() -> list[Path]:
 def test_module_has_required_file(module: Path, filename: str) -> None:
     assert (module / filename).is_file(), (
         f"module {module.name} is missing {filename}. "
-        "Every module under infra/modules/ must carry main.tf / variables.tf / outputs.tf / versions.tf."
+        "Every module under infra/terraform/modules/ must carry main.tf / variables.tf / outputs.tf / versions.tf."
     )
 
 

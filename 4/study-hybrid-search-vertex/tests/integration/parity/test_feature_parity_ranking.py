@@ -2,9 +2,9 @@
 
 Locks the 10-column ranker schema across 3 files:
 
-1. ``common/src/common/schema/feature_schema.py`` (``FEATURE_COLS_RANKER``)
-2. ``common/src/common/feature_engineering.py`` (``build_ranker_features``)
-3. ``infra/modules/data/main.tf`` (``ranking_log.features`` RECORD)
+1. ``ml/data/feature_engineering/schema.py`` (``FEATURE_COLS_RANKER``)
+2. ``ml/data/feature_engineering/ranker_features.py`` (``build_ranker_features``)
+3. ``infra/terraform/modules/data/main.tf`` (``ranking_log.features`` RECORD)
 
 The Dataform SQLX side (``property_features_daily.sqlx``) supplies the
 *behavioral* subset only (ctr / fav_rate / inquiry_rate). The remaining 6
@@ -82,7 +82,7 @@ def test_infra_ranking_log_features_order_matches_schema() -> None:
     names = [name for name, _, _ in _extract_ranking_log_fields()]
     assert names == FEATURE_COLS_RANKER, (
         f"ranking_log.features order {names} ≠ FEATURE_COLS_RANKER {FEATURE_COLS_RANKER}. "
-        "Update infra/modules/data/main.tf to match feature_schema.py."
+        "Update infra/terraform/modules/data/main.tf to match feature_engineering/schema.py."
     )
 
 

@@ -9,9 +9,10 @@ on:
   push:
     branches: [main]
     paths:
-      - ml/serve/**
-      - common/src/common/schema/**
-      - common/src/common/storage/**
+      - ml/serving/**
+      - ml/data/feature_engineering/**
+      - ml/registry/**
+      - infra/run/services/reranker/**
       - pyproject.toml
       - uv.lock
       - .github/workflows/deploy-reranker-image.yml
@@ -48,4 +49,4 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.IMAGE }}
-          dockerfile: ml/serve/container/Dockerfile
+          dockerfile: infra/run/services/reranker/Dockerfile

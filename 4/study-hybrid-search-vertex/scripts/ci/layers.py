@@ -1,4 +1,4 @@
-"""AST-based layer boundary checker.
+"""AST-based layer boundary checker (MLOps skeleton edition).
 
 Walks every Port / pure-logic module listed in `RULES` and reports any
 forbidden import (concrete adapter, GCP SDK, W&B, LightGBM where
@@ -8,10 +8,9 @@ banned dependency back in.
 
 Two consumers share the canonical ruleset declared here:
 
-- `tests/test_import_boundaries.py` imports `RULES`, `UNIVERSAL_BANS`, and
-  `find_violations()` so pytest cases stay aligned with this script (no
-  duplication).
-- `make check-layers` runs `python -m scripts.check_layers` for ad-hoc
+- `tests/unit/arch/test_import_boundaries.py` imports `RULES`, `UNIVERSAL_BANS`,
+  and `find_violations()` so pytest cases stay aligned with this script.
+- `make check-layers` runs `python -m scripts.ci.layers` for ad-hoc
   inspection outside pytest. Exit code 0 = clean, 1 = violations found,
   with `<rel_path>:<line>` references for every offending import.
 
@@ -29,67 +28,38 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Every Port / pure-logic file is disallowed from importing these at all.
-UNIVERSAL_BANS: frozenset[str] = frozenset({"google.cloud", "wandb"})
+UNIVERSAL_BANS: frozenset[str] = frozenset({"wandb"})
 
-# Reused per-file ban-set: the common workspace's concrete adapters / GCS
-# storage layer must not leak into Ports or pure-logic modules of any
-# downstream workspace.
-COMMON_ADAPTERS: frozenset[str] = frozenset(
-    {
-        "common.adapters",  # covers common.adapters.*
-        "common.storage",  # covers common.storage.*
-    }
-)
+# Concrete GCP / runtime integrations that must not leak into pure-logic
+# modules (protocols, pure functions, schemas).
+ADAPTER_BANS: frozenset[str] = frozenset({"google.cloud"})
 
 RULES: dict[str, frozenset[str]] = {
-    # common/ — Port + pure-logic layer
-    "common/src/common/ports/embedding_store.py": frozenset({"lightgbm", "sentence_transformers"}),
-    "common/src/common/feature_engineering.py": frozenset({"lightgbm"}),
-    "common/src/common/schema/feature_schema.py": frozenset({"lightgbm", "pandas", "numpy"}),
-    "common/src/common/ranking/metrics.py": frozenset({"lightgbm", "pandas"}),
-    "common/src/common/ranking/label_gain.py": frozenset({"lightgbm", "pandas", "numpy"}),
-    "common/src/common/run_id.py": frozenset({"lightgbm", "pandas", "numpy"}),
-    "common/src/common/logging/structured_logging.py": frozenset({"lightgbm", "pandas", "numpy"}),
-    "common/src/common/config.py": frozenset({"lightgbm"}),
-    # app/ — Port + pure-logic layer
-    "app/src/app/ports/publisher.py": COMMON_ADAPTERS,
-    "app/src/app/ports/retrain_queries.py": COMMON_ADAPTERS,
-    "app/src/app/ports/cache_store.py": COMMON_ADAPTERS,
-    "app/src/app/ports/encoder_client.py": COMMON_ADAPTERS | frozenset({"google.cloud"}),
-    "app/src/app/ports/lexical_search.py": COMMON_ADAPTERS,
-    "app/src/app/ports/candidate_retriever.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
-    "app/src/app/ports/reranker_client.py": COMMON_ADAPTERS | frozenset({"google.cloud"}),
-    "app/src/app/services/retrain_policy.py": COMMON_ADAPTERS,
-    "app/src/app/services/ranking.py": COMMON_ADAPTERS | frozenset({"sentence_transformers"}),
-    "app/src/app/schemas/search.py": COMMON_ADAPTERS | frozenset({"lightgbm", "numpy"}),
-    "app/src/app/middleware/request_logging.py": COMMON_ADAPTERS,
-    "app/src/app/config.py": COMMON_ADAPTERS | frozenset({"lightgbm"}),
-    # ml/embed/ — embedding pipeline Port + pure-logic. Cross-workspace imports
-    # among ml sibling packages are banned so the boundaries embed ↔ train ↔
-    # serve stay clean.
-    "ml/embed/src/embed/cli.py": frozenset({"train", "serve", "sync", "app"}),
-    "ml/embed/src/embed/runner.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "train", "serve", "sync", "app"}),
-    "ml/embed/src/embed/e5_encoder.py": frozenset(
-        {"lightgbm", "pandas", "train", "serve", "sync", "app"}
-    ),
-    "ml/embed/src/embed/config.py": frozenset(
-        {"lightgbm", "sentence_transformers", "train", "serve", "sync", "app"}
-    ),
-    # ml/train/ — LambdaRank training Port + pure-logic.
-    "ml/train/src/train/cli.py": frozenset({"embed", "serve", "sync", "app"}),
-    "ml/train/src/train/ports/ranker_repository.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "train.adapters", "embed", "serve", "sync", "app"}),
-    "ml/train/src/train/ports/artifact_uploader.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "train.adapters", "embed", "serve", "sync", "app"}),
-    "ml/train/src/train/ports/experiment_tracker.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "train.adapters", "wandb", "embed", "serve", "sync", "app"}),
-    "ml/train/src/train/trainer.py": COMMON_ADAPTERS | frozenset({"embed", "serve", "sync", "app"}),
-    "ml/train/src/train/metrics.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "embed", "serve", "sync", "app"}),
-    "ml/train/src/train/config.py": frozenset({"lightgbm", "embed", "serve", "sync", "app"}),
-    # ml/serve/ — Vertex CPR reranker inference server (entrypoint).
-    "ml/serve/src/serve/reranker_server.py": frozenset({"embed", "train", "sync", "app"}),
+    # --- ml.common (pure utilities) ---
+    "ml/common/config/base.py": ADAPTER_BANS | frozenset({"lightgbm"}),
+    "ml/common/logging/structured_logging.py": ADAPTER_BANS
+    | frozenset({"lightgbm", "pandas", "numpy"}),
+    "ml/common/utils/run_id.py": ADAPTER_BANS | frozenset({"lightgbm", "pandas", "numpy"}),
+    # --- ml.data.feature_engineering / ml.evaluation (pure logic) ---
+    "ml/data/feature_engineering/schema.py": ADAPTER_BANS
+    | frozenset({"lightgbm", "pandas", "numpy"}),
+    "ml/data/feature_engineering/ranker_features.py": ADAPTER_BANS | frozenset({"lightgbm"}),
+    "ml/evaluation/metrics/ranking.py": ADAPTER_BANS | frozenset({"lightgbm", "pandas"}),
+    "ml/evaluation/metrics/label_gain.py": ADAPTER_BANS
+    | frozenset({"lightgbm", "pandas", "numpy"}),
+    # --- app/ — Port + pure-logic layer ---
+    "app/services/protocols/publisher.py": ADAPTER_BANS,
+    "app/services/protocols/retrain_queries.py": ADAPTER_BANS,
+    "app/services/protocols/cache_store.py": ADAPTER_BANS,
+    "app/services/protocols/lexical_search.py": ADAPTER_BANS,
+    "app/services/protocols/candidate_retriever.py": ADAPTER_BANS | frozenset({"lightgbm"}),
+    "app/services/protocols/encoder_client.py": ADAPTER_BANS,
+    "app/services/protocols/reranker_client.py": ADAPTER_BANS,
+    "app/services/retrain_policy.py": ADAPTER_BANS,
+    "app/services/ranking.py": ADAPTER_BANS | frozenset({"sentence_transformers"}),
+    "app/schemas/search.py": ADAPTER_BANS | frozenset({"lightgbm", "numpy"}),
+    "app/api/middleware/request_logging.py": ADAPTER_BANS,
+    "app/services/config.py": ADAPTER_BANS | frozenset({"lightgbm"}),
 }
 
 
@@ -110,12 +80,7 @@ class Violation:
 
 
 def _imports_with_lines(path: Path) -> list[tuple[int, str]]:
-    """Every imported module name + the source line where it appears.
-
-    Walks the AST exhaustively (via `ast.walk`), so imports inside
-    functions / class bodies / conditional branches are caught as well as
-    top-level ones — lazy imports cannot bypass the check.
-    """
+    """Every imported module name + the source line where it appears."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found: list[tuple[int, str]] = []
     for node in ast.walk(tree):

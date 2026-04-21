@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from scripts.setup.create_schedule import build_schedule_specs
-from scripts.setup.print_github_variables import build_gh_commands, build_variable_rows
-from scripts.setup.setup_encoder_endpoint import build_endpoint_spec
-from scripts.setup.setup_model_monitoring import build_monitoring_spec
-from scripts.setup.upload_encoder_assets import build_upload_spec
+from scripts.local.setup.create_schedule import build_schedule_specs
+from scripts.local.setup.print_github_variables import build_gh_commands, build_variable_rows
+from scripts.local.setup.setup_encoder_endpoint import build_endpoint_spec
+from scripts.local.setup.setup_model_monitoring import build_monitoring_spec
+from scripts.local.setup.upload_encoder_assets import build_upload_spec
 
 
 def test_build_schedule_specs_returns_embed_and_train(monkeypatch) -> None:

@@ -8,8 +8,12 @@ on:
   push:
     branches: [main]
     paths:
-      - ml/train/**
-      - common/src/common/**
+      - ml/training/**
+      - ml/common/**
+      - ml/data/**
+      - ml/registry/**
+      - ml/evaluation/**
+      - infra/run/jobs/training/**
       - pyproject.toml
       - uv.lock
       - .github/workflows/deploy-trainer-image.yml
@@ -46,4 +50,4 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           repo: ${{ env.REPO }}
           image: ${{ env.IMAGE }}
-          dockerfile: ml/train/container/Dockerfile
+          dockerfile: infra/run/jobs/training/Dockerfile

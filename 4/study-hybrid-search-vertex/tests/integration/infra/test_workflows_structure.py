@@ -6,8 +6,8 @@ keep the deploy pipeline coherent with the repo layout:
 * every deploy workflow specifies ``id-token: write`` (required for WIF OIDC),
 * the Vertex CPR image workflows point at the right Dockerfile / path filter
   so they fire when the server code they ship changes,
-* deploy-api keeps the broad ``app/**`` + ``common/**`` filter and injects the
-  Vertex Endpoint env vars consumed by ``app/src/app/entrypoints/api.py``.
+* deploy-api keeps the broad ``app/**`` + ``ml/**`` filter and injects the
+  Vertex Endpoint env vars consumed by ``app/main.py``.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
 REQUIRED_WORKFLOWS = (
@@ -74,27 +74,27 @@ def test_deploy_workflows_request_oidc_token(filename: str) -> None:
 
 def test_encoder_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-encoder-image.yml").read_text()
-    assert "ml/embed/container/Dockerfile" in text
-    assert "ml/embed/**" in text
+    assert "infra/run/services/encoder/Dockerfile" in text
+    assert "ml/serving/**" in text
 
 
 def test_reranker_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-reranker-image.yml").read_text()
-    assert "ml/serve/container/Dockerfile" in text
-    assert "ml/serve/**" in text
+    assert "infra/run/services/reranker/Dockerfile" in text
+    assert "ml/serving/**" in text
 
 
 def test_trainer_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-trainer-image.yml").read_text()
-    assert "ml/train/container/Dockerfile" in text
-    assert "ml/train/**" in text
+    assert "infra/run/jobs/training/Dockerfile" in text
+    assert "ml/training/**" in text
 
 
 def test_pipeline_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-pipeline.yml").read_text()
-    assert "ml/embed/pipeline/**" in text
-    assert "ml/train/pipeline/**" in text
-    assert "ml/pipeline_utils/**" in text
+    assert "pipeline/data_job/**" in text
+    assert "pipeline/training_job/**" in text
+    assert "pipeline/workflow/**" in text
     assert "setup_model_monitoring" in text
     assert "create_schedule" in text
 
@@ -102,7 +102,7 @@ def test_pipeline_workflow_paths() -> None:
 def test_api_workflow_keeps_broad_filter_and_injects_vertex_env() -> None:
     text = (WORKFLOWS_DIR / "deploy-api.yml").read_text()
     assert "- app/**" in text
-    assert "- common/**" in text
+    assert "- ml/**" in text
     assert "VERTEX_ENCODER_ENDPOINT_ID" in text
     assert "VERTEX_RERANKER_ENDPOINT_ID" in text
     assert "VERTEX_LOCATION" in text

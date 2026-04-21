@@ -5,17 +5,19 @@ name: Deploy Pipeline
 # + PipelineJobSchedule setup scripts idempotently.
 #
 # Everything below is read by the pipeline-trigger Cloud Function at fire time
-# (see infra/modules/vertex/main.tf env vars).
+# (see infra/terraform/modules/vertex/main.tf env vars).
 
 on:
   push:
     branches: [main]
     paths:
-      - ml/embed/pipeline/**
-      - ml/train/pipeline/**
-      - ml/pipeline_utils/**
-      - scripts/setup/create_schedule.py
-      - scripts/setup/setup_model_monitoring.py
+      - pipeline/data_job/**
+      - pipeline/training_job/**
+      - pipeline/evaluation_job/**
+      - pipeline/batch_serving_job/**
+      - pipeline/workflow/**
+      - scripts/local/setup/create_schedule.py
+      - scripts/local/setup/setup_model_monitoring.py
       - pyproject.toml
       - uv.lock
       - .github/workflows/deploy-pipeline.yml
@@ -49,13 +51,13 @@ jobs:
 
       - name: Compile embed_pipeline
         run: |
-          uv run python -m ml.pipeline_utils.compile --target embed \
-            --output dist/pipelines/property-search-embed.yaml
+          uv run python -m pipeline.workflow.compile --target embed \
+            --output-dir dist/pipelines
 
       - name: Compile train_pipeline
         run: |
-          uv run python -m ml.pipeline_utils.compile --target train \
-            --output dist/pipelines/property-search-train.yaml
+          uv run python -m pipeline.workflow.compile --target train \
+            --output-dir dist/pipelines
 
       - name: Upload compiled templates to GCS
         run: |
@@ -64,8 +66,8 @@ jobs:
 
       - name: Ensure Model Monitoring job
         run: |
-          uv run python -m scripts.setup.setup_model_monitoring
+          uv run python -m scripts.local.setup.setup_model_monitoring
 
       - name: Ensure PipelineJobSchedule (daily embed + weekly train)
         run: |
-          uv run python -m scripts.setup.create_schedule
+          uv run python -m scripts.local.setup.create_schedule

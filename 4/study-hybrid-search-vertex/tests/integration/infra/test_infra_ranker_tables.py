@@ -3,7 +3,7 @@
 These catch drift between the Terraform module and the documented contract in
 ``docs/02_移行ロードマップ.md §5``:
 
-* each new table exists in ``infra/modules/data/main.tf``,
+* each new table exists in ``infra/terraform/modules/data/main.tf``,
 * partitioning / clustering follow the roadmap (high-cardinality → cluster),
 * ``training_runs.metrics`` carries both the legacy regression columns and
   the newly added ranker metrics (``ndcg_at_10`` / ``map`` / ``recall_at_20``),
@@ -20,8 +20,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-INFRA_PATH = REPO_ROOT / "infra" / "modules" / "data" / "main.tf"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+INFRA_PATH = REPO_ROOT / "infra" / "terraform" / "modules" / "data" / "main.tf"
 
 
 def _read() -> str:

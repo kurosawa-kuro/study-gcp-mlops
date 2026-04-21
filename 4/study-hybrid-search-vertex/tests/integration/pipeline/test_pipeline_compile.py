@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ml.pipeline_utils.compile import (
+from pipeline.workflow.compile import (
     _coerce_parameter_value,
     _merge_parameter_values,
     _spec,
