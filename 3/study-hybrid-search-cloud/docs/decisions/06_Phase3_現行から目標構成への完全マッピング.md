@@ -1,5 +1,7 @@
 # Phase 3 現行から目標構成への完全マッピング
 
+> 注記: 旧パスは移行元トレースのため記録している。現行の参照先は `app/`, `ml/data`, `ml/training`, `infra/run/jobs`, `tests/unit/ml`。
+
 作成日: 2026-04-21
 
 目的:

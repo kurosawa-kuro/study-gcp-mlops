@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> 注記: 旧構成の履歴説明が一部残るが、実装の正は現行ツリー (`app/`, `ml/{common,data,training,serving}`, `pipeline/`, `scripts/local/`)。
+
 本リポジトリで作業する Claude Code 向けのガイド。**非負制約 / 参照リポジトリ / feature-parity invariant** を最優先で載せる (`docs/README.md` §1 の CLAUDE.md 仕様に従う)。
 
 ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md)。本 CLAUDE.md はそれらに従属する。
