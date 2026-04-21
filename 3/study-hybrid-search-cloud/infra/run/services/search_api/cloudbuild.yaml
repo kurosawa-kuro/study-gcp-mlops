@@ -3,7 +3,8 @@
 # requiring docker buildx on the invoker's host. The CI path remains
 # .github/workflows/deploy-api.yml + .github/actions/build-and-push.
 # Invoke with:
-#   gcloud builds submit --config=cloudbuild.api.yaml --substitutions=_URI=<ar-uri> .
+#   gcloud builds submit --config=infra/run/services/search_api/cloudbuild.yaml \
+#     --substitutions=_URI=<ar-uri> .
 
 steps:
   - name: gcr.io/cloud-builders/docker

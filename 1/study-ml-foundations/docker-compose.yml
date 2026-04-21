@@ -21,7 +21,7 @@ services:
   seed:
     build:
       context: .
-      dockerfile: Dockerfile.trainer
+      dockerfile: infra/run/jobs/trainer/Dockerfile
     volumes:
       - ./env/secret:/app/env/secret:ro
     environment:
@@ -34,7 +34,7 @@ services:
   trainer:
     build:
       context: .
-      dockerfile: Dockerfile.trainer
+      dockerfile: infra/run/jobs/trainer/Dockerfile
     volumes:
       - ./ml/registry/artifacts:/app/ml/registry/artifacts
       - ./artifacts:/app/artifacts
@@ -51,7 +51,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: infra/run/services/api/Dockerfile
     ports:
       - "8000:8000"
     volumes:

@@ -9,8 +9,10 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends libgomp1 \
 	&& rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml .
+RUN pip install --no-cache-dir uv \
+	&& uv export --no-dev --format requirements-txt --no-hashes -o /tmp/requirements.txt \
+	&& pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY app ./app
 COPY common/src ./common/src

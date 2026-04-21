@@ -61,7 +61,7 @@ def main() -> int:
             "builds",
             "submit",
             f"--project={project_id}",
-            "--config=cloudbuild.api.yaml",
+            "--config=infra/run/services/search_api/cloudbuild.yaml",
             f"--substitutions=_URI={uri}",
             ".",
         ]

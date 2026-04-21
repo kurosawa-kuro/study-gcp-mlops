@@ -11,3 +11,9 @@ __pycache__/
 # Secrets: README のみコミット (credential.yaml は非追跡)
 env/secret/*
 !env/secret/README.md
+
+# W&B local runs
+ml/wandb/
+
+# Logs
+tea_debug.log

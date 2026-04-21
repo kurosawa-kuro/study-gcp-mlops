@@ -19,3 +19,6 @@ ml/wandb/
 # IDE
 .vscode/
 .idea/
+
+# Logs
+tea_debug.log

@@ -32,8 +32,8 @@
 
 | 項目 | 値 | 理由 |
 |---|---|---|
-| Python | 3.11+ (開発は 3.12 想定) | requirements.txt 互換 |
-| パッケージ管理 | pip + `requirements.txt` / `requirements-dev.txt` | Phase 3/4 の uv とは異なる（Local 学習用途を優先） |
+| Python | 3.11+ (開発は 3.12 想定) | uv / pyproject.toml 構成 |
+| パッケージ管理 | uv + `pyproject.toml` | Phase 3/4 と同じ依存管理方式に統一 |
 | DB | PostgreSQL 16 (docker-compose `postgres` サービス) | Phase 3 では BigQuery に置換、本 Phase は保持 |
 | Lexical 検索 | Meilisearch v1.7 (docker-compose `meilisearch` サービス) | BM25、Elasticsearch 非採用方針 |
 | Embedding | `intfloat/multilingual-e5-base` (ME5) | `query:` / `passage:` prefix 必須 |
@@ -48,7 +48,7 @@
 
 | target | 用途 |
 |---|---|
-| `make sync` | pip install -r requirements-dev.txt（Local 環境構築） |
+| `make sync` | uv sync --dev（Local 環境構築） |
 | `make up` / `make build` / `make down` / `make logs` | docker compose ライフサイクル（`scripts/setup/compose.sh` 経由） |
 | `make ops-livez` | API ヘルスチェック（`scripts/ops/health_check.py`）|
 | `make test` | pytest |

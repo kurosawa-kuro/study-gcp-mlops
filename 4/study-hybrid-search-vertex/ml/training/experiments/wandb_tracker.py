@@ -14,6 +14,18 @@ from typing import Any
 from ml.common.logging import get_logger
 
 logger = get_logger(__name__)
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_wandb_workdir(workdir: Path) -> Path:
+    resolved = workdir if workdir.is_absolute() else _REPO_ROOT / workdir
+    while (
+        resolved.name == "wandb"
+        and resolved.parent.name == "wandb"
+        and resolved.parent.parent.name == "wandb"
+    ):
+        resolved = resolved.parent
+    return resolved
 
 
 class WandbExperimentTracker:
@@ -46,6 +58,7 @@ class WandbExperimentTracker:
         if self._run_id:
             kwargs["name"] = self._run_id
         if self._workdir:
+            self._workdir = _resolve_wandb_workdir(self._workdir)
             self._workdir.mkdir(parents=True, exist_ok=True)
             kwargs["dir"] = str(self._workdir)
         self._run = wandb.init(**kwargs)

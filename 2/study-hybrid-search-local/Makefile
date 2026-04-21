@@ -33,8 +33,8 @@ down: ## Stop docker compose services
 logs: ## Tail api/postgres/meili/pgadmin/redis logs
 	$(DOCKER_COMPOSE) logs -f api postgres meilisearch pgadmin redis
 
-sync: ## Install runtime + dev dependencies (pip)
-	$(PYTHON) -m pip install -r requirements-dev.txt
+sync: ## uv sync (root package + dev group)
+	uv sync --dev
 
 test: ## Run pytest (local)
 	PYTHONPATH=app:common/src:jobs/src:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v

@@ -14,8 +14,18 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 def _resolve_wandb_dir(wandb_dir: str) -> Path:
     path = Path(wandb_dir)
     if path.is_absolute():
-        return path
-    return _REPO_ROOT / path
+        resolved = path
+    else:
+        resolved = _REPO_ROOT / path
+
+    # Normalize accidental nesting like ".../wandb/wandb/wandb" back to canonical depth.
+    while (
+        resolved.name == "wandb"
+        and resolved.parent.name == "wandb"
+        and resolved.parent.parent.name == "wandb"
+    ):
+        resolved = resolved.parent
+    return resolved
 
 
 def init_wandb(api_key: str, project: str, wandb_dir: str = "ml/wandb/wandb") -> None:

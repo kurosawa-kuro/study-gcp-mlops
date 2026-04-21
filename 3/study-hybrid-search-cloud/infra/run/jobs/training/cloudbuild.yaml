@@ -1,6 +1,7 @@
 # Cloud Build config for the training-job image.
 # Used by `make deploy-training-job-local` and
-# `.github/workflows/deploy-training-job.yml`. See cloudbuild.api.yaml for
+# `.github/workflows/deploy-training-job.yml`. See
+# infra/run/services/search_api/cloudbuild.yaml for
 # rationale.
 
 steps:

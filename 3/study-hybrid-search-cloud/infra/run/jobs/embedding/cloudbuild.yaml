@@ -1,6 +1,7 @@
 # Cloud Build config for the embedding-job image.
 # Used by `make deploy-embedding-job-local` (Phase 9 以降) and
-# `.github/workflows/deploy-embedding-job.yml`. See cloudbuild.api.yaml for
+# `.github/workflows/deploy-embedding-job.yml`. See
+# infra/run/services/search_api/cloudbuild.yaml for
 # rationale.
 
 steps:

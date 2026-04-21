@@ -73,11 +73,12 @@
 
 2. ランタイム依存と開発依存をまとめて導入
 
-	pip install -r requirements-dev.txt
+	uv sync --dev
 
 補足:
 
-- `requirements-dev.txt` は `requirements.txt` を取り込み、開発用の `pytest` を追加で導入します
+- 依存定義は `pyproject.toml` に統一されています
+- `uv sync --dev` でランタイム + 開発依存を一括同期します
 - Docker 実行だけでなくローカルで `pytest` を回す場合もこの手順を前提にします
 
 ## 起動

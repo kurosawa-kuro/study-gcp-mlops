@@ -71,9 +71,9 @@ PostgreSQL (docker-compose: postgres サービス)
 | サービス | Image / Dockerfile | ポート | 用途 |
 |---|---|---|---|
 | postgres | postgres:16 | 5432 | データ永続化 (volume: `postgres_data`) |
-| seed | `Dockerfile.trainer` | — | PostgreSQL データ投入 (run して終了) |
-| trainer | `Dockerfile.trainer` | — | 学習 (seed 完了後に実行) |
-| api | `Dockerfile.api` | 8000 | FastAPI 推論 + Web UI |
+| seed | `infra/run/jobs/trainer/Dockerfile` | — | PostgreSQL データ投入 (run して終了) |
+| trainer | `infra/run/jobs/trainer/Dockerfile` | — | 学習 (seed 完了後に実行) |
+| api | `infra/run/services/api/Dockerfile` | 8000 | FastAPI 推論 + Web UI |
 
 ## モデルバージョニング
 
