@@ -5,19 +5,17 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import lightgbm as lgb
-import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
 
+from app.api.predict import router as predict_router
 from app.config import Settings
-from common import FEATURE_COLS, MODEL_COLS, TARGET_COL, get_logger
-from pipeline import Settings as PipelineSettings
-from pipeline import get_repository
-from pipeline.feature_engineering import engineer_features_input
-from pipeline.preprocess import preprocess_input
+from ml.common.logging.logger import get_logger
+from ml.common.utils.schema import FEATURE_COLS, TARGET_COL
+from ml.data.loaders.config import Settings as DataSettings
+from ml.data.loaders.repository import get_repository
 
 logger = get_logger(__name__)
 
@@ -45,17 +43,7 @@ app = FastAPI(lifespan=lifespan)
 _api_root = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(_api_root / "static")), name="static")
 templates = Jinja2Templates(directory=str(_api_root / "templates"))
-
-
-class PredictRequest(BaseModel):
-    MedInc: float
-    HouseAge: float
-    AveRooms: float
-    AveBedrms: float
-    Population: float
-    AveOccup: float
-    Latitude: float
-    Longitude: float
+app.include_router(predict_router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -65,16 +53,6 @@ def index(request: Request):
         "index.html",
         {"feature_cols": FEATURE_COLS, "defaults": _DEFAULTS, "active": "predict"},
     )
-
-
-@app.post("/predict")
-def predict(request: Request, req: PredictRequest):
-    booster = request.app.state.booster
-    values = preprocess_input(req.model_dump())
-    values = engineer_features_input(values)
-    features = np.array([[values[col] for col in MODEL_COLS]])
-    prediction = booster.predict(features)[0]
-    return {"predicted_price": round(float(prediction), 4)}
 
 
 @app.get("/metrics", response_class=HTMLResponse)
@@ -95,7 +73,7 @@ def data_page(request: Request, split: str = "train", limit: int = 50):
     split = split if split in ("train", "test") else "train"
     limit = max(1, min(limit, 500))
     try:
-        repo = get_repository(PipelineSettings())
+        repo = get_repository(DataSettings())
         df = repo.fetch_train() if split == "train" else repo.fetch_test()
         total = len(df)
         sample = df.head(limit)
@@ -117,8 +95,3 @@ def data_page(request: Request, split: str = "train", limit: int = 50):
             "target": TARGET_COL,
         },
     )
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}

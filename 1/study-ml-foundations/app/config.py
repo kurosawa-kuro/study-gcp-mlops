@@ -1,6 +1,6 @@
 """API 設定管理."""
 
-from common.config import BaseAppSettings
+from ml.common.config.base import BaseAppSettings
 
 
 class Settings(BaseAppSettings):

@@ -29,7 +29,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["python", "-m", "pipeline.seed"]
+    command: ["python", "-m", "pipeline.data_job.main"]
 
   trainer:
     build:
@@ -45,6 +45,7 @@ services:
         condition: service_healthy
       seed:
         condition: service_completed_successfully
+    command: ["python", "-m", "pipeline.training_job.main"]
 
   api:
     build:

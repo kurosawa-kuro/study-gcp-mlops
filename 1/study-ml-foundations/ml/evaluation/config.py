@@ -1,6 +1,6 @@
 """評価・実験ログ設定管理."""
 
-from common.config import BaseAppSettings
+from ml.common.config.base import BaseAppSettings
 
 
 class EvalSettings(BaseAppSettings):
