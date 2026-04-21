@@ -1,1 +1,0 @@
-"""KFP reranker training pipeline."""

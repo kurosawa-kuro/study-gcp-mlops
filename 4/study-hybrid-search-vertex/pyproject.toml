@@ -3,16 +3,47 @@ name = "study-hybrid-search-vertex"
 version = "0.1.0"
 description = "Hybrid search (Meilisearch BM25 + BigQuery VECTOR_SEARCH + RRF) with LightGBM LambdaRank rerank, migrating to Vertex AI"
 requires-python = ">=3.12"
+dependencies = [
+    # --- shared (ml.common / ml.registry / ml.data) ---
+    "pydantic>=2.8",
+    "pydantic-settings[yaml]>=2.4",
+    "google-cloud-bigquery>=3.25",
+    "google-cloud-bigquery-storage>=2.27",
+    "google-cloud-storage>=2.18",
+    "google-cloud-logging>=3.11",
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "db-dtypes>=1.3",
+    # --- app (FastAPI / Vertex AI / Pub/Sub) ---
+    "cachetools>=5.3",
+    "fastapi>=0.115",
+    "google-auth>=2.36",
+    "google-cloud-aiplatform>=1.71",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "numpy>=2.0",
+    "google-cloud-pubsub>=2.23",
+    "google-cloud-run>=0.10",
+    # --- ml serving / training ---
+    "lightgbm>=4.5",
+    "sentence-transformers>=3.0",
+    "wandb>=0.17",
+    # --- pipelines (KFP / Vertex Pipelines) ---
+    "google-cloud-pipeline-components>=2.17",
+    "kfp>=2.9,<3",
+]
 
-[tool.uv.workspace]
-members = ["common", "app", "ml/embed", "ml/train", "ml/serve", "ml/sync"]
+[project.scripts]
+rank-train = "ml.training.trainer:main"
+embed = "pipeline.data_job.main:main"
+meili-sync = "scripts.local.ops.sync_meili:main"
 
-[tool.uv.sources]
-common = { workspace = true }
-embed = { workspace = true }
-train = { workspace = true }
-serve = { workspace = true }
-sync = { workspace = true }
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "ml", "pipeline"]
 
 [dependency-groups]
 dev = [
@@ -21,7 +52,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "types-requests",
-    # httpx powers fastapi.testclient (starlette); needed by app/tests.
+    # httpx powers fastapi.testclient (starlette); needed by tests/unit/app.
     "httpx>=0.27",
 ]
 
@@ -44,22 +75,6 @@ ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
-testpaths = [
-    "common/tests",
-    "app/tests",
-    "ml/embed/tests",
-    "ml/train/tests",
-    "ml/serve/tests",
-    "ml/sync/tests",
-    "tests",
-]
-pythonpath = [
-    ".",
-    "common/src",
-    "app/src",
-    "ml/embed/src",
-    "ml/train/src",
-    "ml/serve/src",
-    "ml/sync/src",
-]
+testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-ra --strict-markers"
