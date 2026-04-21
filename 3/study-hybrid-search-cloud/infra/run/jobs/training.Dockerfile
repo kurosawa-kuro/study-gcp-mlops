@@ -15,18 +15,17 @@ WORKDIR /src
 COPY pyproject.toml uv.lock* ./
 COPY common/pyproject.toml    common/pyproject.toml
 COPY app/pyproject.toml       app/pyproject.toml
-COPY ml/data/pyproject.toml      ml/data/pyproject.toml
-COPY ml/training/pyproject.toml  ml/training/pyproject.toml
 
-# Sync only the ml-training package and its transitive deps
-RUN uv sync --frozen --no-dev --package ml-training --no-install-project
+# Sync workspace deps first for better layer cache hit rate
+RUN uv sync --frozen --no-dev --all-packages --no-install-project
 
 # Now copy source and build the workspace packages
 COPY common/    common/
 COPY ml/training/  ml/training/
 # --no-editable: see app/Dockerfile for rationale (runtime stage only copies
 # /opt/venv, so editable installs pointing at /src/ would 404 at import time).
-RUN uv sync --frozen --no-dev --package ml-training --no-editable
+RUN uv sync --frozen --no-dev --all-packages --no-editable \
+    && uv pip install --python /opt/venv/bin/python "wandb>=0.17"
 
 
 FROM python:3.12-slim-bookworm AS runtime

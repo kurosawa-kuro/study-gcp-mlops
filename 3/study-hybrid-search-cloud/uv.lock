@@ -11,8 +11,6 @@ resolution-markers = [
 members = [
     "app",
     "common",
-    "ml-data",
-    "ml-training",
     "study-gcp-mlops-bq-first",
 ]
 
@@ -1195,52 +1193,6 @@ wheels = [
 ]
 
 [[package]]
-name = "ml-data"
-version = "0.1.0"
-source = { editable = "ml/data" }
-dependencies = [
-    { name = "common" },
-    { name = "google-auth" },
-    { name = "google-cloud-bigquery" },
-    { name = "httpx" },
-    { name = "numpy" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "common", editable = "common" },
-    { name = "google-auth", specifier = ">=2.36" },
-    { name = "google-cloud-bigquery", specifier = ">=3.25" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "numpy", specifier = ">=2.0" },
-]
-
-[[package]]
-name = "ml-training"
-version = "0.1.0"
-source = { editable = "ml/training" }
-dependencies = [
-    { name = "common" },
-    { name = "google-auth" },
-    { name = "httpx" },
-    { name = "lightgbm" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "wandb" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "common", editable = "common" },
-    { name = "google-auth", specifier = ">=2.36" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "lightgbm", specifier = ">=4.5" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "pandas", specifier = ">=2.2" },
-    { name = "wandb", specifier = ">=0.17" },
-]
-
-[[package]]
 name = "mpmath"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2329,6 +2281,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "types-requests" },
+    { name = "wandb" },
 ]
 
 [package.metadata]
@@ -2341,6 +2294,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "types-requests" },
+    { name = "wandb", specifier = ">=0.17" },
 ]
 
 [[package]]

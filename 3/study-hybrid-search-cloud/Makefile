@@ -116,10 +116,10 @@ seed-test-clean: ## Drop the test seed data (benign if absent). Same cleanup run
 # ----- App / Job smoke commands (local) -----
 
 train-smoke: ## Dry-run the ranker training job locally (synthetic data, no GCS/BQ)
-	uv run --package ml-training rank-train --dry-run
+	uv run python -m ml.training.job --dry-run
 
 train-smoke-persist: ## Dry-run ranker trainer and copy the model to $(MODEL_PATH_OVERRIDE)
-	uv run --package ml-training rank-train --dry-run --save-to "$(MODEL_PATH_OVERRIDE)"
+	uv run python -m ml.training.job --dry-run --save-to "$(MODEL_PATH_OVERRIDE)"
 
 api-dev: ## Start uvicorn locally (rerank-free /search requires ENABLE_SEARCH=1 + BQ creds)
 	ENABLE_SEARCH=false uv run --package app uvicorn app.main:app --reload
