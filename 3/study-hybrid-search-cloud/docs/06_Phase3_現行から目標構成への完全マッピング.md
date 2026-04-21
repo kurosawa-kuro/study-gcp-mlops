@@ -105,7 +105,7 @@ root/
 | `infra/` | `infra/terraform/` | Terraform 領域へ再配置 |
 | `scripts/` | `scripts/dev` / `scripts/ci` / `scripts/local` | 再分類 |
 | `tests/` | `tests/unit` / `tests/integration` / `tests/e2e` | 再分類 |
-| `definitions/` | `infra/terraform/` または `docs/architecture/` | 用途に応じて吸収 |
+| `definitions/` | `infra/terraform/` または `docs/` | 用途に応じて吸収 |
 | `monitoring/` | `ml/evaluation/validators` または `docs/operations` | 吸収 |
 | `docs/` | `docs/architecture` / `docs/operations` / `docs/decisions` | 再分類 |
 | `env/` | 維持または `infra/run/` 補助設定へ寄せる | 後続判断 |
@@ -183,7 +183,7 @@ root/
 |---|---|
 | `infra/modules/*` | `infra/terraform/modules/*` |
 | `infra/main.tf`, `provider.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `backend.tf`, `apis.tf` | `infra/terraform/environments/main/*` または `infra/terraform/` 直下 |
-| `infra/README.md` | `docs/operations/infra.md` |
+| `infra/README.md` | `docs/infra.md` |
 | Cloud Run / Job 実行概念 | `infra/run/jobs/`, `infra/run/services/` |
 
 ## 8. scripts/ 現行 → 目標
@@ -201,7 +201,7 @@ root/
 | `scripts/ops/check_retrain.py` | `scripts/local/check_retrain.py` |
 | `scripts/ops/training_label_seed.py` | `scripts/dev/seed_training_labels.py` |
 | `scripts/setup/*` | `scripts/dev/*` |
-| `scripts/sql/*.sql` | `docs/operations/sql/` または `ml/evaluation/report/sql/` |
+| `scripts/sql/*.sql` | `docs/sql/` または `ml/evaluation/report/sql/` |
 | `scripts/_common.py` | `scripts/dev/_common.py` |
 
 ## 9. tests/ 現行 → 目標
@@ -220,10 +220,10 @@ root/
 
 | 現行 | 目標 |
 |---|---|
-| `definitions/assertions`, `features`, `includes`, `monitoring`, `sources`, `staging` | `docs/architecture/dataform/` または `infra/terraform/modules/dataform/` |
-| `monitoring/validate_feature_skew.sql` 相当 | `ml/evaluation/validators/feature_skew.sql` または `docs/operations/monitoring.md` |
-| `docs/教育資料/*` | `docs/architecture/education/*` または `docs/decisions/education/*` |
-| `README.md`, `CLAUDE.md` | `docs/architecture/overview.md`, `docs/decisions/dev_guide.md` へ内容分割 |
+| `definitions/assertions`, `features`, `includes`, `monitoring`, `sources`, `staging` | `docs/dataform/` または `infra/terraform/modules/dataform/` |
+| `monitoring/validate_feature_skew.sql` 相当 | `ml/evaluation/validators/feature_skew.sql` または `docs/monitoring.md` |
+| `docs/教育資料/*` | `docs/education/*` または `docs/education/*` |
+| `README.md`, `CLAUDE.md` | `docs/overview.md`, `docs/dev_guide.md` へ内容分割 |
 | `env/config`, `env/secret` | 維持、または `infra/run/config/` と `infra/run/secrets/` 相当へ整理 |
 
 ## 11. 目標構成への集約イメージ

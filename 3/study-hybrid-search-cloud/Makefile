@@ -141,7 +141,7 @@ clean: ## Remove caches (.venv, .terraform, pyc)
 	rm -rf .venv $(INFRA)/.terraform
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune -exec rm -rf {} +
 
-# ----- GCP operations (see docs/operations/04_運用.md §3) -----
+# ----- GCP operations (see docs/04_運用.md §3) -----
 # Each target is a thin wrapper around scripts/local/*.py or scripts/local/sql/*.sql.
 
 ops-api-url: ## Print the search-api Cloud Run URL

@@ -43,11 +43,11 @@ raw.properties (upstream ETL)
 | `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api / deploy-training-job / deploy-embedding-job / deploy-dataform |
 | `docs/` | 仕様と設計・移行ロードマップ・実装カタログ・運用 (+ ドキュメント運用ルール) |
 
-ファイル単位の一言コメントは [`docs/architecture/03_実装カタログ.md §2`](docs/architecture/03_実装カタログ.md)。
+ファイル単位の一言コメントは [`docs/03_実装カタログ.md §2`](docs/03_実装カタログ.md)。
 
 ## 設計ハイライト
 
-詳細は [`docs/decisions/02_移行ロードマップ.md`](docs/decisions/02_移行ロードマップ.md) と [`docs/architecture/01_仕様と設計.md`](docs/architecture/01_仕様と設計.md)。
+詳細は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) と [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md)。
 
 - **Vertex AI / PostgreSQL / Redis サーバ非採用**。候補抽出は Meilisearch(BM25) + BigQuery VECTOR_SEARCH を RRF で融合し、再ランクは LightGBM LambdaRank
 - **Training-Serving Skew 対策**: Dataform SQL (`property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で維持 (変更時は 5 ファイル同一 PR)
@@ -71,18 +71,18 @@ raw.properties (upstream ETL)
 
 ## ドキュメント
 
-初めてこのリポジトリに触る人は、まず [`docs/operations/04_運用.md §1 環境構築`](docs/operations/04_運用.md) の **STEP 1–17** を上から叩く。
+初めてこのリポジトリに触る人は、まず [`docs/04_運用.md §1 環境構築`](docs/04_運用.md) の **STEP 1–17** を上から叩く。
 
 | ドキュメント | 目的 | 主な読者 |
 |---|---|---|
 | [`docs/README.md`](docs/README.md) | ドキュメント運用ルール (役割 / 権威順位 / 更新規約 / 書き方) | 文書を触る人全員 |
-| [`docs/architecture/01_仕様と設計.md`](docs/architecture/01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計 | LLM / 設計レビュー |
-| [`docs/decisions/02_移行ロードマップ.md`](docs/decisions/02_移行ロードマップ.md) | **本リポジトリの決定的仕様** (何を作るか・作らないか) | LLM / 開発者 |
-| [`docs/architecture/03_実装カタログ.md`](docs/architecture/03_実装カタログ.md) | 実装カタログ (ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform) | 新規参加者 / LLM |
-| [`docs/operations/04_運用.md`](docs/operations/04_運用.md) | 環境構築 (STEP 1–17) + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 運用担当 |
+| [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計 | LLM / 設計レビュー |
+| [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) | **本リポジトリの決定的仕様** (何を作るか・作らないか) | LLM / 開発者 |
+| [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) | 実装カタログ (ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform) | 新規参加者 / LLM |
+| [`docs/04_運用.md`](docs/04_運用.md) | 環境構築 (STEP 1–17) + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 運用担当 |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向け作業ガイド (非負制約 / 参照リポジトリ / feature-parity invariant) | Claude Code |
 
-ドキュメントが互いに矛盾したときの勝者は `docs/decisions/02_移行ロードマップ.md` (詳細は `docs/README.md §2` 権威順位)。
+ドキュメントが互いに矛盾したときの勝者は `docs/02_移行ロードマップ.md` (詳細は `docs/README.md §2` 権威順位)。
 
 ## 品質ステータス
 

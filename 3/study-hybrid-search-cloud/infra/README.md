@@ -47,7 +47,7 @@ make tf-plan GITHUB_REPO=<owner>/<name>
 terraform -chdir=infra apply
 ```
 
-`docs/operations/04_運用.md §1 STEP 7–13` で完全手順。
+`docs/04_運用.md §1 STEP 7–13` で完全手順。
 
 ## 生成される主要リソース (モジュール別)
 
@@ -58,7 +58,7 @@ terraform -chdir=infra apply
 | `runtime` | Cloud Run Service `search-api` + Job `training-job` + Pub/Sub topics (`ranking-log` / `search-feedback` / `retrain-trigger`) + BQ Subscriptions + Cloud Scheduler `check-retrain-daily` + Eventarc `retrain-trigger` + invoker IAM |
 | `monitoring` | log-based metrics (`search_api_5xx` / `search_api_latency_ms`) + email 通知チャネル + 2 alert policies + Scheduled Query `property_feature_skew_check` |
 
-全リソース・スキーマの逐一掲載は [`docs/architecture/03_実装カタログ.md §6`](../docs/architecture/03_実装カタログ.md)。
+全リソース・スキーマの逐一掲載は [`docs/03_実装カタログ.md §6`](../docs/03_実装カタログ.md)。
 
 ## モジュール間境界
 
@@ -68,7 +68,7 @@ terraform -chdir=infra apply
 
 ## 注意
 
-- Secret の値は Terraform 管理外 (`gcloud secrets versions add` で投入、`docs/operations/04_運用.md §1 STEP 10`)
-- `google_dataform_repository` は IaC 管理済 (`modules/data/main.tf`、`docs/operations/04_運用.md §1 STEP 12`)
-- ルート `outputs.tf` の `workload_identity_provider` / `github_deployer_sa_email` を GitHub Actions Variables に登録 (`docs/operations/04_運用.md §1 STEP 11`)
+- Secret の値は Terraform 管理外 (`gcloud secrets versions add` で投入、`docs/04_運用.md §1 STEP 10`)
+- `google_dataform_repository` は IaC 管理済 (`modules/data/main.tf`、`docs/04_運用.md §1 STEP 12`)
+- ルート `outputs.tf` の `workload_identity_provider` / `github_deployer_sa_email` を GitHub Actions Variables に登録 (`docs/04_運用.md §1 STEP 11`)
 - `terraform validate` は `make tf-validate` で backend-less に走る (モジュール init も含む)
