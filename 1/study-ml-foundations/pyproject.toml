@@ -1,3 +1,27 @@
+[project]
+name = "study-ml-foundations"
+version = "0.1.0"
+description = "Phase 1 ML foundations (train/evaluate/serve)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "pydantic-settings[yaml]>=2.4",
+    "psycopg[binary]>=3.2",
+    "sqlalchemy>=2.0",
+    "numpy>=1.26,<3",
+    "pandas>=2.2",
+    "scikit-learn>=1.5",
+    "lightgbm>=4.5",
+    "wandb>=0.17",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
