@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
-from app.services.config import ApiSettings
 from fastapi.testclient import TestClient
+
+from app.services.config import ApiSettings
 
 
 class _FakeQueries:

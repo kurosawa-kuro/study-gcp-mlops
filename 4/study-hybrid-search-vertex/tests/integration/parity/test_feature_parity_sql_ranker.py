@@ -15,6 +15,7 @@ import re
 from pathlib import Path
 
 import pytest
+
 from ml.data.feature_engineering import FEATURE_COLS_RANKER
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

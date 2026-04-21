@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+
 from ml.data.loaders.ranker_repository import BigQueryRankerRepository
 
 

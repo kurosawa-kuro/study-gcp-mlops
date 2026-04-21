@@ -1,6 +1,7 @@
 """Unit tests for ranking metrics (NDCG / MAP / Recall@K)."""
 
 import numpy as np
+
 from ml.evaluation.metrics import evaluate, mean_average_precision, ndcg_at_k, recall_at_k
 
 

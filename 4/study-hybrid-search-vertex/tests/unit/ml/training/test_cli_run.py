@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
+
 from ml.training import model_builder as rank_cli
 from ml.training.model_builder import split_by_request_id as _split_by_request_id
 from ml.training.trainer import run

@@ -87,7 +87,9 @@ def test_build_endpoint_spec_wires_ar_image_and_sa(monkeypatch) -> None:
 
 def test_build_variable_rows_marks_empty_values_unresolved(monkeypatch) -> None:
     monkeypatch.setenv("WORKLOAD_IDENTITY_PROVIDER", "projects/1/locations/global/.../github-oidc")
-    monkeypatch.setenv("DEPLOYER_SERVICE_ACCOUNT", "sa-github-deployer@mlops-dev-a.iam.gserviceaccount.com")
+    monkeypatch.setenv(
+        "DEPLOYER_SERVICE_ACCOUNT", "sa-github-deployer@mlops-dev-a.iam.gserviceaccount.com"
+    )
     monkeypatch.setenv("ONCALL_EMAIL", "oncall@example.org")
     monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
     # Leave the endpoint IDs empty — caller hasn't deployed the Models yet.
@@ -102,15 +104,26 @@ def test_build_variable_rows_marks_empty_values_unresolved(monkeypatch) -> None:
 
 
 def test_build_gh_commands_quotes_values_with_slashes(monkeypatch) -> None:
-    monkeypatch.setenv("WORKLOAD_IDENTITY_PROVIDER", "projects/1/locations/global/workloadIdentityPools/github/providers/github-oidc")
-    monkeypatch.setenv("DEPLOYER_SERVICE_ACCOUNT", "sa-github-deployer@mlops-dev-a.iam.gserviceaccount.com")
+    monkeypatch.setenv(
+        "WORKLOAD_IDENTITY_PROVIDER",
+        "projects/1/locations/global/workloadIdentityPools/github/providers/github-oidc",
+    )
+    monkeypatch.setenv(
+        "DEPLOYER_SERVICE_ACCOUNT", "sa-github-deployer@mlops-dev-a.iam.gserviceaccount.com"
+    )
     monkeypatch.setenv("ONCALL_EMAIL", "oncall@example.org")
     monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
-    monkeypatch.setenv("VERTEX_ENCODER_ENDPOINT_ID", "projects/1/locations/asia-northeast1/endpoints/1234567890")
-    monkeypatch.setenv("VERTEX_RERANKER_ENDPOINT_ID", "projects/1/locations/asia-northeast1/endpoints/9876543210")
+    monkeypatch.setenv(
+        "VERTEX_ENCODER_ENDPOINT_ID", "projects/1/locations/asia-northeast1/endpoints/1234567890"
+    )
+    monkeypatch.setenv(
+        "VERTEX_RERANKER_ENDPOINT_ID", "projects/1/locations/asia-northeast1/endpoints/9876543210"
+    )
 
     cmds = build_gh_commands("owner/repo")
 
-    assert cmds[0].startswith("gh variable set WORKLOAD_IDENTITY_PROVIDER --repo owner/repo --body ")
+    assert cmds[0].startswith(
+        "gh variable set WORKLOAD_IDENTITY_PROVIDER --repo owner/repo --body "
+    )
     assert cmds[4].endswith(" projects/1/locations/asia-northeast1/endpoints/1234567890")
     assert "VERTEX_ENCODER_ENDPOINT_ID" in cmds[4]

@@ -1,9 +1,9 @@
 """Base settings — env-var / credential.yaml driven via pydantic-settings.
 
-優先度（高 → 低）:
-    1. 環境変数（本番は Doppler → Cloud Run 経由で注入）
-    2. env/secret/credential.yaml（ローカル開発用シークレット）
-    3. .env（レガシー — 暫定的に残置）
+優先度 (高 → 低):
+    1. 環境変数 (本番は Doppler → Cloud Run 経由で注入)
+    2. env/secret/credential.yaml (ローカル開発用シークレット)
+    3. .env (レガシー — 暫定的に残置)
     4. field default
 """
 

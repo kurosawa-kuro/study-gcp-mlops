@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from fastapi.testclient import TestClient
+
 from app.main import create_app
 from app.services.adapters.cache_store import InMemoryTTLCacheStore
 from app.services.config import ApiSettings
-from fastapi.testclient import TestClient
 
 
 class _StubEncoderClient:

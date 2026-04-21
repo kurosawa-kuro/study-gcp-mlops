@@ -98,8 +98,8 @@ resource "google_bigquery_table" "training_runs" {
 #
 # Feature parity invariant for ranker:
 #   definitions/features/property_features_daily.sqlx
-#   common/src/common/feature_engineering.py::build_ranker_features
-#   common/src/common/schema/feature_schema.py::FEATURE_COLS_RANKER
+#   ml/data/feature_engineering/ranker_features.py::build_ranker_features
+#   ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER
 #   THIS file (ranking_log.features RECORD)
 #   monitoring/validate_feature_skew.sql
 # =========================================================================

@@ -51,9 +51,7 @@ def build_endpoint_spec() -> dict[str, Any]:
     return {
         "project_id": project_id,
         "vertex_location": region,
-        "endpoint_display_name": env(
-            "ENCODER_ENDPOINT_DISPLAY_NAME", "property-encoder-endpoint"
-        ),
+        "endpoint_display_name": env("ENCODER_ENDPOINT_DISPLAY_NAME", "property-encoder-endpoint"),
         "model_display_name": env("ENCODER_MODEL_DISPLAY_NAME", "property-encoder"),
         "serving_container_image_uri": _artifact_registry_image(
             project_id, region, repo, image_tag
@@ -67,9 +65,7 @@ def build_endpoint_spec() -> dict[str, Any]:
         "max_replica_count": int(env("ENCODER_MAX_REPLICAS", str(DEFAULT_MAX_REPLICAS))),
         "service_account": env(
             "ENCODER_ENDPOINT_SERVICE_ACCOUNT",
-            f"sa-endpoint-encoder@{project_id}.iam.gserviceaccount.com"
-            if project_id
-            else "",
+            f"sa-endpoint-encoder@{project_id}.iam.gserviceaccount.com" if project_id else "",
         ),
         "model_alias": env("ENCODER_MODEL_ALIAS", "staging"),
         "traffic_percentage": int(env("ENCODER_TRAFFIC_PERCENTAGE", "100")),

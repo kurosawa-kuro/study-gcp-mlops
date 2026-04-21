@@ -1,8 +1,8 @@
 locals {
   # Feature Group parity invariant:
-  # - common/src/common/schema/feature_schema.py::FEATURE_COLS_RANKER (property-side 7 cols)
+  # - ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER (property-side 7 cols)
   # - monitoring/validate_feature_skew.sql UNPIVOT lists
-  # - tests/parity/test_feature_parity_feature_group.py
+  # - tests/integration/parity/test_feature_parity_feature_group.py
   #
   # Query-time signals (me5_score / lexical_rank / semantic_rank) are excluded.
   feature_group_property_features = [

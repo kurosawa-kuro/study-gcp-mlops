@@ -37,7 +37,7 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       - name: Generate definitions/workflow_settings.yaml from env/config/setting.yaml
-        run: uv run python -m scripts.config.sync_dataform
+        run: uv run python -m scripts.ci.sync_dataform
 
       - name: Install Dataform CLI
         run: npm i -g @dataform/cli@^3.0.0

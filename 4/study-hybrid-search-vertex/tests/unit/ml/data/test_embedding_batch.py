@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+
 from ml.data.datasets.embedding_batch import run_embedding_batch
 from ml.data.loaders.embedding_store import EmbeddingRow, PropertyText
 
