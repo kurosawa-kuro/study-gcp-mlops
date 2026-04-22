@@ -1,0 +1,9 @@
+"""Experiment tracker outbound port."""
+
+from typing import Protocol
+
+
+class ExperimentTracker(Protocol):
+    def start(self, run_id: str, config: dict) -> None: ...
+    def log_metrics(self, metrics: dict) -> None: ...
+    def finish(self) -> None: ...

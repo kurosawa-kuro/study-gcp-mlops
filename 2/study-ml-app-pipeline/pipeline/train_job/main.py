@@ -1,13 +1,35 @@
-"""Pipeline Inbound Adapter — train job entrypoint.
+"""Train job entrypoint."""
 
-TBD: container.dataset.load() → core.preprocess → core.feature_engineering →
-core.trainer.train → container.model_store.save → container.tracker.log_metrics。
-Phase 1 の pipeline/training_job/main.py + pipeline/evaluation_job/main.py を統合。
-"""
+from app.config import Settings
+from common.logging import get_logger
+from common.run_id import generate_run_id
+from ml.container import build_container
+from ml.core.feature_engineering import engineer_features
+from ml.core.preprocess import preprocess
+from ml.core.trainer import train
+
+logger = get_logger(__name__)
 
 
 def main() -> None:
-    raise NotImplementedError("Phase 2 skeleton: train_job TBD")
+    settings = Settings()
+    container = build_container(settings)
+    run_id = generate_run_id()
+
+    train_df = container.dataset.load("train")
+    test_df = container.dataset.load("test")
+
+    train_df = engineer_features(preprocess(train_df))
+    test_df = engineer_features(preprocess(test_df))
+
+    container.tracker.start(run_id, {"phase": "2", "job": "train"})
+    booster, metrics = train(train_df, test_df)
+    payload = dict(metrics)
+    payload["run_id"] = run_id
+    container.model_store.save(run_id, booster, payload)
+    container.tracker.log_metrics(payload)
+    container.tracker.finish()
+    logger.info("Training completed: run_id=%s", run_id)
 
 
 if __name__ == "__main__":

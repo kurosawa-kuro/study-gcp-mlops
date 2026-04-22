@@ -20,9 +20,10 @@ Phase 1 → 2 → 3 → 4 → 5 の 5 フェーズ構成の 2 番目。
 
 ## 現状
 
-**Skeleton phase**（2026-04-22）。詳細な設計意図と target layout は `CLAUDE.md` を参照。
+Port/Adapter 骨格に加えて、`core` / `ports` / `adapters` / `container` / `pipeline` の最小実装を反映済み。
+詳細な設計意図と target layout は `CLAUDE.md` を参照。
 
-## Commands（予定、未実装）
+## Commands
 
 ```bash
 make build   # Docker イメージビルド

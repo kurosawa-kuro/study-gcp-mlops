@@ -11,23 +11,23 @@ from app.main import app
 @pytest.fixture()
 def api_client(tmp_path, sample_df):
     """学習済みモデルを作成し、FastAPI TestClient を返す."""
-    from ml.data.feature_engineering.feature_engineering import engineer_features
-    from ml.data.preprocess.preprocess import preprocess
-    from ml.training.trainer import train
+    from ml.adapters.filesystem_model_store import FilesystemModelStore
+    from ml.core.feature_engineering import engineer_features
+    from ml.core.preprocess import preprocess
+    from ml.core.trainer import train
 
     model_dir = str(tmp_path / "ml" / "registry" / "artifacts")
     train_df = engineer_features(preprocess(sample_df.iloc[:80]))
     test_df = engineer_features(preprocess(sample_df.iloc[80:]))
-    train(train_df, test_df, model_dir, "test_run")
+    booster, metrics = train(train_df, test_df)
+    FilesystemModelStore(model_dir).save("test_run", booster, metrics)
 
-    os.environ["MODEL_PATH"] = str(
-        tmp_path / "ml" / "registry" / "artifacts" / "latest" / "model.lgb"
-    )
+    os.environ["MODEL_DIR"] = model_dir
 
     with TestClient(app) as client:
         yield client
 
-    os.environ.pop("MODEL_PATH", None)
+    os.environ.pop("MODEL_DIR", None)
 
 
 class TestHealthEndpoint:

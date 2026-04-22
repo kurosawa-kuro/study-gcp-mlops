@@ -9,30 +9,28 @@ help: ## Show this help
 		/^[a-zA-Z0-9_-]+:.*##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' \
 		$(MAKEFILE_LIST)
 
-# TBD: Phase 1 の Makefile から必要な target を移植する。現状 skeleton。
+build: ## Build Docker images (docker compose build)
+	docker compose build
 
-build: ## (TBD) Build Docker images
-	@echo "TBD: docker compose build"
+seed: ## Seed sklearn California Housing into PostgreSQL
+	$(PYTHON) scripts/local/setup/seed.py
 
-seed: ## (TBD) Seed California Housing into PostgreSQL
-	@echo "TBD: docker compose run --rm seed"
+train: ## Run LightGBM training
+	$(PYTHON) scripts/local/setup/train.py
 
-train: ## (TBD) Run LightGBM training via train_job pipeline
-	@echo "TBD: docker compose run --rm trainer"
+serve: ## Start FastAPI on :8000
+	$(PYTHON) scripts/local/deploy/serve.py
 
-serve: ## (TBD) Start FastAPI on :8000
-	@echo "TBD: $(PYTHON) scripts/local/deploy/serve.py"
+test: ## Run pytest (local)
+	$(PYTHON) scripts/local/ops/test.py
 
-test: ## (TBD) Run pytest
-	@echo "TBD: $(PYTHON) -m pytest"
+all: build seed train ## build → seed → train
 
-all: build seed train ## (TBD) build → seed → train
+down: ## Stop and remove docker compose services
+	docker compose down --remove-orphans
 
-down: ## (TBD) Stop docker compose services
-	@echo "TBD: docker compose down --remove-orphans"
+clean: ## docker compose down + remove generated files
+	$(PYTHON) scripts/local/ops/clean.py
 
-clean: ## (TBD) docker down + clean generated files
-	@echo "TBD: cleanup"
-
-free-ports: ## (TBD) Free host :5432 / :8000 from other projects
-	@echo "TBD: free host ports"
+free-ports: ## Stop non-project containers binding host :5432/:8000
+	$(PYTHON) -c "import sys; sys.path.insert(0, 'scripts'); from core import free_host_ports; free_host_ports()"

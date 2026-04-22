@@ -4,7 +4,6 @@ import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import lightgbm as lgb
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,10 +11,9 @@ from fastapi.templating import Jinja2Templates
 
 from app.api.predict import router as predict_router
 from app.config import Settings
-from ml.common.logging.logger import get_logger
-from ml.common.utils.schema import FEATURE_COLS, TARGET_COL
-from ml.data.loaders.config import Settings as DataSettings
-from ml.data.loaders.repository import get_repository
+from common.logging import get_logger
+from ml.container import build_container
+from ml.core.schema import FEATURE_COLS, TARGET_COL
 
 logger = get_logger(__name__)
 
@@ -28,14 +26,16 @@ _DEFAULTS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """起動時にモデルをロードし、app.state に格納する."""
+    """Build container and load latest model."""
     settings = Settings()
-    model_path = settings.model_path
+    container = build_container(settings)
+    app.state.container = container
     try:
-        app.state.booster = lgb.Booster(model_file=model_path)
-        logger.info("Model loaded from %s", model_path)
+        app.state.booster = container.model_store.load("latest")
+        logger.info("Model loaded from latest artifact")
     except Exception as e:
-        raise RuntimeError(f"Failed to load model from {model_path}: {e}") from e
+        logger.warning("Model load skipped at startup: %s", e)
+        app.state.booster = None
     yield
 
 
@@ -73,8 +73,8 @@ def data_page(request: Request, split: str = "train", limit: int = 50):
     split = split if split in ("train", "test") else "train"
     limit = max(1, min(limit, 500))
     try:
-        repo = get_repository(DataSettings())
-        df = repo.fetch_train() if split == "train" else repo.fetch_test()
+        container = request.app.state.container
+        df = container.dataset.load(split)
         total = len(df)
         sample = df.head(limit)
         columns = list(sample.columns)

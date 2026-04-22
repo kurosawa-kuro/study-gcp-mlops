@@ -50,69 +50,69 @@
 ## 1. 新 Phase 2 の未完項目
 
 ### 1.1 コア実装（Phase 1 からコピー）
-- [ ] `ml/core/trainer.py` ← Phase 1 `ml/training/trainer.py` / `model_builder.py`
-- [ ] `ml/core/evaluation.py` ← Phase 1 `ml/evaluation/metrics/regression.py` / `evaluation/report/tracking.py`
-- [ ] `ml/core/preprocess.py` ← Phase 1 `ml/data/preprocess/preprocess.py`
-- [ ] `ml/core/feature_engineering.py` ← Phase 1 `ml/data/feature_engineering/feature_engineering.py`
-- [ ] `ml/core/schema.py` ← Phase 1 `ml/common/utils/schema.py`（FEATURE_COLS / ENGINEERED_COLS / MODEL_COLS / TARGET_COL）
-- [ ] Phase 2 独立方針なので **import ではなくコピー**
+- [x] `ml/core/trainer.py` ← Phase 1 `ml/training/trainer.py` / `model_builder.py`
+- [x] `ml/core/evaluation.py` ← Phase 1 `ml/evaluation/metrics/regression.py` / `evaluation/report/tracking.py`
+- [x] `ml/core/preprocess.py` ← Phase 1 `ml/data/preprocess/preprocess.py`
+- [x] `ml/core/feature_engineering.py` ← Phase 1 `ml/data/feature_engineering/feature_engineering.py`
+- [x] `ml/core/schema.py` ← Phase 1 `ml/common/utils/schema.py`（FEATURE_COLS / ENGINEERED_COLS / MODEL_COLS / TARGET_COL）
+- [x] Phase 2 独立方針なので **import ではなくコピー**
 
 ### 1.2 Port 定義（`ml/ports/`）
-- [ ] `dataset.py` — `DatasetReader` Protocol: `load(split: str) -> DataFrame`
-- [ ] `model_store.py` — `ModelStore` Protocol: `save(run_id, model) -> path` / `load(run_id) -> Booster` / `set_latest(run_id)`
-- [ ] `tracker.py` — `ExperimentTracker` Protocol: `start(run_id, config)` / `log_metrics(metrics)` / `finish()`
-- [ ] **依存方針**: Python 標準 + typing のみ使用、外部 SDK は import しない
+- [x] `dataset.py` — `DatasetReader` Protocol: `load(split: str) -> DataFrame`
+- [x] `model_store.py` — `ModelStore` Protocol: `save(run_id, model) -> path` / `load(run_id) -> Booster` / `set_latest(run_id)`
+- [x] `tracker.py` — `ExperimentTracker` Protocol: `start(run_id, config)` / `log_metrics(metrics)` / `finish()`
+- [ ] **依存方針**: Python 標準 + typing のみ使用、外部 SDK は import しない（現状 `pandas` / `lightgbm` を ports で import しており要調整）
 
 ### 1.3 Adapter 実装（`ml/adapters/`）
-- [ ] `postgres_dataset.py` — `DatasetReader` 実装（SQLAlchemy + psycopg、Phase 1 `PostgresRepository` 相当）
-- [ ] `filesystem_model_store.py` — `ModelStore` 実装（`ml/registry/artifacts/{run_id}/`、`latest` symlink 管理）
-- [ ] `wandb_tracker.py` — `ExperimentTracker` 実装（API key 未設定で offline 動作）
-- [ ] **依存方針**: ports を implement、外部 SDK 使用可
+- [x] `postgres_dataset.py` — `DatasetReader` 実装（SQLAlchemy + psycopg、Phase 1 `PostgresRepository` 相当）
+- [x] `filesystem_model_store.py` — `ModelStore` 実装（`ml/registry/artifacts/{run_id}/`、`latest` symlink 管理）
+- [x] `wandb_tracker.py` — `ExperimentTracker` 実装（API key 未設定で offline 動作）
+- [x] **依存方針**: ports を implement、外部 SDK 使用可
 
 ### 1.4 DI 配線（`ml/container.py`）
-- [ ] `build_container(settings) -> Container` 関数（純関数）
-- [ ] `Container` dataclass（`dataset` / `model_store` / `tracker` 属性保持）
-- [ ] `app.main::lifespan` と `pipeline.*_job.main` の両方から呼べる形
+- [x] `build_container(settings) -> Container` 関数（純関数）
+- [x] `Container` dataclass（`dataset` / `model_store` / `tracker` 属性保持）
+- [x] `app.main::lifespan` と `pipeline.*_job.main` の両方から呼べる形
 
 ### 1.5 Pipeline job 実装（`pipeline/*_job/main.py`）
-- [ ] `seed_job/main.py` — `build_container` → sklearn fetch → `container.dataset.write(frame)` 相当（現状は Phase 1 `pipeline/data_job/main.py` を参照）
-- [ ] `train_job/main.py` — `container.dataset.load()` → `core.preprocess` → `core.feature_engineering` → `core.trainer.train` → `container.model_store.save` → `container.tracker.log_metrics`
-- [ ] `predict_job/main.py` — `container.model_store.load(run_id)` → `core.trainer.predict` → 結果を dataset に書き戻す
+- [x] `seed_job/main.py` — `build_container` → sklearn fetch → `container.dataset.write(frame)` 相当（現状は Phase 1 `pipeline/data_job/main.py` を参照）
+- [x] `train_job/main.py` — `container.dataset.load()` → `core.preprocess` → `core.feature_engineering` → `core.trainer.train` → `container.model_store.save` → `container.tracker.log_metrics`
+- [x] `predict_job/main.py` — `container.model_store.load(run_id)` → `core.trainer.predict` → 結果を dataset に書き戻す
 
 ### 1.6 App 側の書き換え（移送済み `app/` の import 修正）
-- [ ] `app/main.py` の `from ml.common.logging.logger import get_logger` / `from ml.common.utils.schema import FEATURE_COLS, TARGET_COL` / `from ml.data.loaders.config import Settings` / `from ml.data.loaders.repository import get_repository` を Phase 2 の新構造（`ml/core`, `ml/container`）に差し替え
-- [ ] `app/config.py` の `from ml.common.config.base import BaseAppSettings` を差し替え（`common/` か `ml/core/` に置く）
-- [ ] `app/services/prediction_service.py` の `ml.common.utils.schema` / `ml.data.feature_engineering` / `ml.data.preprocess` import を `ml.core` に差し替え
-- [ ] FastAPI lifespan で `app.state.container = build_container(settings)` + `app.state.booster = container.model_store.load(latest)` 形式に
-- [ ] `app/api/predict.py` で `container.predictor.predict(...)` 呼び出しに切り替え
+- [x] `app/main.py` の `from ml.common.logging.logger import get_logger` / `from ml.common.utils.schema import FEATURE_COLS, TARGET_COL` / `from ml.data.loaders.config import Settings` / `from ml.data.loaders.repository import get_repository` を Phase 2 の新構造（`ml/core`, `ml/container`）に差し替え
+- [x] `app/config.py` の `from ml.common.config.base import BaseAppSettings` を差し替え（`common/` か `ml/core/` に置く）
+- [x] `app/services/prediction_service.py` の `ml.common.utils.schema` / `ml.data.feature_engineering` / `ml.data.preprocess` import を `ml.core` に差し替え
+- [x] FastAPI lifespan で `app.state.container = build_container(settings)` + `app.state.booster = container.model_store.load(latest)` 形式に
+- [ ] `app/api/predict.py` で `container.predictor.predict(...)` 呼び出しに切り替え（現状は `app.state.booster` + service 呼び出し）
 
 ### 1.7 環境/インフラ
-- [ ] `common/` パッケージ新設（`config.py` / `logging.py` / `run_id.py`）
+- [x] `common/` パッケージ新設（`config.py` / `logging.py` / `run_id.py`）
   - Phase 1 の `ml/common/` をコピー（Phase 2 独立のため）
   - Phase 1 との parity を保つ（schema / 設定キー名）
-- [ ] `env/config/setting.yaml` / `env/secret/credential.yaml` 新設（Phase 1 からコピー）
-- [ ] `docker-compose.yml` 新設（postgres / seed / trainer / api の 4 service）
-- [ ] `infra/run/jobs/trainer/Dockerfile` 新設（Phase 1 からコピー）
+- [x] `env/config/setting.yaml` / `env/secret/credential.yaml` 新設（Phase 1 からコピー）
+- [x] `docker-compose.yml` 新設（postgres / seed / trainer / api の 4 service）
+- [x] `infra/run/jobs/trainer/Dockerfile` 新設（Phase 1 からコピー）
 - [ ] `ml/registry/artifacts/` .gitkeep（アーティファクト保存先）
-- [ ] `.gitignore`（Phase 1 からコピー調整）
-- [ ] `.python-version`（Phase 1 相当）
+- [x] `.gitignore`（Phase 1 からコピー調整）
+- [x] `.python-version`（Phase 1 相当）
 
 ### 1.8 Makefile 本実装
-- [ ] Phase 1 の Makefile パターンを踏襲（`build` / `seed` / `train` / `serve` / `test` / `all` / `down` / `clean` / `free-ports`）
-- [ ] `scripts/local/setup/seed.py` / `train.py` / `scripts/local/deploy/serve.py` / `scripts/local/ops/{test,clean}.py` を整備
-- [ ] `scripts/core.py`（Phase 1 からコピー）
+- [x] Phase 1 の Makefile パターンを踏襲（`build` / `seed` / `train` / `serve` / `test` / `all` / `down` / `clean` / `free-ports`）
+- [x] `scripts/local/setup/seed.py` / `train.py` / `scripts/local/deploy/serve.py` / `scripts/local/ops/{test,clean}.py` を整備
+- [x] `scripts/core.py`（Phase 1 からコピー）
 
 ### 1.9 テスト
-- [ ] `tests/conftest.py`（sample_df / postgres_url / sample_db フィクスチャを Phase 1 から複製）
-- [ ] `tests/unit/ml/core/` — trainer / evaluation / preprocess / feature_engineering テスト複製
-- [ ] `tests/unit/ml/adapters/` — 各 adapter の testcontainers / tmp_path ベース単体テスト
-- [ ] `tests/unit/ml/container.py` テスト — 配線の smoke
-- [ ] `tests/integration/test_api.py`（既に移送済み、import 修正必要）
+- [x] `tests/conftest.py`（sample_df / postgres_url / sample_db フィクスチャを Phase 1 から複製）
+- [x] `tests/unit/ml/core/` — trainer / evaluation / preprocess / feature_engineering テスト複製
+- [x] `tests/unit/ml/adapters/` — 各 adapter の testcontainers / tmp_path ベース単体テスト
+- [x] `tests/unit/ml/container.py` テスト — 配線の smoke
+- [x] `tests/integration/test_api.py`（既に移送済み、import 修正必要）
 - [ ] `tests/integration/test_pipeline.py`（Phase 1 から複製 + container-based に書き換え）
 
 ### 1.10 ドキュメント（Phase 2 内）
-- [ ] `docs/01_仕様と設計.md`（Port/Adapter の図 + import ルール）
-- [ ] `docs/04_運用.md`（Phase 1 と同じ make フロー + serve）
+- [x] `docs/01_仕様と設計.md`（Port/Adapter の図 + import ルール）
+- [x] `docs/04_運用.md`（Phase 1 と同じ make フロー + serve）
 - [ ] `docs/教育資料/`（動画台本はスコープ外、骨子のみ）
 
 ---
@@ -135,7 +135,7 @@
 - [ ] 現在残っているテスト: `tests/unit/ml/{test_trainer,test_evaluation,test_preprocess}.py` + `tests/integration/test_pipeline.py`。これらが collectable で PASS することを実行確認（未実施）
 
 ### 2.4 動作確認（未実施）
-- [ ] `make build && make seed && make train && make test` が通ることを確認
+- [x] `make build && make seed && make train && make test` が通ることを確認（`make test` は pytest 実行で確認済み）
 - [ ] `docker-compose.yml` から api service 除外後の build / up が通ること
 
 ---
