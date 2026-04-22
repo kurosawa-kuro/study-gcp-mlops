@@ -55,7 +55,7 @@ raw.properties (upstream ETL)
 
 - **Vertex AI / PostgreSQL / Redis サーバ非採用**。候補抽出は Meilisearch(BM25) + BigQuery VECTOR_SEARCH を RRF で融合し、再ランクは LightGBM LambdaRank
 - **Training-Serving Skew 対策**: Dataform SQL (`property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で維持 (変更時は 5 ファイル同一 PR)
-- **Phase 4 rerank-free MVP**: LightGBM booster を lifespan にロードしなくても `/search` は候補抽出 (`final_rank = lexical_rank`) を返せる。Phase 6 で rerank を bolt-on
+- **Phase 5 rerank-free MVP**: LightGBM booster を lifespan にロードしなくても `/search` は候補抽出 (`final_rank = lexical_rank`) を返せる。Phase 6 で rerank を bolt-on
 - **認証**: Cloud Run Service は `--no-allow-unauthenticated`。CI は Workload Identity Federation (SA Key 不使用)
 - **固定値**: プロジェクト `mlops-dev-a` / リージョン `asia-northeast1` / Python 3.12 / uv / Terraform 1.9
 

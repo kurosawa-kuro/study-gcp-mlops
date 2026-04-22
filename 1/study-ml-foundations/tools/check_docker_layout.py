@@ -18,7 +18,6 @@ class CheckResult:
 ROOT = Path(__file__).resolve().parents[1]
 SNAKE_CASE = re.compile(r"^[a-z0-9_]+$")
 REQUIRED = [
-    "infra/run/services/api/Dockerfile",
     "infra/run/jobs/trainer/Dockerfile",
 ]
 

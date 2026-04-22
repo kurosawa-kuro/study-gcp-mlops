@@ -23,7 +23,7 @@
 - **BigQuery + Cloud Run 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`)、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI / Model Registry / BQML 非採用**
 - **Training-Serving Skew 対策が load-bearing**。Dataform SQL (`feature_mart.property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で lockstep 維持 (`ctr = SAFE_DIVIDE(click_count, impression_count)` など、分子分母の順序が訓練側と推論側で 1:1)
 - **学習 = Cloud Run Jobs (`training-job` + `embedding-job`) / 推論 = Cloud Run Service (`search-api`)**。両方を Service にしない。モデルは**コンテナ同梱せず**、FastAPI `lifespan` で `mlops.training_runs` から最新 `run_id` の `model_path` を解決 → GCS から `model.txt` を download → `lgb.Booster` にロード (Phase 6 以降)
-- **Phase 4 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/04_運用.md §1 STEP 17`
+- **Phase 5 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/04_運用.md §1 STEP 17`
 - **スコープ固定**: 不動産ハイブリッド検索のみ。旧 California Housing 回帰は Phase 10b/10c で完全削除済
 
 ---
@@ -37,7 +37,7 @@
 | Python | 3.12 | `pyproject.toml` |
 | パッケージ管理 | `uv` (pip / poetry 不可) | workspace 採用 |
 | IaC | Terraform 1.9+ | |
-| Cloud Run Service | `--cpu 2 --memory 2Gi --concurrency 80 --min-instances 1 --max-instances 10 --cpu-boost --execution-environment gen2 --no-allow-unauthenticated` | コールドスタート回避、IAM-gated。Phase 4 で encoder / reranker を Vertex Endpoint へ外部化したため 4Gi → 2Gi に縮小 |
+| Cloud Run Service | `--cpu 2 --memory 2Gi --concurrency 80 --min-instances 1 --max-instances 10 --cpu-boost --execution-environment gen2 --no-allow-unauthenticated` | コールドスタート回避、IAM-gated。Phase 5 で encoder / reranker を Vertex Endpoint へ外部化したため 4Gi → 2Gi に縮小 |
 | Service Account | 9 SA 分離 (`sa-api` / `sa-pipeline` / `sa-job-train` / `sa-job-embed` / `sa-endpoint-encoder` / `sa-endpoint-reranker` / `sa-pipeline-trigger` / `sa-dataform` / `sa-scheduler`) + WIF 専用 `sa-github-deployer` = 計 10 SA | 最小権限の境界、統合しない。Endpoint ランタイム SA (`sa-endpoint-*`) と Pipeline 起動 SA (`sa-pipeline` / `sa-pipeline-trigger`) を分けて blast radius を小さく保つ。`sa-job-train` / `sa-job-embed` は Cloud Run Jobs 時代からの継続 SA で、`embed_pipeline` 完走後に段階削除予定 |
 | 設定値 single source | `env/config/setting.yaml` (project_id / region / api_service / training_job / artifact_repo / github_repo / oncall_email / dataform_*) | flat key:value のみ。Python は `scripts/_common.py::DEFAULTS` で読み、Make は awk で読む。`github_repo` / `oncall_email` も yaml が既定値で、env で都度上書き可。`definitions/workflow_settings.yaml` は **auto-generated** (gitignore + `make sync-dataform-config` で再生成、parity test で drift 検知) |
 | 認証 | GitHub Actions → Workload Identity Federation (SA Key 禁止) | 監査要件 |

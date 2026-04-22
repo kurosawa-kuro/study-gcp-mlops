@@ -2,7 +2,7 @@
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: help build seed train serve test all down clean free-ports
+.PHONY: help build seed train test all down clean free-ports
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -18,9 +18,6 @@ seed: ## Seed sklearn California Housing into PostgreSQL
 train: ## Run LightGBM training → ml/registry/artifacts/{run_id}/
 	$(PYTHON) scripts/local/setup/train.py
 
-serve: ## Start FastAPI on :8000 (docker compose up api)
-	$(PYTHON) scripts/local/deploy/serve.py
-
 test: ## Run pytest (local)
 	$(PYTHON) scripts/local/ops/test.py
 
@@ -32,5 +29,5 @@ down: ## Stop and remove docker compose services
 clean: ## docker compose down + remove generated files
 	$(PYTHON) scripts/local/ops/clean.py
 
-free-ports: ## Stop non-project containers binding host :5432 / :8000
+free-ports: ## Stop non-project containers binding host :5432
 	$(PYTHON) -c "import sys; sys.path.insert(0, 'scripts'); from core import free_host_ports; free_host_ports()"

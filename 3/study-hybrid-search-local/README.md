@@ -3,7 +3,7 @@
 不動産ハイブリッド検索を題材に、ローカル環境で MLOps パイプラインを学ぶリポジトリです。  
 Meilisearch (lexical) + ME5 (semantic) + LightGBM LambdaRank (rerank) の 3 段構成を、`docker-compose.yml` 前提で検証します。
 
-> **スコープ**: ローカル完結の検索/学習/評価。クラウド実行基盤 (Cloud Run/BigQuery/Vertex) への展開は Phase 3/4 で扱います。
+> **スコープ**: ローカル完結の検索/学習/評価。クラウド実行基盤 (Cloud Run/BigQuery/Vertex) への展開は Phase 4/5 で扱います。
 
 ## アーキテクチャ
 

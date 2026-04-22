@@ -48,18 +48,5 @@ services:
         condition: service_completed_successfully
     command: ["python", "-m", "pipeline.training_job.main"]
 
-  api:
-    build:
-      context: .
-      dockerfile: infra/run/services/api/Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./ml/registry/artifacts:/app/ml/registry/artifacts
-      - ./env/secret:/app/env/secret:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 volumes:
   postgres_data:

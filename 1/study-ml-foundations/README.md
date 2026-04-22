@@ -1,35 +1,31 @@
 # study-ml-foundations
 
-ML Pipeline — カリフォルニア住宅価格予測
+ML Pipeline — カリフォルニア住宅価格予測（**Phase 1: ML 基礎**）
 
-LightGBM によるカリフォルニア住宅価格予測パイプライン。
-MLOps 教育用途として、Docker Compose で学習から推論 API まで完結する構成。
-注記: 本 Phase はローカル完結の学習フェーズのため、`docker-compose.yml` をルート直下に配置する。
+LightGBM によるカリフォルニア住宅価格予測の **学習パイプライン**。Docker Compose でデータ投入 → 学習 → 評価まで完結する、MLOps 教育用途の ML 基礎 Phase。
+
+> 推論 API / FastAPI / Port-Adapter 等のデザインパターン導入は **Phase 2 (`2/study-ml-app-pipeline/`)** で扱う。本 Phase は ML コア（trainer / evaluation / preprocess / feature_engineering）に集中する。
 
 ## クイックスタート
 
 ```bash
-# Docker でデータ投入 → 学習 → API 起動
-make all
-make serve
+make all    # build → seed → train
+make test   # pytest
 ```
-
-ブラウザで http://localhost:8000/ にアクセスすると予測フォームが表示される。
 
 ## コマンド一覧 (Makefile)
 
 | コマンド | 説明 |
 |---|---|
 | `make build` | Docker イメージビルド |
-| `make seed` | sklearn データを `ml/data/datasets/california_housing.csv` に保存して PostgreSQL に投入 |
+| `make seed` | sklearn データを PostgreSQL に投入 |
 | `make train` | LightGBM モデル学習 → `ml/registry/artifacts/{run_id}/` に保存 |
-| `make serve` | FastAPI 推論サーバー起動 (port 8000) |
 | `make test` | pytest 全テスト実行 (ローカル) |
 | `make all` | build → seed → train を順番に実行 |
 | `make down` | Docker Compose 停止 |
 | `make clean` | Docker 停止 + 生成ファイルをすべて削除 |
 
-Makefile は `scripts/` 配下のシェルスクリプトに委譲する構成。
+Makefile は `scripts/` 配下のスクリプトに委譲する構成。
 
 ## アーキテクチャ
 
@@ -41,7 +37,6 @@ PostgreSQL (docker-compose: postgres サービス)
         → ml/training: LightGBM 学習
         → ml/evaluation: 精度評価 (RMSE, R²) + W&B ログ
           → ml/registry/artifacts/{run_id}/ に保存 + PostgreSQL に精度記録 + latest 更新
-            → api: FastAPI で推論 (前処理込み) + Web UI
 ```
 
 ### パッケージ構成
@@ -53,8 +48,6 @@ PostgreSQL (docker-compose: postgres サービス)
 | `ml/training/` | LightGBM 学習アルゴリズム |
 | `ml/evaluation/` | 精度評価 (RMSE, R²) + W&B 実験ログ |
 | `ml/registry/` | 実行履歴メタデータとアーティファクト管理 |
-| `ml/serving/` | 単体/バッチ推論ロジック |
-| `app/` | FastAPI 推論 API + Jinja2 フロントエンド |
 | `ml/common/` | 共通定義 (特徴量カラム, 設定ベースクラス, ロギング, Run ID 生成) |
 
 ### 技術スタック
@@ -65,8 +58,7 @@ PostgreSQL (docker-compose: postgres サービス)
 | データ | PostgreSQL 16 + sklearn California Housing |
 | 評価 | numpy 自前実装 (RMSE, R²) |
 | 実験ログ | W&B (オプション) |
-| 推論 API | FastAPI + uvicorn + Jinja2 |
-| 設定管理 | pydantic-settings + .env |
+| 設定管理 | pydantic-settings + YAML |
 | インフラ | Docker Compose |
 
 ## Docker サービス
@@ -76,7 +68,6 @@ PostgreSQL (docker-compose: postgres サービス)
 | postgres | postgres:16 | 5432 | データ永続化 (volume: `postgres_data`) |
 | seed | `infra/run/jobs/trainer/Dockerfile` | — | PostgreSQL データ投入 (run して終了) |
 | trainer | `infra/run/jobs/trainer/Dockerfile` | — | 学習 (seed 完了後に実行) |
-| api | `infra/run/services/api/Dockerfile` | 8000 | FastAPI 推論 + Web UI |
 
 ## モデルバージョニング
 
@@ -93,66 +84,20 @@ ml/registry/artifacts/
 └── latest -> 20260416_222540_05f983
 ```
 
-API は `ml/registry/artifacts/latest/model.lgb` を参照するため、再学習後にサーバーを再起動すれば最新モデルに切り替わる。
-
-## 推論 API
-
-```bash
-# Web UI
-open http://localhost:8000/
-
-# ヘルスチェック
-curl http://localhost:8000/health
-
-# 予測
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "MedInc": 8.3,
-    "HouseAge": 41,
-    "AveRooms": 6.9,
-    "AveBedrms": 1.0,
-    "Population": 322,
-    "AveOccup": 2.5,
-    "Latitude": 37.88,
-    "Longitude": -122.23
-  }'
-# → {"predicted_price": 4.2103}
-```
+推論 API は Phase 2 で提供。Phase 2 の API が `ml/registry/artifacts/latest/model.lgb` を参照する想定（学習成果物の共有は手作業コピー、または Phase 2 が Phase 1 の artifacts ディレクトリを volume マウント）。
 
 ## W&B 連携
 
-`.env` に API キーを設定するとクラウドにログ送信。未設定時は offline モードで `ml/wandb/wandb/` に保存され、パイプライン本体の動作には影響しない。
-
-```
-WANDB_API_KEY=your_key_here
-```
+`env/secret/credential.yaml` に `wandb_api_key` を設定するとクラウドにログ送信。未設定時は offline モードで保存され、パイプライン本体の動作には影響しない。
 
 ## テスト
 
 ```bash
-make test                          # 全テスト
-python scripts/local/ops/test.py -k test_train    # 単体テスト指定
+make test                                          # 全テスト
+python scripts/local/ops/test.py -k test_train     # 単体テスト指定
 ```
 
 ## ドキュメント
 
 - [設計書](docs/01_仕様と設計.md) — 全体設計・構成・設定
 - [運用手順書](docs/04_運用.md) — セットアップ・実行手順・環境変数一覧
-
-## スクリーンショット
-
-### 推論フォーム (`/`)
-
-![推論フォーム](docs/images/predict.png)
-
-### モデルの精度評価 (`/metrics`)
-
-![モデルの精度評価](docs/images/metrics.png)
-
-### 学習データサンプル (`/data`)
-
-![学習データサンプル](docs/images/data.png)
-
-
-https://youtu.be/FV-Sd635pPk
