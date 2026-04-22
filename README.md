@@ -119,6 +119,25 @@ study-gcp-mlops/
 
 - `docs/05_Docker配置規約.md` — Dockerfile 配置・命名ルール（Phase を跨いで一貫）
 - `docs/README.md` — ルート docs の入口と参照優先順位
+- `docs/01_仕様と設計.md` — Phase 1〜5 の仕様設計ハブ
+- `docs/03_実装カタログ.md` — Phase 1〜5 の実装カタログハブ
+- `docs/04_運用.md` — Phase 1〜5 の運用ハブ
+- `docs/phases/README.md` — Phase 別 docs 入口
+
+### docs ハブ関連付け（入口の対応）
+
+- トップ入口: `README.md` (本ファイル)
+- 横断入口: `docs/README.md`
+- 仕様ハブ: `docs/01_仕様と設計.md`
+- 実装ハブ: `docs/03_実装カタログ.md`
+- 運用ハブ: `docs/04_運用.md`
+- Phase 別入口: `docs/phases/README.md`
+- Phase 個別入口:
+  - `docs/phases/phase1/README.md`
+  - `docs/phases/phase2/README.md`
+  - `docs/phases/phase3/README.md`
+  - `docs/phases/phase4/README.md`
+  - `docs/phases/phase5/README.md`
 
 ### 過去の設計判断ログ（archive）
 
