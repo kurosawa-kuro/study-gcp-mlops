@@ -6,7 +6,7 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,$(if $(wildcard ../
 DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 
 .PHONY: \
-	help up build down logs test sync api-refresh \
+	help up build down logs test sync api-refresh ports-free up-clean \
 	check-layers \
 	db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval \
 	ops-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed \
@@ -23,6 +23,11 @@ help: ## Show this help
 
 up: ## Start docker compose services (detached)
 	$(DOCKER_COMPOSE) up -d
+
+ports-free: ## Free host ports 8000/5432/5050/7700/6379 (stop foreign containers)
+	./scripts/local/setup/free_ports.sh
+
+up-clean: ports-free up ## Free ports then start docker compose (safe bring-up)
 
 build: ## Build the api docker image
 	$(DOCKER_COMPOSE) build api

@@ -103,8 +103,8 @@ def _rules_for_stage(stage: int) -> list[Rule]:
     rules = [
         Rule(
             name="application-usecases",
-            target_dir=ROOT / "pipelines" / "src" / "pipelines" / "application",
-            allowed_prefixes=("pipelines.application", "common.ports", "common.dtos"),
+            target_dir=ROOT / "pipeline" / "application",
+            allowed_prefixes=("pipeline.application", "common.ports", "common.dtos"),
         ),
     ]
 
@@ -112,16 +112,16 @@ def _rules_for_stage(stage: int) -> list[Rule]:
         rules.append(
             Rule(
                 name="api-routes",
-                target_dir=ROOT / "app" / "src" / "app" / "routes",
+                target_dir=ROOT / "app" / "api",
                 allowed_prefixes=(
                     "app",
-                    "pipelines.application",
+                    "pipeline.application",
                     "common.core",
                     "common.ports",
                     "fastapi",
                     "httpx",
                 ),
-                blocked_prefixes=("pipelines.repositories", "common.clients", "pipelines.adapters"),
+                blocked_prefixes=("pipeline.repositories", "common.clients", "pipeline.adapters"),
             )
         )
 
@@ -131,7 +131,7 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                 name="ports",
                 target_dir=ROOT / "common" / "src" / "common" / "ports",
                 allowed_prefixes=("common.ports", "common.dtos"),
-                blocked_prefixes=("pipelines.adapters", "common.clients", "pipelines.repositories", "app", "fastapi", "pydantic"),
+                blocked_prefixes=("pipeline.adapters", "common.clients", "pipeline.repositories", "app", "fastapi", "pydantic"),
             )
         )
 
@@ -145,73 +145,71 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                         "pipeline.batch",
                         "common.core",
                         "common.clients",
-                        "pipelines.repositories",
-                        "pipelines.services",
+                        "pipeline.repositories",
+                        "pipeline.services",
                         "psycopg",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipelines.application",
+                        "pipeline.application",
+                        "pipeline.adapters",
                         "common.ports.inbound",
-                        "train",
-                        "embed",
-                        "sync",
+                        "ml",
                     ),
                 ),
+                # ml.data.loaders: PostgreSQL → Meilisearch 同期バッチ (make ops-sync)
                 Rule(
                     name="ml.sync",
-                    target_dir=ROOT / "ml" / "sync" / "src" / "sync",
+                    target_dir=ROOT / "ml" / "data" / "loaders",
                     allowed_prefixes=(
-                        "sync",
+                        "ml",
                         "common.core",
                         "common.clients",
                         "psycopg",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipelines.application",
+                        "pipeline.application",
+                        "pipeline.adapters",
                         "common.ports.inbound",
-                        "embed",
-                        "train",
                     ),
                 ),
+                # ml.data.preprocess: ME5 embedding 生成バッチ (make ops-embed)
                 Rule(
                     name="ml.embed",
-                    target_dir=ROOT / "ml" / "embed" / "src" / "embed",
+                    target_dir=ROOT / "ml" / "data" / "preprocess",
                     allowed_prefixes=(
-                        "embed",
+                        "ml",
                         "common.core",
                         "common.clients",
-                        "pipelines.repositories",
-                        "pipelines.services",
+                        "pipeline.repositories",
+                        "pipeline.services",
                         "psycopg",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipelines.application",
+                        "pipeline.application",
+                        "pipeline.adapters",
                         "common.ports.inbound",
-                        "train",
-                        "sync",
                     ),
                 ),
+                # ml.training: LightGBM LambdaRank 学習 (make ops-train-*)
                 Rule(
                     name="ml.train",
-                    target_dir=ROOT / "ml" / "train" / "src" / "train",
+                    target_dir=ROOT / "ml" / "training",
                     allowed_prefixes=(
-                        "train",
+                        "ml",
                         "common.core",
-                        "pipelines.repositories",
+                        "pipeline.repositories",
                         "psycopg",
                         "numpy",
                         "lightgbm",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipelines.application",
-                        "pipelines.adapters",
+                        "pipeline.application",
+                        "pipeline.adapters",
                         "common.ports.inbound",
-                        "embed",
-                        "sync",
                     ),
                 ),
             ]
@@ -221,9 +219,17 @@ def _rules_for_stage(stage: int) -> list[Rule]:
         rules.append(
             Rule(
                 name="adapters-outbound",
-                target_dir=ROOT / "pipelines" / "src" / "pipelines" / "adapters",
-                allowed_prefixes=("pipelines.adapters", "common.ports", "common.clients", "pipelines.repositories", "pipelines.services", "common.core", "redis"),
-                blocked_prefixes=("app", "pipelines.application"),
+                target_dir=ROOT / "pipeline" / "adapters",
+                allowed_prefixes=(
+                    "pipeline.adapters",
+                    "common.ports",
+                    "common.clients",
+                    "common.core",
+                    "pipeline.repositories",
+                    "pipeline.services",
+                    "redis",
+                ),
+                blocked_prefixes=("app", "pipeline.application"),
             )
         )
 

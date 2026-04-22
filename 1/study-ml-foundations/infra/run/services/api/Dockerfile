@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir \
     sqlalchemy
 
 COPY app/ app/
-COPY common/ common/
 COPY ml/ ml/
 COPY pipeline/ pipeline/
 COPY env/config/ env/config/

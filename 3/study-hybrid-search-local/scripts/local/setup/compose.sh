@@ -5,7 +5,8 @@
 #
 # 使い方: Makefile から `$(DOCKER_COMPOSE) up -d` のように呼び出す。
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# scripts/local/setup/compose.sh からプロジェクトルート (docker-compose.yml の隣) に移動する
+cd "$(dirname "$0")/../../.."
 
 load_credentials() {
   local yaml="env/secret/credential.yaml"

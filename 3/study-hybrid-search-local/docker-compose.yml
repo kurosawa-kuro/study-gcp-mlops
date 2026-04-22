@@ -14,6 +14,7 @@ services:
       - ./pipeline:/app/pipeline
       - ./ml:/app/ml
       - ./definitions:/app/definitions
+      - ./infra:/app/infra
     # POSTGRES_PASSWORD は scripts/local/setup/compose.sh が credential.yaml から shell env に export する
     # その他の変数は各パッケージ側で os.getenv("...", "<default>") のフォールバックに任せる
     environment:

@@ -44,8 +44,35 @@ def run(command: list[str], *, cwd: Path | None = None, check: bool = True) -> i
     return completed.returncode
 
 
+# Phase 1 のサービスが使う host ポート。外部の他プロジェクトに取られていたら自動停止する。
+HOST_PORTS = (5432, 8000)
+OWN_CONTAINER_PREFIX = "ml-pipeline-"
+
+
+def free_host_ports(ports: tuple[int, ...] = HOST_PORTS) -> None:
+    for port in ports:
+        result = subprocess.run(
+            ["docker", "ps", "--filter", f"publish={port}", "--format", "{{.Names}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return
+        names = [
+            name
+            for name in result.stdout.splitlines()
+            if name and not name.startswith(OWN_CONTAINER_PREFIX)
+        ]
+        for name in names:
+            step(f"Freeing host :{port} (stopping {name})")
+            subprocess.run(["docker", "stop", name], check=False)
+
+
 def compose(args: list[str], *, check: bool = True) -> int:
     load_credentials()
+    if args and args[0] in {"up", "run"}:
+        free_host_ports()
     return run(["docker", "compose", *args], check=check)
 
 
