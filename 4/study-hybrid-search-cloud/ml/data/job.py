@@ -30,7 +30,6 @@ from common.ports.embedding_store import (
 )
 
 from common import get_logger
-
 from ml.data.datasets.embed_settings import EmbedSettings
 from ml.data.loaders.embedding_writer import create_embedding_store, create_property_text_repository
 from ml.data.preprocess.embedding_runner import run_embedding_batch

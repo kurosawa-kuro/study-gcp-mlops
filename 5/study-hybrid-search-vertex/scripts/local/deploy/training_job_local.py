@@ -1,16 +1,17 @@
-"""Local alternative to .github/workflows/deploy-training-job.yml — builds the
-training-job image via Cloud Build and updates the Cloud Run Job revision.
-Invoked by `make deploy-training-job-local` (and indirectly by `make deploy-all`).
+"""Local alternative to .github/workflows/deploy-training-job.yml.
 
-**delete-then-push policy** (per project memory): see scripts/deploy/api_local.py
-for rationale. Same purge step before Cloud Build.
+Kept for compatibility even though training moved to Vertex Pipelines.
+Uses immutable tags and fail-fast cloud-build waiting.
 """
 
 from __future__ import annotations
 
-import subprocess
+import time
 
-from scripts._common import env, run
+from scripts._common import env, run, submit_cloud_build_async, wait_cloud_build
+
+BUILD_TIMEOUT_SEC = 480
+UPDATE_TIMEOUT_SEC = 180
 
 
 def main() -> int:
@@ -20,37 +21,18 @@ def main() -> int:
     job = env("TRAINING_JOB")
 
     sha = run(["git", "rev-parse", "--short=8", "HEAD"], capture=True).stdout.strip()
+    build_tag = f"{sha}-{int(time.time())}"
     image_path = f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/{job}"
-    uri = f"{image_path}:{sha}"
+    uri = f"{image_path}:{build_tag}"
 
-    print(f"==> Purge existing image {image_path} (all tags)", flush=True)
-    subprocess.run(
-        [
-            "gcloud",
-            "artifacts",
-            "docker",
-            "images",
-            "delete",
-            image_path,
-            "--delete-tags",
-            "--quiet",
-            f"--project={project_id}",
-        ],
-        check=False,
+    print(f"==> Cloud Build submit {uri}", flush=True)
+    build_id = submit_cloud_build_async(
+        project_id=project_id,
+        config="cloudbuild.train.yaml",
+        substitutions=f"_URI={uri}",
     )
-
-    print(f"==> Cloud Build {uri}", flush=True)
-    run(
-        [
-            "gcloud",
-            "builds",
-            "submit",
-            f"--project={project_id}",
-            "--config=cloudbuild.train.yaml",
-            f"--substitutions=_URI={uri}",
-            ".",
-        ]
-    )
+    print(f"==> Cloud Build wait id={build_id} timeout={BUILD_TIMEOUT_SEC}s", flush=True)
+    wait_cloud_build(project_id=project_id, build_id=build_id, timeout_sec=BUILD_TIMEOUT_SEC)
 
     print(f"==> Update {job}", flush=True)
     run(
@@ -64,8 +46,9 @@ def main() -> int:
             f"--region={region}",
             f"--image={uri}",
             f"--service-account=sa-job-train@{project_id}.iam.gserviceaccount.com",
-            f"--set-env-vars=PROJECT_ID={project_id},GIT_SHA={sha}",
-        ]
+            f"--set-env-vars=PROJECT_ID={project_id},GIT_SHA={build_tag}",
+        ],
+        timeout=UPDATE_TIMEOUT_SEC,
     )
     return 0
 

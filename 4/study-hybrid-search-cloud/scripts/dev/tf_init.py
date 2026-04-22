@@ -10,7 +10,9 @@ from pathlib import Path
 
 from scripts._common import env, fail, run
 
-INFRA = Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
+INFRA = (
+    Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
+)
 
 
 def main() -> int:

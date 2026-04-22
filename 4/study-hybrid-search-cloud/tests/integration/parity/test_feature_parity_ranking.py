@@ -22,7 +22,9 @@ from common.schema.feature_schema import FEATURE_COLS_RANKER
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 INFRA_PATH = REPO_ROOT / "infra" / "terraform" / "modules" / "data" / "main.tf"
-SQLX_PATH = REPO_ROOT / "definitions" / "features" / "property_features_daily.sqlx"
+SQLX_PATH = (
+    REPO_ROOT / "pipeline" / "data_job" / "dataform" / "features" / "property_features_daily.sqlx"
+)
 
 _RANKING_LOG_FEATURES_BLOCK_RE = re.compile(
     r"# Feature parity invariant[^{]*?fields\s*=\s*\[(?P<fields>.*?)\]",

@@ -9,8 +9,11 @@
 4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
 6. `terraform apply tfplan -auto-approve` — apply infra
-7. `local/deploy_api` — Cloud Build + gcloud run deploy search-api
-8. `local/deploy_training_job` — Cloud Build + gcloud run jobs update training-job
+7. `local/deploy_training_job` — Cloud Build + gcloud run jobs update training-job
+8. `local/run_training_job` — execute training-job once (model-first gate)
+9. `local/deploy_api` — Cloud Build + gcloud run deploy search-api
+10. `dev/seed_minimal` — materialize minimal search dataset + Meili sync
+11. `local/search_check` — non-empty /search gate (200 with [] is treated as fail)
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh image revision (search-api / training-job get a new
@@ -24,14 +27,19 @@ import subprocess
 from pathlib import Path
 
 from scripts._common import env, run
+from scripts.dev.seed_minimal import main as seed_minimal_main
 from scripts.dev.sync_dataform import main as sync_dataform_main
 from scripts.dev.tf_bootstrap import main as tf_bootstrap_main
 from scripts.dev.tf_init import main as tf_init_main
 from scripts.dev.tf_plan import main as tf_plan_main
 from scripts.local.deploy_api import main as deploy_api_main
 from scripts.local.deploy_training_job import main as deploy_training_main
+from scripts.local.run_training_job import main as run_training_job_main
+from scripts.local.search_check import main as search_check_main
 
-INFRA = Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
+INFRA = (
+    Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
+)
 
 
 def _step(n: int, total: int, label: str) -> None:
@@ -167,7 +175,7 @@ def _recover_wif_state(project_id: str) -> None:
 
 
 def main() -> int:
-    total = 8
+    total = 11
     project_id = env("PROJECT_ID")
 
     _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
@@ -192,17 +200,29 @@ def main() -> int:
     _step(6, total, "terraform apply tfplan -auto-approve")
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
 
-    _step(7, total, "deploy-api-local (Cloud Build + run deploy search-api)")
+    _step(7, total, "deploy-training-job-local (Cloud Build + run jobs update)")
+    if (rc := deploy_training_main()) != 0:
+        return rc
+
+    _step(8, total, "run-training-job-local (execute training-job once as model-first gate)")
+    if (rc := run_training_job_main()) != 0:
+        return rc
+
+    _step(9, total, "deploy-api-local (Cloud Build + run deploy search-api)")
     if (rc := deploy_api_main()) != 0:
         return rc
 
-    _step(8, total, "deploy-training-job-local (Cloud Build + run jobs update)")
-    if (rc := deploy_training_main()) != 0:
+    _step(10, total, "seed-test data + sync meilisearch (empty-result prevention)")
+    if (rc := seed_minimal_main()) != 0:
+        return rc
+
+    _step(11, total, "ops-search gate (must return non-empty results)")
+    if (rc := search_check_main()) != 0:
         return rc
 
     print()
     print("==> deploy-all complete.")
-    print("    Verify with: make ops-livez && make ops-api-url")
+    print("    Verify with: make ops-livez && make ops-search && make ops-api-url")
     return 0
 
 

@@ -35,7 +35,9 @@ from pathlib import Path
 from scripts._common import env, run
 from scripts.dev.seed_minimal_clean import main as seed_clean_main
 
-INFRA = Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
+INFRA = (
+    Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
+)
 
 # Resource addresses for the 7 BQ tables that carry deletion_protection.
 # Kept in sync with infra/terraform/modules/data/main.tf — if a new protected table

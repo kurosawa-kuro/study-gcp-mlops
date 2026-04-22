@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from common.ports.embedding_store import EmbeddingRow, PropertyText
+
 from ml.data.preprocess.embedding_runner import run_embedding_batch
 
 

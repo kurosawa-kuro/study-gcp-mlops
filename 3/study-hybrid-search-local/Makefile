@@ -6,7 +6,8 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,$(if $(wildcard ../
 DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 
 .PHONY: \
-	help up build down logs test sync api-refresh ports-free up-clean \
+	help up build down logs test test-e2e install-browsers sync api-refresh ports-free up-clean \
+	wait-db \
 	check-layers \
 	db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval \
 	ops-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed \
@@ -29,6 +30,9 @@ ports-free: ## Free host ports 8000/5432/5050/7700/6379 (stop foreign containers
 
 up-clean: ports-free up ## Free ports then start docker compose (safe bring-up)
 
+wait-db: ## Wait until postgres accepts connections
+	@$(DOCKER_COMPOSE) exec -T postgres sh -lc 'for i in $$(seq 1 15); do pg_isready -U "$${POSTGRES_USER:-admin}" -d "$${POSTGRES_DB:-estate}" >/dev/null 2>&1 && exit 0; sleep 1; done; echo "postgres is not ready after 15s" >&2; exit 1'
+
 build: ## Build the api docker image
 	$(DOCKER_COMPOSE) build api
 
@@ -41,8 +45,14 @@ logs: ## Tail api/postgres/meili/pgadmin/redis logs
 sync: ## uv sync (root package + dev group)
 	uv sync --dev
 
-test: ## Run pytest (local)
-	PYTHONPATH=app:common/src:pipeline/batch:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v
+test: ## Run pytest (local, E2E は除外)
+	PYTHONPATH=app:common/src:pipeline/batch:pipeline:ml $(PYTHON) -m pytest tests/ app/tests/ common/tests/ tests/unit/pipeline/ -v -m "not e2e"
+
+test-e2e: ## Run Playwright E2E tests (要 install-browsers)
+	PYTHONPATH=app:common/src:pipeline/batch:pipeline:ml $(PYTHON) -m pytest tests/e2e -v -m e2e
+
+install-browsers: ## Playwright 用の Chromium バイナリをインストール
+	$(PYTHON) -m playwright install chromium
 
 check-layers: ## Enforce layer boundaries by AST (stage=5)
 	$(PYTHON) scripts/ci/layers.py --stage 5
@@ -139,7 +149,7 @@ ops-retrain: ## Weekly retraining orchestration
 
 # ----- Aggregates -----
 
-ops-bootstrap: db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval ops-sync ops-embed ops-label-seed ops-train-build ops-train-fit-safe ## One-time setup (migrations + seed + index + model prep)
+ops-bootstrap: wait-db db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval ops-sync ops-embed ops-label-seed ops-train-build ops-train-fit-safe ## One-time setup (migrations + seed + index + model prep)
 
 ops-daily: ## Daily sync/feature/embed/kpi tasks
 	$(MAKE) ops-sync

@@ -38,12 +38,27 @@ DATASET_DIR = Path("ml/data/datasets")
 DATASET_PATH = DATASET_DIR / "seed_minimal_properties.csv"
 
 
-def _store_and_load_properties() -> list[tuple[str, str, str, str, int, str, int, int, float, bool]]:
+def _store_and_load_properties() -> list[
+    tuple[str, str, str, str, int, str, int, int, float, bool]
+]:
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
 
     with DATASET_PATH.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["property_id", "title", "city", "ward", "rent", "layout", "walk_min", "age_years", "area_m2", "pet_ok"])
+        writer.writerow(
+            [
+                "property_id",
+                "title",
+                "city",
+                "ward",
+                "rent",
+                "layout",
+                "walk_min",
+                "age_years",
+                "area_m2",
+                "pet_ok",
+            ]
+        )
         for p in PROPERTIES:
             writer.writerow(p)
 
@@ -85,6 +100,36 @@ def _bq(query: str) -> None:
             "--use_legacy_sql=false",
             f"--project_id={env('PROJECT_ID')}",
             query,
+        ]
+    )
+
+
+def _sync_meili_index(project_id: str) -> None:
+    """Sync freshly seeded properties_cleaned into Meilisearch `properties` index."""
+    meili_base_url = run(
+        ["terraform", f"-chdir={Path('infra/terraform/environments/main')}", "output", "-raw", "meili_base_url"],
+        capture=True,
+    ).stdout.strip()
+    if not meili_base_url:
+        raise RuntimeError("terraform output meili_base_url returned empty value")
+
+    print(f"==> sync meilisearch index from {project_id}.feature_mart.properties_cleaned")
+    run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "ml.data.loaders.meili_sync",
+            "--project-id",
+            project_id,
+            "--table",
+            "feature_mart.properties_cleaned",
+            "--meili-base-url",
+            meili_base_url,
+            "--index",
+            "properties",
+            "--require-identity-token",
         ]
     )
 
@@ -167,6 +212,7 @@ def main() -> int:
           (SELECT COUNT(*) FROM `{project_id}.feature_mart.property_embeddings`) AS embeddings
         """
     )
+    _sync_meili_index(project_id)
 
     print()
     print(f"==> seed-minimal complete. {len(properties)} properties materialised.")

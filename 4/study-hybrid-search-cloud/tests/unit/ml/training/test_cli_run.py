@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
+
 from ml.training import job as rank_cli
 from ml.training.job import _split_by_request_id, run
 
@@ -109,16 +110,20 @@ def test_run_non_dry_run_happy_path(tmp_path: Path) -> None:
     assert "lambdarank_truncation_level" in saved["hyperparams"]
 
 
-def test_run_non_dry_run_raises_on_empty_dataset() -> None:
+def test_run_non_dry_run_falls_back_to_synthetic_on_empty_dataset() -> None:
     repo = _InMemoryRepo(pd.DataFrame())
+    uploader = _StubUploader()
 
-    with pytest.raises(RuntimeError, match="No ranker training rows"):
-        run(
-            dry_run=False,
-            repository=repo,
-            uploader=_StubUploader(),
-            tracker_factory=_tracker_factory,
-        )
+    model_uri = run(
+        dry_run=False,
+        repository=repo,
+        uploader=uploader,
+        tracker_factory=_tracker_factory,
+    )
+
+    assert model_uri.startswith("gs://stub/lgbm/")
+    assert uploader.calls
+    assert repo.saved_runs
 
 
 def test_run_dry_run_skips_upload_and_save(tmp_path: Path) -> None:

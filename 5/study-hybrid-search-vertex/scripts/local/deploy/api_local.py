@@ -1,19 +1,18 @@
-"""Local alternative to .github/workflows/deploy-api.yml — builds search-api
-via Cloud Build and rolls out a Cloud Run revision. Invoked by
-`make deploy-api-local` (and indirectly by `make deploy-all`).
+"""Local alternative to .github/workflows/deploy-api.yml.
 
-**delete-then-push policy** (per project memory): every invocation purges
-the entire `search-api` image (all tags + digests) from Artifact Registry
-before Cloud Build pushes the new tag. Stale layer / tag mismatch can
-otherwise cause Cloud Run to silently keep an old revision when image
-push reports success — for a PDCA loop this is unacceptable.
+Safety rules:
+- never delete tags before push;
+- always build/deploy an immutable tag (`<sha>-<epoch>`);
+- fail fast with diagnostics when Cloud Build / Cloud Run deploy fails.
 """
 
 from __future__ import annotations
 
 import subprocess
+import sys
+import time
 
-from scripts._common import env, run
+from scripts._common import env, run, submit_cloud_build_async, wait_cloud_build
 
 ENV_VARS = ",".join(
     [
@@ -28,47 +27,68 @@ ENV_VARS = ",".join(
 )
 
 
+BUILD_TIMEOUT_SEC = 900
+DEPLOY_TIMEOUT_SEC = 180
+
+
+def _assert_model_ready(project_id: str) -> None:
+    query = (
+        "SELECT COUNT(1) "
+        f"FROM `{project_id}.mlops.training_runs` "
+        "WHERE finished_at IS NOT NULL"
+    )
+    proc = run(
+        [
+            "bq",
+            "query",
+            "--use_legacy_sql=false",
+            f"--project_id={project_id}",
+            "--format=csv",
+            query,
+        ],
+        capture=True,
+    )
+    lines = [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
+    finished_runs = int(lines[-1]) if lines else 0
+    if finished_runs <= 0:
+        raise RuntimeError(
+            "model-first gate failed: no finished training run found in "
+            f"`{project_id}.mlops.training_runs`"
+        )
+
+
+def _diag(label: str, proc: subprocess.CompletedProcess[str]) -> None:
+    print(f"[diag] {label} exit={proc.returncode}", file=sys.stderr)
+    if proc.stdout:
+        print(proc.stdout.rstrip(), file=sys.stderr)
+    if proc.stderr:
+        print(proc.stderr.rstrip(), file=sys.stderr)
+
+
 def main() -> int:
     project_id = env("PROJECT_ID")
     region = env("REGION")
     artifact_repo = env("ARTIFACT_REPO")
     service = env("API_SERVICE")
 
+    _assert_model_ready(project_id)
+
     sha = run(["git", "rev-parse", "--short=8", "HEAD"], capture=True).stdout.strip()
+    build_tag = f"{sha}-{int(time.time())}"
     image_path = f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/{service}"
-    uri = f"{image_path}:{sha}"
+    uri = f"{image_path}:{build_tag}"
 
-    print(f"==> Purge existing image {image_path} (all tags)", flush=True)
-    subprocess.run(
-        [
-            "gcloud",
-            "artifacts",
-            "docker",
-            "images",
-            "delete",
-            image_path,
-            "--delete-tags",
-            "--quiet",
-            f"--project={project_id}",
-        ],
-        check=False,  # absent on first-ever push, treat as success
+    print(f"==> Cloud Build submit {uri}", flush=True)
+    build_id = submit_cloud_build_async(
+        project_id=project_id,
+        config="cloudbuild.api.yaml",
+        substitutions=f"_URI={uri}",
     )
-
-    print(f"==> Cloud Build {uri}", flush=True)
-    run(
-        [
-            "gcloud",
-            "builds",
-            "submit",
-            f"--project={project_id}",
-            "--config=cloudbuild.api.yaml",
-            f"--substitutions=_URI={uri}",
-            ".",
-        ]
-    )
+    print(f"==> Cloud Build wait id={build_id} timeout={BUILD_TIMEOUT_SEC}s", flush=True)
+    wait_cloud_build(project_id=project_id, build_id=build_id, timeout_sec=BUILD_TIMEOUT_SEC)
 
     print(f"==> Deploy {service}", flush=True)
-    run(
+    deploy_proc = subprocess.run(
         [
             "gcloud",
             "run",
@@ -88,8 +108,15 @@ def main() -> int:
             "--no-allow-unauthenticated",
             f"--set-env-vars={ENV_VARS.format(project_id=project_id)}",
             f"--labels=git-sha={sha}",
-        ]
+        ],
+        check=False,
+        text=True,
+        capture_output=True,
+        timeout=DEPLOY_TIMEOUT_SEC,
     )
+    _diag("run-deploy", deploy_proc)
+    if deploy_proc.returncode != 0:
+        raise RuntimeError(f"gcloud run deploy {service} failed with exit={deploy_proc.returncode}")
     return 0
 
 

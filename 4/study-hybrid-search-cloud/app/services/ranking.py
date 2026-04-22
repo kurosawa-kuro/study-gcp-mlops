@@ -27,10 +27,11 @@ import numpy as np
 from common.feature_engineering import build_ranker_features
 from ports.candidate_retriever import Candidate, CandidateRetriever, RankingLogPublisher
 
-from common import FEATURE_COLS_RANKER
+from common import FEATURE_COLS_RANKER, get_logger
 
 RRF_K: int = 60
 DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
+logger = get_logger(__name__)
 
 
 class _Booster(Protocol):
@@ -83,6 +84,13 @@ def run_search(
         top_k=top_k,
     )
     if not candidates:
+        logger.warning(
+            "run_search returned no candidates: request_id=%s top_k=%d filters=%s query=%r",
+            request_id,
+            top_k,
+            filters,
+            query_text,
+        )
         publisher.publish_candidates(
             request_id=request_id,
             candidates=[],

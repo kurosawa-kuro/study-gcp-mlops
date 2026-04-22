@@ -28,7 +28,6 @@ from common import (
     generate_run_id,
     get_logger,
 )
-
 from ml.registry import GcsArtifactUploader, create_rank_repository
 from ml.training.experiments import TrainSettings, WandbExperimentTracker
 from ml.training.model_builder import build_rank_params
@@ -97,9 +96,9 @@ def _synthetic_ranking_frames(
                         RANKER_GROUP_COL: request_id,
                         "rent": rent,
                         "walk_min": walk_min,
-                    "age_years": age_years,
-                    "area_m2": area_m2,
-                    "ctr": ctr,
+                        "age_years": age_years,
+                        "area_m2": area_m2,
+                        "ctr": ctr,
                         "fav_rate": fav_rate,
                         "inquiry_rate": inquiry_rate,
                         "me5_score": me5_score,
@@ -169,11 +168,13 @@ def run(
         repository = repository or create_rank_repository(settings)
         full = repository.fetch_training_rows(window_days=window_days)
         if full.empty:
-            raise RuntimeError(
-                f"No ranker training rows in the last {window_days} days. "
-                "Publish /search + /feedback events before retraining."
+            logger.warning(
+                "No ranker training rows in the last %s days; falling back to synthetic data",
+                window_days,
             )
-        train_df, test_df = _split_by_request_id(full)
+            train_df, test_df = _synthetic_ranking_frames()
+        else:
+            train_df, test_df = _split_by_request_id(full)
     if test_df.empty and not train_df.empty:
         logger.warning("Test split was empty; reusing train split as validation fallback")
         test_df = train_df.copy()

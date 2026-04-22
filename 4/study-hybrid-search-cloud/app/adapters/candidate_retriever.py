@@ -27,6 +27,10 @@ from ports.candidate_retriever import Candidate
 from ports.lexical_search import LexicalSearchPort
 from services.ranking import RRF_K, rrf_fuse
 
+from common import get_logger
+
+logger = get_logger(__name__)
+
 
 class BigQueryCandidateRetriever:
     """Hybrid candidate generation via lexical + semantic retrieval.
@@ -68,7 +72,16 @@ class BigQueryCandidateRetriever:
         top_k: int,
     ) -> list[Candidate]:
         lexical_results = self._lexical.search(query=query_text, filters=filters, top_k=200)
-        semantic_results = self._semantic_search(query_vector=query_vector, filters=filters, top_k=200)
+        semantic_results: list[tuple[str, int, float]]
+        if query_vector:
+            semantic_results = self._semantic_search(
+                query_vector=query_vector, filters=filters, top_k=200
+            )
+        else:
+            semantic_results = []
+            logger.warning(
+                "semantic disabled: empty query_vector; lexical-only retrieval path used"
+            )
 
         semantic_rank_pairs = [(pid, rank) for pid, rank, _ in semantic_results]
         fused_ids = rrf_fuse(
@@ -77,7 +90,22 @@ class BigQueryCandidateRetriever:
             top_n=max(top_k, 100),
             k=RRF_K,
         )
+        logger.info(
+            "candidate pools: lexical=%d semantic=%d fused=%d top_k=%d filters=%s",
+            len(lexical_results),
+            len(semantic_results),
+            len(fused_ids),
+            top_k,
+            filters,
+        )
         if not fused_ids:
+            logger.warning(
+                "empty fused candidate pool; lexical=%d semantic=%d filters=%s query=%r",
+                len(lexical_results),
+                len(semantic_results),
+                filters,
+                query_text,
+            )
             return []
 
         lexical_rank_map = {pid: rank for pid, rank in lexical_results}
@@ -218,6 +246,11 @@ class BigQueryCandidateRetriever:
                 )
             )
         candidates.sort(key=lambda c: rrf_rank_map.get(c.property_id, 10_000))
+        if not candidates:
+            logger.warning(
+                "enrichment returned zero rows for %d fused property_ids; check BQ tables and ids",
+                len(property_ids),
+            )
         return candidates
 
 

@@ -5,7 +5,7 @@
 FROM ghcr.io/astral-sh/uv:0.5.4-python3.12-bookworm-slim AS builder
 
 ENV UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1 \
+    UV_COMPILE_BYTECODE=0 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 
@@ -14,11 +14,6 @@ WORKDIR /src
 COPY pyproject.toml uv.lock* ./
 COPY common/pyproject.toml    common/pyproject.toml
 COPY app/pyproject.toml       app/pyproject.toml
-COPY ml/embed/pyproject.toml  ml/embed/pyproject.toml
-COPY ml/train/pyproject.toml  ml/train/pyproject.toml
-COPY ml/sync/pyproject.toml   ml/sync/pyproject.toml
-
-RUN uv sync --frozen --no-dev --package app --no-install-project
 
 COPY common/ common/
 COPY app/    app/
@@ -36,7 +31,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
+COPY app /home/app/app
 ENV PATH="/opt/venv/bin:${PATH}" \
+    PYTHONPATH="/home/app/app:${PYTHONPATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \

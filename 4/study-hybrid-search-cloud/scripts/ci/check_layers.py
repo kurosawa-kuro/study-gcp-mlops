@@ -42,7 +42,7 @@ COMMON_ADAPTERS: frozenset[str] = frozenset(
 )
 
 RULES: dict[str, frozenset[str]] = {
-# common/ — Port + pure-logic layer
+    # common/ — Port + pure-logic layer
     "common/src/common/ports/embedding_store.py": frozenset({"lightgbm", "sentence_transformers"}),
     "common/src/common/feature_engineering.py": frozenset({"lightgbm"}),
     "common/src/common/schema/feature_schema.py": frozenset({"lightgbm", "pandas", "numpy"}),

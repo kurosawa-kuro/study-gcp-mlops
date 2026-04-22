@@ -5,7 +5,7 @@
 FROM ghcr.io/astral-sh/uv:0.5.4-python3.12-bookworm-slim AS builder
 
 ENV UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1 \
+    UV_COMPILE_BYTECODE=0 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 
@@ -14,18 +14,17 @@ WORKDIR /src
 # Copy workspace manifests first for better caching
 COPY pyproject.toml uv.lock* ./
 COPY common/pyproject.toml    common/pyproject.toml
-COPY app/pyproject.toml       app/pyproject.toml
 
-# Sync workspace deps first for better layer cache hit rate
-RUN uv sync --frozen --no-dev --all-packages --no-install-project
+# Sync minimum deps for training first (skip app package install)
+RUN uv sync --frozen --no-dev --package common --no-install-project
 
 # Now copy source and build the workspace packages
 COPY common/    common/
 COPY ml/training/  ml/training/
 # --no-editable: see infra/run/services/search_api/Dockerfile for rationale (runtime stage only copies
 # /opt/venv, so editable installs pointing at /src/ would 404 at import time).
-RUN uv sync --frozen --no-dev --all-packages --no-editable \
-    && uv pip install --python /opt/venv/bin/python "wandb>=0.17"
+RUN uv sync --frozen --no-dev --package common --no-editable \
+    && uv pip install --python /opt/venv/bin/python "lightgbm>=4.5" "wandb>=0.17"
 
 
 FROM python:3.12-slim-bookworm AS runtime
@@ -47,4 +46,4 @@ RUN useradd --system --uid 1001 --home-dir /home/app app \
 USER app
 WORKDIR /home/app
 
-ENTRYPOINT ["rank-train"]
+ENTRYPOINT ["python", "-m", "ml.training.job"]

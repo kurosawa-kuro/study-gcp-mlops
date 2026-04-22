@@ -2,7 +2,7 @@
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
-.PHONY: help build seed train serve test all down clean free-ports
+.PHONY: help build seed train serve test test-e2e install-browsers all down clean free-ports
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -21,8 +21,14 @@ train: ## Run LightGBM training
 serve: ## Start FastAPI on :8000
 	$(PYTHON) scripts/local/deploy/serve.py
 
-test: ## Run pytest (local)
-	$(PYTHON) scripts/local/ops/test.py
+test: ## Run pytest (local, E2E は除外)
+	$(PYTHON) scripts/local/ops/test.py -m "not e2e"
+
+test-e2e: ## Run Playwright E2E tests (要 install-browsers)
+	$(PYTHON) scripts/local/ops/test.py -m e2e
+
+install-browsers: ## Playwright 用の Chromium などブラウザをインストール
+	$(PYTHON) -m playwright install chromium
 
 all: build seed train ## build → seed → train
 

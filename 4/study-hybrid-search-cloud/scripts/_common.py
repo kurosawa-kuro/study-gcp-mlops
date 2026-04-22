@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -58,7 +59,11 @@ def env(name: str, default: str | None = None) -> str:
 
 
 def run(
-    cmd: list[str], *, capture: bool = False, check: bool = True
+    cmd: list[str],
+    *,
+    capture: bool = False,
+    check: bool = True,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Thin wrapper around subprocess.run. `capture=True` returns stdout in `.stdout`."""
     return subprocess.run(
@@ -66,6 +71,7 @@ def run(
         check=check,
         text=True,
         stdout=subprocess.PIPE if capture else None,
+        timeout=timeout,
     )
 
 
@@ -132,3 +138,80 @@ def print_pretty(body: str) -> None:
         print(json.dumps(json.loads(body), ensure_ascii=False, indent=2))
     except json.JSONDecodeError:
         print(body)
+
+
+def submit_cloud_build_async(
+    *, project_id: str, config: str, substitutions: str, timeout: int | None = None
+) -> str:
+    """Submit Cloud Build asynchronously and return build id."""
+    proc = run(
+        [
+            "gcloud",
+            "builds",
+            "submit",
+            f"--project={project_id}",
+            f"--config={config}",
+            f"--substitutions={substitutions}",
+            "--async",
+            "--format=value(id)",
+            ".",
+        ],
+        capture=True,
+        timeout=timeout,
+    )
+    build_id = (proc.stdout or "").strip()
+    if not build_id:
+        raise RuntimeError("cloud build submission returned empty build id")
+    return build_id
+
+
+def wait_cloud_build(
+    *,
+    project_id: str,
+    build_id: str,
+    timeout_sec: int,
+    poll_sec: int = 10,
+) -> None:
+    """Poll Cloud Build status and fail fast on timeout/failure."""
+
+    def _print_build_diagnostics() -> None:
+        try:
+            summary = gcloud(
+                "builds",
+                "describe",
+                build_id,
+                f"--project={project_id}",
+                "--format=value(logUrl,status,createTime,startTime,finishTime)",
+                capture=True,
+            )
+            if summary:
+                print(f"[cloud-build] summary: {summary}", file=sys.stderr)
+        except Exception as exc:  # pragma: no cover - best effort diagnostics
+            print(f"[cloud-build] failed to fetch describe summary: {exc}", file=sys.stderr)
+
+    deadline = time.monotonic() + timeout_sec
+    while True:
+        status = gcloud(
+            "builds",
+            "describe",
+            build_id,
+            f"--project={project_id}",
+            "--format=value(status)",
+            capture=True,
+        )
+        if status == "SUCCESS":
+            return
+        if status in {"FAILURE", "INTERNAL_ERROR", "TIMEOUT", "CANCELLED", "EXPIRED"}:
+            _print_build_diagnostics()
+            raise RuntimeError(f"cloud build {build_id} failed with status={status}")
+        if time.monotonic() >= deadline:
+            # Best effort cancellation to avoid zombie builds burning quota/cost.
+            run(
+                ["gcloud", "builds", "cancel", build_id, f"--project={project_id}"],
+                check=False,
+            )
+            _print_build_diagnostics()
+            raise RuntimeError(
+                f"cloud build {build_id} exceeded timeout ({timeout_sec}s) and was cancelled"
+            )
+        time.sleep(poll_sec)

@@ -73,13 +73,13 @@ def test_search_rejects_empty_query(search_client) -> None:
     assert r.status_code == 422
 
 
-def test_search_503_when_disabled(app_with_search_stub) -> None:
+def test_search_200_when_encoder_missing_lexical_only_fallback(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
     app_with_search_stub.state.encoder = None
     client = TestClient(app_with_search_stub)
     r = client.post("/search", json=_search_payload())
-    assert r.status_code == 503
+    assert r.status_code == 200
 
 
 def test_feedback_accepts_click(app_with_search_stub) -> None:

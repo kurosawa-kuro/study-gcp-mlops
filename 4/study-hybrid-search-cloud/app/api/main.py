@@ -187,10 +187,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # /search encoder + candidate retriever (Phase 4 baseline).
     if settings.enable_search:
-        from common.embeddings import E5Encoder
+        try:
+            from common.embeddings import E5Encoder
 
-        encoder_dir = Path(settings.encoder_model_dir) if settings.encoder_model_dir else None
-        app.state.encoder = E5Encoder.load(model_dir=encoder_dir)
+            encoder_dir = Path(settings.encoder_model_dir) if settings.encoder_model_dir else None
+            app.state.encoder = E5Encoder.load(model_dir=encoder_dir)
+        except Exception:
+            logger.exception(
+                "Encoder load failed; continuing with lexical-only retrieval (semantic disabled)"
+            )
+            app.state.encoder = None
         app.state.candidate_retriever = _build_candidate_retriever(settings)
     else:
         app.state.encoder = None
@@ -314,9 +320,9 @@ def create_app() -> FastAPI:
     def search(req: SearchRequest, request: Request) -> SearchResponse | JSONResponse:
         retriever = getattr(request.app.state, "candidate_retriever", None)
         encoder = getattr(request.app.state, "encoder", None)
-        if retriever is None or encoder is None:
+        if retriever is None:
             return JSONResponse(
-                {"detail": "/search disabled (enable_search=False or encoder missing)"},
+                {"detail": "/search disabled (enable_search=False)"},
                 status_code=503,
             )
         request_id = cast(str, getattr(request.state, "request_id", uuid.uuid4().hex))
@@ -336,8 +342,14 @@ def create_app() -> FastAPI:
                 model_path=cached.get("model_path"),
             )
 
-        query_vec = encoder.encode_queries([req.query])[0]
-        query_vector = [float(x) for x in query_vec]
+        if encoder is None:
+            get_logger("app").warning(
+                "Encoder unavailable; serving lexical-only results for request_id=%s", request_id
+            )
+            query_vector: list[float] = []
+        else:
+            query_vec = encoder.encode_queries([req.query])[0]
+            query_vector = [float(x) for x in query_vec]
 
         publisher: RankingLogPublisher = request.app.state.ranking_log_publisher
         booster = getattr(request.app.state, "booster", None)
@@ -381,6 +393,14 @@ def create_app() -> FastAPI:
             )
             for cand, final_rank in pairs
         ]
+        if not results:
+            get_logger("app").warning(
+                "/search returned empty results: request_id=%s query=%r filters=%s top_k=%d",
+                request_id,
+                req.query,
+                req.filters.model_dump(),
+                req.top_k,
+            )
         search_cache.set(
             cache_key,
             {

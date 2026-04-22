@@ -21,6 +21,7 @@ dev = [
     "pytest>=9.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "pytest-playwright>=0.5",
 ]
 
 [tool.pytest.ini_options]
@@ -34,4 +35,7 @@ pythonpath = [
     ".",
     "common/src",
     "pipeline/batch",
+]
+markers = [
+    "e2e: Playwright を用いたブラウザ E2E テスト (ブラウザバイナリと live uvicorn が必要)",
 ]

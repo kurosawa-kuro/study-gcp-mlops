@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pandas as pd
+
 from ml.registry.metadata_store import BigQueryRankerRepository
 
 

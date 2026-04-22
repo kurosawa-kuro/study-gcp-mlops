@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 
 from common import FEATURE_COLS_RANKER, RANKER_GROUP_COL, RANKER_LABEL_COL, get_logger
-
 from ml.evaluation.metrics.training_metrics import evaluate
 
 logger = get_logger(__name__)

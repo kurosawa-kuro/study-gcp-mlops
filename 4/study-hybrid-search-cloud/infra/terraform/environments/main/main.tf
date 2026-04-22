@@ -11,7 +11,7 @@
 # =========================================================================
 
 module "iam" {
-  source = "./modules/iam"
+  source = "../../modules/iam"
 
   project_id  = var.project_id
   github_repo = var.github_repo
@@ -20,7 +20,7 @@ module "iam" {
 }
 
 module "data" {
-  source = "./modules/data"
+  source = "../../modules/data"
 
   project_id                        = var.project_id
   region                            = var.region
@@ -42,7 +42,7 @@ module "data" {
 }
 
 module "runtime" {
-  source = "./modules/runtime"
+  source = "../../modules/runtime"
 
   project_id              = var.project_id
   region                  = var.region
@@ -64,7 +64,7 @@ module "runtime" {
 }
 
 module "meilisearch" {
-  source = "./modules/meilisearch"
+  source = "../../modules/meilisearch"
 
   project_id            = var.project_id
   region                = var.region
@@ -75,12 +75,12 @@ module "meilisearch" {
 }
 
 module "monitoring" {
-  source = "./modules/monitoring"
+  source = "../../modules/monitoring"
 
   project_id           = var.project_id
   region               = var.region
   mlops_dataset_id     = module.data.mlops_dataset.dataset_id
-  ranker_skew_sql_path = "${path.root}/../monitoring/validate_feature_skew.sql"
+  ranker_skew_sql_path = "${path.root}/../../../../monitoring/validate_feature_skew.sql"
   oncall_email         = var.oncall_email
   service_accounts     = module.iam.service_accounts
 

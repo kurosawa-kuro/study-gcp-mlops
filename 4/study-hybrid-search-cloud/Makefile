@@ -34,7 +34,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
         deploy-all run-all destroy-all seed-test seed-test-clean \
-        train-smoke train-smoke-persist api-dev clean \
+        train-smoke train-smoke-persist api-dev run-training-job-local clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-ranking ops-feedback ops-enable-search \
         ops-skew-latest ops-search-volume ops-runs-recent \
@@ -101,7 +101,7 @@ tf-fmt-fix: ## terraform fmt (writes)
 tf-plan: ## terraform plan (requires GITHUB_REPO + ONCALL_EMAIL; saves infra/tfplan)
 	uv run python -m scripts.dev.tf_plan
 
-deploy-all: ## End-to-end provisioning + image rollout (tf-bootstrap → apply → deploy-api/training-job-local)
+deploy-all: ## End-to-end provisioning + rollout (tf-bootstrap → apply → deploy-training-job-local → run-training-job-local → deploy-api-local)
 	uv run python -m scripts.dev.deploy_all
 
 run-all: ## End-to-end validation flow after deploy (layer check → smoke APIs → feedback/train hooks → daily ops)
@@ -145,6 +145,9 @@ deploy-api-local: ## Cloud Build + `gcloud run deploy` search-api
 
 deploy-training-job-local: ## Cloud Build + `gcloud run jobs update` training-job
 	uv run python -m scripts.local.deploy_training_job
+
+run-training-job-local: ## Execute training-job once and wait (model-first gate before API deploy)
+	uv run python -m scripts.local.run_training_job
 
 # ----- Housekeeping -----
 

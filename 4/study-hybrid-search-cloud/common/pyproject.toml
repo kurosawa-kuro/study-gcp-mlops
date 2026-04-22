@@ -13,11 +13,6 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=16",
     "db-dtypes>=1.3",
-    # E5Encoder lives in common/embeddings/e5_encoder.py and is used by both
-    # app (lifespan when ENABLE_SEARCH=true, query encoding) and ml/embed
-    # (embedding-job, passage encoding). Pulled in here so neither package
-    # has to re-declare it.
-    "sentence-transformers>=3.0",
 ]
 
 [build-system]

@@ -1,0 +1,21 @@
+# Keep Cloud Build upload context minimal and stable.
+# This file is used by `gcloud builds submit` before Docker build starts.
+
+.git
+.github
+.venv
+.terraform
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.DS_Store
+**/tests
+**/wandb
+**/data
+**/models
+docs
+.cursor
+.vscode
+*.md

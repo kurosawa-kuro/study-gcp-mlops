@@ -22,8 +22,12 @@ dev = [
     "pytest>=9.0",
     "httpx>=0.27",
     "testcontainers[postgres]>=4.8",
+    "pytest-playwright>=0.5",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "e2e: Playwright を用いたブラウザ E2E テスト (ブラウザバイナリと起動中の uvicorn が必要)",
+]
