@@ -153,7 +153,9 @@ ops-weekly: ## Weekly evaluate/report/retrain tasks
 	$(MAKE) eval-weekly-report
 	$(MAKE) ops-retrain
 
-verify-pipeline: ## Representative end-to-end smoke checks
+verify-pipeline: ## Representative end-to-end smoke checks (auto-clean conflicts)
+	$(MAKE) up-clean
+	$(MAKE) ops-bootstrap
 	$(MAKE) check-layers
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
