@@ -26,7 +26,7 @@ MLOps 学習用の 5 フェーズ構成リポジトリ。
 | 1 | `1/study-ml-foundations/` | ML 基礎（回帰） | preprocess / feature engineering / training / evaluation / artifact 管理 | LightGBM, PostgreSQL | Docker Compose |
 | 2 | `2/study-ml-app-pipeline/` | App + Pipeline + Port/Adapter | FastAPI lifespan DI, `core -> ports <- adapters`, predictor 経由推論、seed/train/predict job 分離 | FastAPI, LightGBM, PostgreSQL | Docker Compose |
 | 3 | `3/study-hybrid-search-local/` | 不動産ハイブリッド検索（Local） | lexical + semantic + rerank、LambdaRank、Port/Adapter 実践 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis | uv + Docker Compose |
-| 4 | `4/study-hybrid-search-cloud/` | 不動産ハイブリッド検索（GCP） | Cloud Native 化、RRF、再学習ループ、IaC/CI | Cloud Run, BigQuery, Dataform, Terraform, WIF | uv + クラウド実行基盤 |
+| 4 | `4/study-hybrid-search-cloud/` | 不動産ハイブリッド検索（GCP） | GCP マネージドサービス化、RRF、再学習ループ、IaC/CI | Cloud Run, BigQuery, Dataform, Terraform, WIF | uv + クラウド実行基盤 |
 | 5 | `5/study-hybrid-search-vertex/` | Vertex AI 差分移行 | Vertex Pipelines/Endpoints/Registry/Monitoring への adapter 差し替え | Vertex AI, KFP, Endpoint, Feature Group, Vizier | uv + Vertex AI |
 
 実行方式の段差は「同じ設計思想を維持し、実行基盤だけ段階的に置き換える」ための学習設計。
@@ -147,3 +147,17 @@ study-gcp-mlops/
 - Phase 2 → 3 → 4 → 5 の移植の学びに集中するため、**ドメインを動かさず実行基盤だけ置き換える** 構成にしたかった
 
 学習者が「モデル課題」ではなく **「設計と移行差分」** を追える構成を重視している。
+
+---
+
+## 技術選定の補足
+
+### 検索エンジン（Phase 3 以降）: Meilisearch
+
+実務（特に大規模本番環境）では **Elasticsearch / OpenSearch** が採用される場面が多いが、本リポジトリでは Meilisearch を採用する:
+
+- **学習目的では Meilisearch で十分** — BM25 全文検索 + 構造化フィルタ（`city` / `price_lte` / `walk_min` 等）という本リポの要件を素直にカバーできる
+- **セットアップコストが低い** — 単一バイナリ・軽量 Docker image・チューニング項目が少ないため、**学習関心事（Port/Adapter、semantic 統合、RRF、rerank）に集中できる**
+- **adapter 差し替えで Elasticsearch へ切り替え可能** — Phase 3 で lexical 層を Port/Adapter の背後に隠しているため、**本番想定では `MeilisearchAdapter` を `ElasticsearchAdapter` に差し替えるだけ** で切り替え可能（= 本リポジトリの軸「設計思想は一貫、adapter だけ差し替え」の具体例）
+
+他の選定（LightGBM / multilingual-e5 / Redis / BigQuery VECTOR_SEARCH 等）は各 Phase の CLAUDE.md / README に理由を記載。

@@ -12,7 +12,7 @@ MLOps 学習用の **5 フェーズ構成の親ディレクトリ**。
 | 1 | `1/study-ml-foundations/` | カリフォルニア住宅価格予測 | ML 基礎（学習・評価・保存） |
 | 2 | `2/study-ml-app-pipeline/` | App + Pipeline + Port/Adapter | FastAPI / DI / core-ports-adapters 構成 |
 | 3 | `3/study-hybrid-search-local/` | 不動産検索 (Local) | ハイブリッド検索 + Port/Adapter (Meilisearch + PostgreSQL + Redis + multilingual-e5) |
-| 4 | `4/study-hybrid-search-cloud/` | 不動産検索 (GCP) | Cloud Native 化 (Meilisearch on Cloud Run + BigQuery `VECTOR_SEARCH` + Terraform + WIF) |
+| 4 | `4/study-hybrid-search-cloud/` | 不動産検索 (GCP) | GCP マネージドサービス化 (Meilisearch on Cloud Run + BigQuery `VECTOR_SEARCH` + Terraform + WIF) |
 | 5 | `5/study-hybrid-search-vertex/` | 不動産検索 (Vertex AI) | Vertex AI プリミティブ化 (Pipelines / Feature Store / Vector Search / Model Registry / Monitoring v2) |
 
 Phase 1 -> 2 は「学習基礎」と「アプリ・設計パターン」を分離し、Phase 3 以降で検索ドメインに展開する。詳細は `README.md` を参照。
