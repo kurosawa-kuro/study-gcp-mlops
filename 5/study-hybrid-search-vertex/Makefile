@@ -34,7 +34,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
         setup-model-monitoring setup-pipeline-schedule \
-        deploy-all destroy-all seed-test seed-test-clean \
+        deploy-all run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-ranking ops-feedback ops-enable-search \
@@ -110,6 +110,17 @@ setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payloa
 
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-bootstrap → apply → deploy-api-local)
 	uv run python -m scripts.local.setup.deploy_all
+
+run-all: ## End-to-end validation flow after deploy (layer check → seed → train pipeline submit → smoke APIs → daily ops)
+	$(MAKE) check-layers
+	$(MAKE) seed-test
+	$(MAKE) ops-train-now
+	$(MAKE) ops-livez
+	$(MAKE) ops-search
+	$(MAKE) ops-feedback
+	$(MAKE) ops-ranking
+	$(MAKE) ops-label-seed
+	$(MAKE) ops-daily
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.local.setup.destroy_all

@@ -33,7 +33,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
-        deploy-all destroy-all seed-test seed-test-clean \
+        deploy-all run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-ranking ops-feedback ops-enable-search \
@@ -103,6 +103,17 @@ tf-plan: ## terraform plan (requires GITHUB_REPO + ONCALL_EMAIL; saves infra/tfp
 
 deploy-all: ## End-to-end provisioning + image rollout (tf-bootstrap → apply → deploy-api/training-job-local)
 	uv run python -m scripts.dev.deploy_all
+
+run-all: ## End-to-end validation flow after deploy (layer check → smoke APIs → feedback/train hooks → daily ops)
+	$(MAKE) check-layers
+	$(MAKE) seed-test
+	$(MAKE) ops-livez
+	$(MAKE) ops-search
+	$(MAKE) ops-feedback
+	$(MAKE) ops-ranking
+	$(MAKE) ops-label-seed
+	$(MAKE) ops-check-retrain
+	$(MAKE) ops-daily
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.dev.destroy_all
