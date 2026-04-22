@@ -91,22 +91,22 @@ def _synthetic_ranking_frames(
                 label = 1
             else:
                 label = 0
-                rows.append(
-                    {
-                        RANKER_GROUP_COL: request_id,
-                        "rent": rent,
-                        "walk_min": walk_min,
-                        "age_years": age_years,
-                        "area_m2": area_m2,
-                        "ctr": ctr,
-                        "fav_rate": fav_rate,
-                        "inquiry_rate": inquiry_rate,
-                        "me5_score": me5_score,
-                        "lexical_rank": lexical_rank,
-                        "semantic_rank": lexical_rank,
-                        RANKER_LABEL_COL: label,
-                    }
-                )
+            rows.append(
+                {
+                    RANKER_GROUP_COL: request_id,
+                    "rent": rent,
+                    "walk_min": walk_min,
+                    "age_years": age_years,
+                    "area_m2": area_m2,
+                    "ctr": ctr,
+                    "fav_rate": fav_rate,
+                    "inquiry_rate": inquiry_rate,
+                    "me5_score": me5_score,
+                    "lexical_rank": lexical_rank,
+                    "semantic_rank": lexical_rank,
+                    RANKER_LABEL_COL: label,
+                }
+            )
     df = pd.DataFrame(rows)
     df = df.sort_values(RANKER_GROUP_COL, kind="stable").reset_index(drop=True)
     assert {*FEATURE_COLS_RANKER, RANKER_LABEL_COL, RANKER_GROUP_COL}.issubset(df.columns)
@@ -129,6 +129,59 @@ def _split_by_request_id(
     train_df = df[train_mask].reset_index(drop=True)
     test_df = df[~train_mask].reset_index(drop=True)
     return train_df, test_df
+
+
+def _is_ranker_frame_usable(df: pd.DataFrame) -> bool:
+    """Return True when the frame has enough supervision for LambdaRank."""
+    if df.empty:
+        return False
+    if df[RANKER_GROUP_COL].nunique() < 2:
+        return False
+    # LambdaRank requires at least some positive labels.
+    if (df[RANKER_LABEL_COL] > 0).sum() <= 0:
+        return False
+    return True
+
+
+def _validate_ranker_dataframe(
+    df: pd.DataFrame,
+    *,
+    min_rows: int,
+    min_request_ids: int = 2,
+    min_positive_rows: int = 1,
+) -> tuple[bool, list[str]]:
+    """Validate whether real ranker training data is usable.
+
+    Returns:
+        (is_valid, reasons)
+    """
+    required = [RANKER_GROUP_COL, RANKER_LABEL_COL, *FEATURE_COLS_RANKER]
+    missing = [c for c in required if c not in df.columns]
+    reasons: list[str] = []
+    if missing:
+        reasons.append(f"missing_columns={missing}")
+        return False, reasons
+
+    row_count = len(df)
+    request_ids = int(df[RANKER_GROUP_COL].nunique()) if row_count > 0 else 0
+    positives = int((df[RANKER_LABEL_COL] > 0).sum()) if row_count > 0 else 0
+    null_required = int(df[required].isnull().sum().sum()) if row_count > 0 else 0
+    max_group_size = (
+        int(df.groupby(RANKER_GROUP_COL, dropna=False).size().max()) if request_ids > 0 else 0
+    )
+
+    if row_count < min_rows:
+        reasons.append(f"rows<{min_rows} ({row_count})")
+    if request_ids < min_request_ids:
+        reasons.append(f"request_ids<{min_request_ids} ({request_ids})")
+    if positives < min_positive_rows:
+        reasons.append(f"positives<{min_positive_rows} ({positives})")
+    if null_required > 0:
+        reasons.append(f"null_required={null_required}")
+    if max_group_size < 2:
+        reasons.append(f"max_group_size<2 ({max_group_size})")
+
+    return len(reasons) == 0, reasons
 
 
 def _default_tracker_factory(settings: TrainSettings) -> TrackerFactory:
@@ -174,7 +227,24 @@ def run(
             )
             train_df, test_df = _synthetic_ranking_frames()
         else:
+            min_rows = max(settings.min_data_in_leaf, 20)
             train_df, test_df = _split_by_request_id(full)
+            valid, reasons = _validate_ranker_dataframe(
+                train_df,
+                min_rows=min_rows,
+                min_request_ids=2,
+                min_positive_rows=1,
+            )
+            if not valid or not _is_ranker_frame_usable(train_df):
+                logger.warning(
+                    "Invalid ranker training data detected; reasons=%s. "
+                    "rows=%d request_ids=%d positives=%d -> falling back to synthetic data",
+                    reasons,
+                    len(train_df),
+                    int(train_df[RANKER_GROUP_COL].nunique()),
+                    int((train_df[RANKER_LABEL_COL] > 0).sum()),
+                )
+                train_df, test_df = _synthetic_ranking_frames()
     if test_df.empty and not train_df.empty:
         logger.warning("Test split was empty; reusing train split as validation fallback")
         test_df = train_df.copy()

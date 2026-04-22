@@ -20,4 +20,4 @@ def test_sync_meili_index_uses_terraform_output_and_cli(monkeypatch) -> None:
 
     assert calls[0][:3] == ["terraform", "-chdir=infra/terraform/environments/main", "output"]
     assert calls[1][:5] == ["uv", "run", "python", "-m", "ml.data.loaders.meili_sync"]
-    assert "--require-identity-token" in calls[1]
+    assert "--require-identity-token" not in calls[1]

@@ -24,6 +24,10 @@ ENV_VARS = ",".join(
         "RANKING_LOG_TOPIC=ranking-log",
         "FEEDBACK_TOPIC=search-feedback",
         "RETRAIN_TOPIC=retrain-trigger",
+        "ENABLE_SEARCH=true",
+        "ENCODER_MODEL_DIR=intfloat/multilingual-e5-base",
+        "MEILI_BASE_URL={meili_base_url}",
+        "MEILI_REQUIRE_IDENTITY_TOKEN=false",
         "LOG_AS_JSON=1",
         "GCP_LOGGING_ENABLED=1",
     ]
@@ -32,9 +36,10 @@ ENV_VARS = ",".join(
 # PDCA fail-fast policy:
 # - Timeout is fixed from observed successful runs, not ad-hoc extension.
 # - search-api Cloud Build (docker build + push) recently takes ~625-805s
-#   in this project, so 900s keeps fail-fast while avoiding false cancels.
-BUILD_TIMEOUT_SEC = 900
-DEPLOY_TIMEOUT_SEC = 180
+#   in this project, so 810s is the current shortest safe window.
+BUILD_TIMEOUT_SEC = 810
+# - Cloud Run deploy usually converges within ~1 min. Keep a small buffer.
+DEPLOY_TIMEOUT_SEC = 120
 
 
 def _print_cmd_output(label: str, proc: subprocess.CompletedProcess[str]) -> None:
@@ -156,11 +161,31 @@ def _assert_model_ready(project_id: str) -> None:
         )
 
 
+def _resolve_meili_base_url(project_id: str, region: str) -> str:
+    url = run(
+        [
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            "meili-search",
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.url)",
+        ],
+        capture=True,
+    ).stdout.strip()
+    if not url:
+        raise RuntimeError("failed to resolve meili-search Cloud Run URL")
+    return url
+
+
 def main() -> int:
     project_id = env("PROJECT_ID")
     region = env("REGION")
     artifact_repo = env("ARTIFACT_REPO")
     service = env("API_SERVICE")
+    meili_base_url = _resolve_meili_base_url(project_id, region)
 
     print("==> Verify model-first gate (training_runs has finished run)", flush=True)
     _assert_model_ready(project_id)
@@ -205,7 +230,7 @@ def main() -> int:
         "--cpu-boost",
         "--execution-environment=gen2",
         "--no-allow-unauthenticated",
-        f"--set-env-vars={ENV_VARS.format(project_id=project_id)}",
+        f"--set-env-vars={ENV_VARS.format(project_id=project_id, meili_base_url=meili_base_url)}",
         f"--labels=git-sha={sha}",
     ]
     try:

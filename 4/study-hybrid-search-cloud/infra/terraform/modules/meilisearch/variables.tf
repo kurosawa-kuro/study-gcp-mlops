@@ -22,5 +22,5 @@ variable "meili_data_bucket_name" {
 variable "meili_image" {
   description = "Container image for meilisearch service"
   type        = string
-  default     = "gcr.io/cloudrun/hello"
+  default     = "getmeili/meilisearch:v1.12"
 }

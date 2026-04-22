@@ -81,10 +81,45 @@ def test_split_by_request_id_keeps_groups_intact() -> None:
     assert not shared
 
 
+def test_synthetic_frames_include_positive_labels() -> None:
+    train_df, test_df = rank_cli._synthetic_ranking_frames()
+    full = pd.concat([train_df, test_df], ignore_index=True)
+    assert (full["label"] > 0).any()
+    assert full["request_id"].nunique() >= 2
+
+
 def test_split_by_request_id_empty() -> None:
     empty = pd.DataFrame(columns=["request_id"])
     t, e = _split_by_request_id(empty)
     assert t.empty and e.empty
+
+
+def test_validate_ranker_dataframe_reports_reasons() -> None:
+    low_signal = pd.DataFrame(
+        [
+            {
+                "request_id": "r-1",
+                "property_id": "p-1",
+                "rent": 100000.0,
+                "walk_min": 5.0,
+                "age_years": 10.0,
+                "area_m2": 30.0,
+                "ctr": 0.01,
+                "fav_rate": 0.0,
+                "inquiry_rate": 0.0,
+                "me5_score": 0.5,
+                "lexical_rank": 1.0,
+                "semantic_rank": 1.0,
+                "label": 0,
+            }
+        ]
+    )
+    valid, reasons = rank_cli._validate_ranker_dataframe(low_signal, min_rows=20)
+    assert not valid
+    assert any("rows<20" in r for r in reasons)
+    assert any("request_ids<2" in r for r in reasons)
+    assert any("positives<1" in r for r in reasons)
+    assert any("max_group_size<2" in r for r in reasons)
 
 
 def test_run_non_dry_run_happy_path(tmp_path: Path) -> None:
@@ -112,6 +147,41 @@ def test_run_non_dry_run_happy_path(tmp_path: Path) -> None:
 
 def test_run_non_dry_run_falls_back_to_synthetic_on_empty_dataset() -> None:
     repo = _InMemoryRepo(pd.DataFrame())
+    uploader = _StubUploader()
+
+    model_uri = run(
+        dry_run=False,
+        repository=repo,
+        uploader=uploader,
+        tracker_factory=_tracker_factory,
+    )
+
+    assert model_uri.startswith("gs://stub/lgbm/")
+    assert uploader.calls
+    assert repo.saved_runs
+
+
+def test_run_non_dry_run_falls_back_to_synthetic_on_zero_positive_dataset() -> None:
+    low_signal = pd.DataFrame(
+        [
+            {
+                "request_id": "r-1",
+                "property_id": "p-1",
+                "rent": 100000.0,
+                "walk_min": 5.0,
+                "age_years": 10.0,
+                "area_m2": 30.0,
+                "ctr": 0.01,
+                "fav_rate": 0.0,
+                "inquiry_rate": 0.0,
+                "me5_score": 0.5,
+                "lexical_rank": 1.0,
+                "semantic_rank": 1.0,
+                "label": 0,
+            }
+        ]
+    )
+    repo = _InMemoryRepo(low_signal)
     uploader = _StubUploader()
 
     model_uri = run(

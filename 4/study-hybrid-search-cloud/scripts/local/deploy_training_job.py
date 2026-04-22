@@ -16,8 +16,9 @@ from scripts._common import env, run, submit_cloud_build_async, wait_cloud_build
 # PDCA fail-fast policy:
 # - Timeout extension is forbidden.
 # - Hitting timeout indicates a probable bug/config issue, not a "wait more" case.
-BUILD_TIMEOUT_SEC = 480
-UPDATE_TIMEOUT_SEC = 180
+# - Recent successful Cloud Build finishes fit well within this window.
+BUILD_TIMEOUT_SEC = 420
+UPDATE_TIMEOUT_SEC = 120
 
 
 def main() -> int:

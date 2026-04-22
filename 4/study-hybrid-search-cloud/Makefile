@@ -36,7 +36,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
         deploy-all run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev run-training-job-local clean \
         docker-auth deploy-api-local deploy-training-job-local \
-        ops-api-url ops-daily ops-livez ops-search ops-ranking ops-feedback ops-enable-search \
+        ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
         ops-skew-latest ops-search-volume ops-runs-recent \
         ops-skew-run ops-train-now ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed
@@ -192,6 +192,9 @@ ops-livez: ## Hit /livez on the deployed search-api (IAM-gated)
 
 ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
 	uv run python -m scripts.local.search_check
+
+ops-search-components: ## Strict gate: Meili/ME5/LightGBM contributions must be non-zero
+	uv run python -m scripts.local.search_component_check
 
 ops-ranking: ## POST /search and inspect lexical_rank / final_rank / score / me5_score
 	uv run python -m scripts.local.ranking_check

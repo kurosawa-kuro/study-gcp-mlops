@@ -68,6 +68,10 @@ resource "google_cloud_run_v2_service" "search_api" {
         value = var.meili_base_url
       }
       env {
+        name  = "MEILI_REQUIRE_IDENTITY_TOKEN"
+        value = "false"
+      }
+      env {
         name  = "SEARCH_CACHE_TTL_SECONDS"
         value = tostring(var.search_cache_ttl_seconds)
       }

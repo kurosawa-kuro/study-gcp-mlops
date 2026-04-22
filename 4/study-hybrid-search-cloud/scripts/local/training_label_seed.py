@@ -18,7 +18,7 @@ ACTIONS = ("click", "favorite", "inquiry")
 
 
 def main() -> int:
-    query = os.environ.get("QUERY", "札幌 ペット可 2LDK")
+    query = os.environ.get("QUERY", "新宿区西新宿 1LDK")
     n_per_action = int(os.environ.get("N_PER_ACTION", "5"))
 
     url = cloud_run_url()

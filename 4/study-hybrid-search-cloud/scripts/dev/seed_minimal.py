@@ -27,19 +27,19 @@ from pathlib import Path
 from scripts._common import env, run
 
 PROPERTIES = [
-    # (property_id, title, city, ward, rent, layout, walk_min, age_years, area_m2, pet_ok)
-    ("p001", "新宿区西新宿 1LDK", "東京都", "新宿区", 120000, "1LDK", 5, 8, 35.0, True),
-    ("p002", "渋谷区道玄坂 ワンルーム", "東京都", "渋谷区", 95000, "1R", 3, 12, 22.0, False),
-    ("p003", "品川区五反田 2LDK", "東京都", "品川区", 165000, "2LDK", 7, 5, 50.0, True),
-    ("p004", "港区赤羽橋 1K", "東京都", "港区", 110000, "1K", 4, 15, 25.0, False),
-    ("p005", "目黒区中目黒 2DK", "東京都", "目黒区", 140000, "2DK", 6, 10, 42.0, True),
+    # (property_id, title, description, city, ward, rent, layout, walk_min, age_years, area_m2, pet_ok)
+    ("p001", "新宿区西新宿 1LDK", "駅近・南向き・オートロック", "東京都", "新宿区", 120000, "1LDK", 5, 8, 35.0, True),
+    ("p002", "渋谷区道玄坂 ワンルーム", "渋谷駅徒歩圏・コンパクト設計", "東京都", "渋谷区", 95000, "1R", 3, 12, 22.0, False),
+    ("p003", "品川区五反田 2LDK", "ファミリー向け・収納多め", "東京都", "品川区", 165000, "2LDK", 7, 5, 50.0, True),
+    ("p004", "港区赤羽橋 1K", "都心アクセス良好・単身向け", "東京都", "港区", 110000, "1K", 4, 15, 25.0, False),
+    ("p005", "目黒区中目黒 2DK", "中目黒エリア・ペット相談可", "東京都", "目黒区", 140000, "2DK", 6, 10, 42.0, True),
 ]
 DATASET_DIR = Path("ml/data/datasets")
 DATASET_PATH = DATASET_DIR / "seed_minimal_properties.csv"
 
 
 def _store_and_load_properties() -> list[
-    tuple[str, str, str, str, int, str, int, int, float, bool]
+    tuple[str, str, str, str, str, int, str, int, int, float, bool]
 ]:
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -49,6 +49,7 @@ def _store_and_load_properties() -> list[
             [
                 "property_id",
                 "title",
+                "description",
                 "city",
                 "ward",
                 "rent",
@@ -62,7 +63,7 @@ def _store_and_load_properties() -> list[
         for p in PROPERTIES:
             writer.writerow(p)
 
-    loaded: list[tuple[str, str, str, str, int, str, int, int, float, bool]] = []
+    loaded: list[tuple[str, str, str, str, str, int, str, int, int, float, bool]] = []
     with DATASET_PATH.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for r in reader:
@@ -70,6 +71,7 @@ def _store_and_load_properties() -> list[
                 (
                     r["property_id"],
                     r["title"],
+                    r["description"],
                     r["city"],
                     r["ward"],
                     int(r["rent"]),
@@ -114,24 +116,30 @@ def _sync_meili_index(project_id: str) -> None:
         raise RuntimeError("terraform output meili_base_url returned empty value")
 
     print(f"==> sync meilisearch index from {project_id}.feature_mart.properties_cleaned")
-    run(
-        [
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "ml.data.loaders.meili_sync",
-            "--project-id",
-            project_id,
-            "--table",
-            "feature_mart.properties_cleaned",
-            "--meili-base-url",
-            meili_base_url,
-            "--index",
-            "properties",
-            "--require-identity-token",
-        ]
-    )
+    cmd = [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "ml.data.loaders.meili_sync",
+        "--project-id",
+        project_id,
+        "--table",
+        "feature_mart.properties_cleaned",
+        "--meili-base-url",
+        meili_base_url,
+        "--index",
+        "properties",
+    ]
+    require_identity_token = env("MEILI_REQUIRE_IDENTITY_TOKEN", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if require_identity_token:
+        cmd.append("--require-identity-token")
+    run(cmd)
 
 
 def main() -> int:
@@ -141,17 +149,18 @@ def main() -> int:
 
     # 1. properties_cleaned (would normally be a Dataform view)
     rows_props = ",\n  ".join(
-        "({pid!r}, {title!r}, {city!r}, {ward!r}, {rent}, {layout!r}, {walk}, {age}, {area}, {pet})".format(
+        "({pid!r}, {title!r}, {desc!r}, {city!r}, {ward!r}, {rent}, {layout!r}, {walk}, {age}, {area}, {pet})".format(
             pid=p[0],
             title=p[1],
-            city=p[2],
-            ward=p[3],
-            rent=p[4],
-            layout=p[5],
-            walk=p[6],
-            age=p[7],
-            area=p[8],
-            pet="TRUE" if p[9] else "FALSE",
+            desc=p[2],
+            city=p[3],
+            ward=p[4],
+            rent=p[5],
+            layout=p[6],
+            walk=p[7],
+            age=p[8],
+            area=p[9],
+            pet="TRUE" if p[10] else "FALSE",
         )
         for p in properties
     )
@@ -159,7 +168,7 @@ def main() -> int:
         f"""
         CREATE OR REPLACE TABLE `{project_id}.feature_mart.properties_cleaned` AS
         SELECT * FROM UNNEST([
-          STRUCT<property_id STRING, title STRING, city STRING, ward STRING,
+          STRUCT<property_id STRING, title STRING, description STRING, city STRING, ward STRING,
                  rent INT64, layout STRING, walk_min INT64, age_years INT64,
                  area_m2 FLOAT64, pet_ok BOOL>
           {rows_props}
@@ -169,8 +178,8 @@ def main() -> int:
 
     # 2. property_features_daily — today's row per property
     rows_feat = ",\n  ".join(
-        f"(CURRENT_DATE('Asia/Tokyo'), {p[0]!r}, {p[4]}, {p[6]}, {p[7]}, "
-        f"{p[8]}, 0.05, 0.10, 0.02, 0.5)"
+        f"(CURRENT_DATE('Asia/Tokyo'), {p[0]!r}, {p[5]}, {p[7]}, {p[8]}, "
+        f"{p[9]}, 0.05, 0.10, 0.02, 0.5)"
         for p in properties
     )
     _bq(

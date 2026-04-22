@@ -11,7 +11,8 @@ from scripts._common import env, run
 # PDCA fail-fast policy:
 # - Timeout extension is forbidden.
 # - A timeout indicates likely bug/config regression, so we fail immediately.
-EXEC_TIMEOUT_SEC = 480
+# Successful runs complete well before 6 minutes; keep a safety margin.
+EXEC_TIMEOUT_SEC = 360
 
 
 def main() -> int:

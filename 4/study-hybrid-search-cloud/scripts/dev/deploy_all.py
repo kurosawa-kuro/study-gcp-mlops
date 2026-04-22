@@ -35,7 +35,9 @@ from scripts.dev.tf_plan import main as tf_plan_main
 from scripts.local.deploy_api import main as deploy_api_main
 from scripts.local.deploy_training_job import main as deploy_training_main
 from scripts.local.run_training_job import main as run_training_job_main
+from scripts.local.search_component_check import main as search_component_check_main
 from scripts.local.search_check import main as search_check_main
+from scripts.local.training_label_seed import main as training_label_seed_main
 
 INFRA = (
     Path(__file__).resolve().parent.parent.parent / "infra" / "terraform" / "environments" / "main"
@@ -174,8 +176,65 @@ def _recover_wif_state(project_id: str) -> None:
         )
 
 
+def _assert_training_data_ready(project_id: str) -> None:
+    query = f"""
+        SELECT
+          COUNT(*) AS rows_total,
+          COUNTIF(label > 0) AS rows_positive,
+          COUNT(DISTINCT request_id) AS request_ids
+        FROM (
+          SELECT
+            r.request_id,
+            COALESCE(l.label, 0) AS label
+          FROM `{project_id}.mlops.ranking_log` r
+          LEFT JOIN (
+            SELECT
+              request_id,
+              property_id,
+              CASE
+                WHEN COUNTIF(action = 'inquiry') > 0 THEN 3
+                WHEN COUNTIF(action = 'favorite') > 0 THEN 2
+                WHEN COUNTIF(action = 'click') > 0 THEN 1
+                ELSE 0
+              END AS label
+            FROM `{project_id}.mlops.feedback_events`
+            WHERE ts >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+            GROUP BY request_id, property_id
+          ) l USING (request_id, property_id)
+          WHERE r.ts >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+        )
+    """
+    proc = run(
+        [
+            "bq",
+            "query",
+            "--use_legacy_sql=false",
+            f"--project_id={project_id}",
+            "--format=csv",
+            query,
+        ],
+        capture=True,
+    )
+    lines = [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
+    if len(lines) < 2:
+        raise RuntimeError("failed to read training-data validation result")
+    values = lines[-1].split(",")
+    rows_total = int(values[0])
+    rows_positive = int(values[1])
+    request_ids = int(values[2])
+    if rows_total <= 0 or rows_positive <= 0 or request_ids < 2:
+        raise RuntimeError(
+            "training data gate failed: "
+            f"rows_total={rows_total} rows_positive={rows_positive} request_ids={request_ids}"
+        )
+    print(
+        "==> training-data gate passed: "
+        f"rows_total={rows_total} rows_positive={rows_positive} request_ids={request_ids}"
+    )
+
+
 def main() -> int:
-    total = 11
+    total = 15
     project_id = env("PROJECT_ID")
 
     _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
@@ -204,7 +263,7 @@ def main() -> int:
     if (rc := deploy_training_main()) != 0:
         return rc
 
-    _step(8, total, "run-training-job-local (execute training-job once as model-first gate)")
+    _step(8, total, "run-training-job-local (warm-up run before API deploy)")
     if (rc := run_training_job_main()) != 0:
         return rc
 
@@ -218,6 +277,21 @@ def main() -> int:
 
     _step(11, total, "ops-search gate (must return non-empty results)")
     if (rc := search_check_main()) != 0:
+        return rc
+
+    _step(12, total, "component gate (Meilisearch / ME5 / LightGBM must all contribute)")
+    if (rc := search_component_check_main()) != 0:
+        return rc
+
+    _step(13, total, "ops-label-seed (bootstrap feedback labels)")
+    if (rc := training_label_seed_main()) != 0:
+        return rc
+
+    _step(14, total, "training-data gate (rows/positives/request_ids must be non-empty)")
+    _assert_training_data_ready(project_id)
+
+    _step(15, total, "run-training-job-local again (train on non-empty real labels)")
+    if (rc := run_training_job_main()) != 0:
         return rc
 
     print()

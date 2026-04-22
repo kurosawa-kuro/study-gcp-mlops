@@ -50,6 +50,11 @@ resource "google_cloud_run_v2_service" "meili_search" {
         name  = "MEILI_DB_PATH"
         value = "/meili_data"
       }
+      env {
+        # Cloud Run requires the container process to listen on PORT=8080.
+        name  = "MEILI_HTTP_ADDR"
+        value = "0.0.0.0:8080"
+      }
 
       volume_mounts {
         name       = "meili-data"
@@ -62,7 +67,6 @@ resource "google_cloud_run_v2_service" "meili_search" {
 
   lifecycle {
     ignore_changes = [
-      template[0].containers[0].image,
       client,
       client_version,
     ]
@@ -74,4 +78,11 @@ resource "google_cloud_run_v2_service_iam_member" "api_invoker" {
   location = var.region
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.service_accounts.api.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
+  name     = google_cloud_run_v2_service.meili_search.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }

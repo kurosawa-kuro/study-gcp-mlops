@@ -11,7 +11,7 @@ from scripts._common import cloud_run_url, fail, http_json, identity_token, prin
 
 
 def main() -> int:
-    query = os.environ.get("QUERY", "品川駅")
+    query = os.environ.get("QUERY", "品川区五反田 2LDK")
     action = os.environ.get("ACTION", "click")
 
     url = cloud_run_url()

@@ -12,7 +12,7 @@ from scripts._common import cloud_run_url, fail, http_json, identity_token, prin
 
 
 def main() -> int:
-    query = os.environ.get("QUERY", "赤羽駅徒歩10分 ペット可")
+    query = os.environ.get("QUERY", "新宿区西新宿 1LDK")
     top_k = int(os.environ.get("TOP_K", "20"))
     max_rent = int(os.environ.get("MAX_RENT", "150000"))
     allow_empty = os.environ.get("ALLOW_EMPTY_RESULTS", "0") == "1"
