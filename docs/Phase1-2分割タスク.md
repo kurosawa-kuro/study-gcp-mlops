@@ -120,48 +120,48 @@
 ## 2. 新 Phase 1 の残タスク（引き算 / 内部整理）
 
 ### 2.1 残 ML モジュール内の整合性
-- [ ] `ml/common/` の役割再確認 — Phase 1 単体で閉じるか、他 phase にも共通の基礎か決める
-- [ ] `pipeline/batch_serving_job/main.py` の扱い — Phase 1 は推論を持たない方針なので削除検討（現状 stub）
-- [ ] `pipeline/workflow/orchestration.md` の内容見直し（app 除外後の流れ）
+- [x] `ml/common/` の役割再確認 — **Phase 1 単体に閉じる**方針で確定（Phase 2 は `common/` を独立保持し import 共有しない）
+- [x] `pipeline/batch_serving_job/main.py` の扱い — Phase 1 方針に合わせて削除
+- [x] `pipeline/workflow/orchestration.md` の内容見直し（推論ジョブは Phase 2 移管と明記）
 
 ### 2.2 ドキュメント追い込み
-- [ ] `docs/01_仕様と設計.md` 本体の書き直し — 現状は冒頭注記のみ。アーキ章の `app` / `ml/serving` 記述は stale
-- [ ] `docs/教育資料/制作メモ/01_構成タイムライン.md` から `make serve` 等の誤記削除（動画台本要素は後日）
-- [ ] `docs/教育資料/制作メモ/03_ナレーション要約.md` 等、FastAPI 言及箇所の扱い — 教育動画作り直しのタイミングで整理
-- [ ] `docs/教育資料/assets/diagram2_pipeline.svg` の FastAPI 部分（SVG 手作業修正 or 再書き出し）
+- [x] `docs/01_仕様と設計.md` 本体の書き直し — Phase 1 学習専用の現行構成に更新
+- [x] `docs/教育資料/制作メモ/01_構成タイムライン.md` から `make serve` 等の誤記削除（動画台本要素は後日）
+- [x] `docs/教育資料/制作メモ/03_ナレーション要約.md` 等、FastAPI 言及箇所の扱い — Phase 1 範囲外として整理
+- [x] `docs/教育資料/assets/diagram2_pipeline.svg` の FastAPI 部分（Phase 2 移管表記へ差し替え）
 
 ### 2.3 tests
-- [ ] `tests/conftest.py` — 移送した test_api.py 用のフィクスチャ（postgres_url 等）が Phase 2 にも必要。Phase 1 の conftest は `sample_df` 等 ML 系だけでも動くか確認
-- [ ] 現在残っているテスト: `tests/unit/ml/{test_trainer,test_evaluation,test_preprocess}.py` + `tests/integration/test_pipeline.py`。これらが collectable で PASS することを実行確認（未実施）
+- [x] `tests/conftest.py` — 移送した test_api.py 用のフィクスチャ（postgres_url 等）が Phase 2 にも必要。Phase 1 の conftest は `sample_df` 等 ML 系だけでも動くか確認
+- [x] 現在残っているテスト: `tests/unit/ml/{test_trainer,test_evaluation,test_preprocess}.py` + `tests/integration/test_pipeline.py`。これらが collectable で PASS することを実行確認
 
 ### 2.4 動作確認（未実施）
 - [x] `make build && make seed && make train && make test` が通ることを確認（`make test` は pytest 実行で確認済み）
-- [ ] `docker-compose.yml` から api service 除外後の build / up が通ること
+- [x] `docker-compose.yml` から api service 除外後の build / up が通ること（`docker compose build` / `docker compose up -d postgres` で確認）
 
 ---
 
 ## 3. Phase 1 → Phase 2 の**双方**に跨るオープン課題
 
 ### 3.1 アーティファクト共有
-- [ ] Phase 1 で学習したモデル（`ml/registry/artifacts/latest/`）を Phase 2 API が読む想定だが、**物理的にどう繋ぐか未決**
+- [x] Phase 1 で学習したモデル（`ml/registry/artifacts/latest/`）を Phase 2 API が読む想定だが、**物理的にどう繋ぐか未決**
   - 案 A: Phase 2 の docker-compose で Phase 1 の artifacts を read-only volume マウント
   - 案 B: Phase 2 で独立に学習する（Phase 1 は純教材で artifacts を共有しない）
-  - 推奨: **案 B**（各 phase 独立原則と整合、Phase 2 は学習 → 推論まで自己完結）
+  - 結論: **案 B を採用**（各 phase 独立原則と整合、Phase 2 は学習 → 推論まで自己完結）
 
 ### 3.2 Phase 1 と Phase 2 のコード重複
-- [ ] ML コア（trainer / evaluation / preprocess / feature_engineering）を Phase 1 と Phase 2 が**両方持つ**構造になる
+- [x] ML コア（trainer / evaluation / preprocess / feature_engineering）を Phase 1 と Phase 2 が**両方持つ**構造になる
   - 利点: 各 phase 独立、差分 PR で phase ごとの学習ポイントが明確
   - 欠点: 同じバグを 2 箇所で直す可能性。ただし教材用途なので許容
-  - 合意事項: **コピー方針で合意済み**（Phase 2 CLAUDE.md に明記）
+  - 合意事項: **コピー方針で運用確定**（Phase 2 実装済み）
 
 ### 3.3 `ml/common/` の命名衝突
-- [ ] Phase 1 は `ml/common/` を持つ。Phase 2 も `common/` を作る想定だが、配置が `ml/common/` か root `common/` か要決定
+- [x] Phase 1 は `ml/common/` を持つ。Phase 2 も `common/` を作る想定だが、配置が `ml/common/` か root `common/` か要決定
   - Phase 1 は `ml/common/` (ml 配下)
   - Phase 2 提案構造は root `common/`（CLAUDE.md 記載）
-  - 統一するなら両方を root `common/` に寄せる（小さな breaking だが Phase 2 のみ）
+  - 結論: **Phase 1 は `ml/common/` 維持、Phase 2 は root `common/` 維持**（フェーズ独立を優先）
 
 ### 3.4 Phase 3 への繋ぎ
-- [ ] Phase 2 の Port 粒度（特に `DatasetReader` の引数・返り値）が Phase 3 の `CandidateRetriever` / `CacheStore` 等と**思想的に整合**しているか、Phase 3 の CLAUDE.md と照合して確認
+- [x] Phase 2 の Port 粒度（特に `DatasetReader` の引数・返り値）が Phase 3 の `CandidateRetriever` / `CacheStore` 等と**思想的に整合**しているか、Phase 3 の CLAUDE.md と照合して確認
 - [ ] Phase 3 の `uv workspace` 方式と Phase 2 の Docker Compose 方式の段差 — 教材としての意図を README で明示
 
 ---

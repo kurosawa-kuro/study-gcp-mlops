@@ -43,7 +43,7 @@ PostgreSQL (docker-compose: postgres サービス)
 
 | パッケージ | 責務 |
 |---|---|
-| `pipeline/` | data/training/evaluation/batch のジョブエントリーポイント |
+| `pipeline/` | data/training/evaluation のジョブエントリーポイント |
 | `ml/data/` | データ取得・前処理・特徴量生成 |
 | `ml/training/` | LightGBM 学習アルゴリズム |
 | `ml/evaluation/` | 精度評価 (RMSE, R²) + W&B 実験ログ |
@@ -84,7 +84,7 @@ ml/registry/artifacts/
 └── latest -> 20260416_222540_05f983
 ```
 
-推論 API は Phase 2 で提供。Phase 2 の API が `ml/registry/artifacts/latest/model.lgb` を参照する想定（学習成果物の共有は手作業コピー、または Phase 2 が Phase 1 の artifacts ディレクトリを volume マウント）。
+推論 API は Phase 2 で提供。Phase 2 は独立学習を前提とし、モデル成果物はフェーズ間で共有しない方針。
 
 ## W&B 連携
 

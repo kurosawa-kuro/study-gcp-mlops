@@ -34,17 +34,15 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 ## Source Layout
 
 ```
-pipeline/             ジョブ entrypoint（データ取得 + 学習 + 評価 + バッチ推論）
+pipeline/             ジョブ entrypoint（データ取得 + 学習 + 評価）
 ├── data_job/main.py        sklearn → PostgreSQL 投入
 ├── training_job/main.py    LightGBM 学習
-├── evaluation_job/main.py  評価単発
-└── batch_serving_job/main.py バッチ推論
+└── evaluation_job/main.py  評価単発
 ml/                   ML コア
 ├── data/             loaders / preprocess / feature_engineering / datasets
 ├── training/         trainer / model_builder / experiments
 ├── evaluation/       metrics / validators / comparators / report
 ├── registry/         model_registry / metadata_store / artifact_store
-├── serving/          predictor / batch_predictor / response_builder
 └── common/           config / logging / utils (schema / run_id)
 tests/
 ├── conftest.py       共通フィクスチャ (sample_df / postgres_url / sample_db)

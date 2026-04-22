@@ -4,17 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## このディレクトリの性質
 
-MLOps 学習用の **5 フェーズ構成の親ディレクトリ**（Phase 2 は新設予定 — 現 Phase 1 から app / pipeline / Port-Adapter を切り出す枠）。全 phase を単一の親 Git リポジトリで管理する。フェーズを跨ぐ共通ビルド / テストは存在しない — 作業は常にフェーズ配下で完結する。
+MLOps 学習用の **5 フェーズ構成の親ディレクトリ**。  
+全 phase を単一の親 Git リポジトリで管理する。フェーズを跨ぐ共通ビルド / テストは持たず、作業は常に各 phase 配下で完結する。
 
 | Phase | ディレクトリ | テーマ | 学習の主題 |
 |---|---|---|---|
-| 1 | `1/study-ml-foundations/` | カリフォルニア住宅価格予測 | ML 基礎 (LightGBM 回帰 / Docker Compose / PostgreSQL / FastAPI) |
-| 2 | （新設予定） | （TBD） | App (API 連携) / パイプライン / Port-Adapter 等デザインパターン導入（現 Phase 1 から切り出し） |
+| 1 | `1/study-ml-foundations/` | カリフォルニア住宅価格予測 | ML 基礎（学習・評価・保存） |
+| 2 | `2/study-ml-app-pipeline/` | App + Pipeline + Port/Adapter | FastAPI / DI / core-ports-adapters 構成 |
 | 3 | `3/study-hybrid-search-local/` | 不動産検索 (Local) | ハイブリッド検索 + Port/Adapter (Meilisearch + PostgreSQL + Redis + multilingual-e5) |
 | 4 | `4/study-hybrid-search-cloud/` | 不動産検索 (GCP) | Cloud Native 化 (Meilisearch on Cloud Run + BigQuery `VECTOR_SEARCH` + Terraform + WIF) |
 | 5 | `5/study-hybrid-search-vertex/` | 不動産検索 (Vertex AI) | Vertex AI プリミティブ化 (Pipelines / Feature Store / Vector Search / Model Registry / Monitoring v2) |
 
-Phase 3 → 4 は Port/Adapter 経由で継承し、Lexical / Vector / データストアの実装を差し替えていく。詳細な技術スタック比較表は `README.md`。
+Phase 1 -> 2 は「学習基礎」と「アプリ・設計パターン」を分離し、Phase 3 以降で検索ドメインに展開する。詳細は `README.md` を参照。
 
 ## 最重要ルール — 必ず phase 配下の CLAUDE.md を読む
 
@@ -29,6 +30,14 @@ Phase 3 → 4 は Port/Adapter 経由で継承し、Lexical / Vector / データ
 が載っており、本ファイルの抽象的な説明より優先する。特に Phase 4 / 5 の CLAUDE.md は設計テーゼ / 非負制約 / parity invariant を載せた load-bearing なドキュメント。
 
 親は単一 Git リポだが、各 phase は独立 Python 環境・独立 Makefile なので、**他 phase のコマンドや設計慣行をそのまま持ち込まない** (例: Phase 1 は Docker Compose + `make all`、Phase 4/5 は `uv` workspace + `make sync && make check`)。
+
+## 実行方式の段差（学習設計）
+
+- Phase 1/2: Docker Compose 中心（ローカルで工程を理解）
+- Phase 3: `uv` + Docker Compose 併用
+- Phase 4/5: クラウド実行基盤中心（Cloud Run / BigQuery / Vertex AI）
+
+この段差は、設計思想を維持したまま実行基盤を段階的に差し替えるためのもの。
 
 ## フェーズ横断の原則
 
