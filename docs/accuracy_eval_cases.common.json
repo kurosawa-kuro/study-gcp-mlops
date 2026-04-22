@@ -1,0 +1,404 @@
+{
+  "cases": [
+    {
+      "name": "local3-sapporo-2ldk-01",
+      "targets": ["3-local"],
+      "q": "札幌",
+      "layout": "2LDK",
+      "price_lte": 90000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-02",
+      "targets": ["3-local"],
+      "q": "札幌 ペット可 2LDK",
+      "layout": "2LDK",
+      "price_lte": 90000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-03",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK",
+      "layout": "2LDK",
+      "price_lte": 100000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-04",
+      "targets": ["3-local"],
+      "q": "札幌駅 2LDK",
+      "layout": "2LDK",
+      "price_lte": 110000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-05",
+      "targets": ["3-local"],
+      "q": "札幌 ペット可",
+      "layout": "2LDK",
+      "price_lte": 90000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-06",
+      "targets": ["3-local"],
+      "q": "札幌 徒歩",
+      "layout": "2LDK",
+      "price_lte": 95000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-07",
+      "targets": ["3-local"],
+      "q": "札幌 築浅",
+      "layout": "2LDK",
+      "price_lte": 100000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-08",
+      "targets": ["3-local"],
+      "q": "札幌 ファミリー",
+      "layout": "2LDK",
+      "price_lte": 120000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-09",
+      "targets": ["3-local"],
+      "q": "札幌駅 ペット可",
+      "layout": "2LDK",
+      "price_lte": 100000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-10",
+      "targets": ["3-local"],
+      "q": "札幌 広め 2LDK",
+      "layout": "2LDK",
+      "price_lte": 130000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-11",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK ペット",
+      "layout": "2LDK",
+      "price_lte": 100000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-12",
+      "targets": ["3-local"],
+      "q": "札幌 駅近 2LDK",
+      "layout": "2LDK",
+      "price_lte": 110000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-13",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK 低家賃",
+      "layout": "2LDK",
+      "price_lte": 90000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-14",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK 地下鉄",
+      "layout": "2LDK",
+      "price_lte": 120000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-15",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK 新しめ",
+      "layout": "2LDK",
+      "price_lte": 120000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-16",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK ファミリー向け",
+      "layout": "2LDK",
+      "price_lte": 130000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-17",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK 徒歩10分以内",
+      "layout": "2LDK",
+      "price_lte": 120000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-18",
+      "targets": ["3-local"],
+      "q": "札幌 ペット可 2LDK 駅近",
+      "layout": "2LDK",
+      "price_lte": 120000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-19",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK おすすめ",
+      "layout": "2LDK",
+      "price_lte": 130000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "local3-sapporo-2ldk-20",
+      "targets": ["3-local"],
+      "q": "札幌 2LDK 便利",
+      "layout": "2LDK",
+      "price_lte": 130000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": ["1"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-01",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿区西新宿 1LDK",
+      "filters": {
+        "max_rent": 150000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-02",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK",
+      "filters": {
+        "max_rent": 200000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-03",
+      "targets": ["4-cloud", "4-local"],
+      "query": "西新宿 1LDK",
+      "filters": {
+        "max_rent": 180000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-04",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿駅 1LDK",
+      "filters": {
+        "max_rent": 200000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-05",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 ペット可 1LDK",
+      "filters": {
+        "max_rent": 220000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-06",
+      "targets": ["4-cloud", "4-local"],
+      "query": "西新宿 駅近 1LDK",
+      "filters": {
+        "max_rent": 210000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-07",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK 築浅",
+      "filters": {
+        "max_rent": 230000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-08",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK 徒歩",
+      "filters": {
+        "max_rent": 200000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-09",
+      "targets": ["4-cloud", "4-local"],
+      "query": "西新宿 1LDK 10分以内",
+      "filters": {
+        "max_rent": 200000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-10",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿区 1LDK",
+      "filters": {
+        "max_rent": 200000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-11",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK おすすめ",
+      "filters": {
+        "max_rent": 220000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-12",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK 安め",
+      "filters": {
+        "max_rent": 180000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-13",
+      "targets": ["4-cloud", "4-local"],
+      "query": "西新宿 1LDK ペット可",
+      "filters": {
+        "max_rent": 240000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-14",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK 単身",
+      "filters": {
+        "max_rent": 200000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-15",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK 駅近",
+      "filters": {
+        "max_rent": 220000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-16",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿区西新宿 単身 1LDK",
+      "filters": {
+        "max_rent": 230000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-17",
+      "targets": ["4-cloud", "4-local"],
+      "query": "西新宿 1LDK 物件",
+      "filters": {
+        "max_rent": 210000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-18",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿 1LDK 通勤便利",
+      "filters": {
+        "max_rent": 230000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-19",
+      "targets": ["4-cloud", "4-local"],
+      "query": "新宿駅近く 1LDK",
+      "filters": {
+        "max_rent": 230000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    },
+    {
+      "name": "cloud4-shinjuku-1ldk-20",
+      "targets": ["4-cloud", "4-local"],
+      "query": "西新宿 1LDK 住みやすい",
+      "filters": {
+        "max_rent": 230000
+      },
+      "top_k": 20,
+      "relevant_property_ids": ["p001"]
+    }
+  ]
+}

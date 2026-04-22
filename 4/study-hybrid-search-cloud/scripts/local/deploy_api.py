@@ -25,9 +25,10 @@ ENV_VARS = ",".join(
         "FEEDBACK_TOPIC=search-feedback",
         "RETRAIN_TOPIC=retrain-trigger",
         "ENABLE_SEARCH=true",
+        "ENABLE_RERANK=true",
         "ENCODER_MODEL_DIR=intfloat/multilingual-e5-base",
         "MEILI_BASE_URL={meili_base_url}",
-        "MEILI_REQUIRE_IDENTITY_TOKEN=false",
+        "MEILI_REQUIRE_IDENTITY_TOKEN=true",
         "LOG_AS_JSON=1",
         "GCP_LOGGING_ENABLED=1",
     ]

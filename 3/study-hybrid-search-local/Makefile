@@ -10,12 +10,12 @@ DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 	wait-db \
 	check-layers \
 	db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval \
-	ops-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed ops-accuracy-report \
+	ops-sync ops-livez ops-search ops-search-components ops-feedback ops-ranking ops-ranking-verbose ops-label-seed ops-accuracy-report \
 	features-daily features-report \
 	ops-embed \
 	ops-train-build ops-train-fit ops-train-fit-safe \
 	eval-compare eval-offline kpi-daily eval-weekly-report ops-retrain \
-	ops-bootstrap ops-daily ops-weekly verify-pipeline
+	ops-bootstrap ops-daily ops-weekly run-all verify-pipeline
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -96,6 +96,9 @@ ops-livez: ## Health check against the running api (aligned with Phase 3/4 ops-l
 ops-search: ## POST /search smoke
 	$(PYTHON) scripts/local/ops/search_check.py
 
+ops-search-components: ## Strict gate: Meili/ME5/LightGBM contributions must be non-zero
+	$(PYTHON) scripts/local/ops/search_component_check.py
+
 ops-feedback: ## /search → /feedback round-trip smoke
 	$(PYTHON) scripts/local/ops/feedback_check.py
 
@@ -172,8 +175,13 @@ verify-pipeline: ## Representative end-to-end smoke checks (auto-clean conflicts
 	$(MAKE) check-layers
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
+	$(MAKE) ops-search-components
 	$(MAKE) ops-feedback
 	$(MAKE) ops-ranking
 	$(MAKE) ops-ranking-verbose
+	$(MAKE) ops-accuracy-report
 	$(MAKE) eval-compare
 	$(MAKE) eval-offline
+
+run-all: ## End-to-end local validation flow (includes component + accuracy report)
+	$(MAKE) verify-pipeline

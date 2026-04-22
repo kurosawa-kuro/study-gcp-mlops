@@ -22,6 +22,10 @@ class EvalCase:
 
 
 def _default_cases_path() -> Path:
+    repo_root = Path(__file__).resolve().parents[5]
+    shared = repo_root / "docs" / "accuracy_eval_cases.common.json"
+    if shared.exists():
+        return shared
     return Path(__file__).resolve().parent / "data" / "accuracy_eval_cases.sample.json"
 
 
@@ -30,27 +34,50 @@ def _load_cases(path: Path) -> list[EvalCase]:
     rows = payload.get("cases")
     if not isinstance(rows, list) or not rows:
         raise ValueError("cases must be a non-empty list")
+    case_tag = os.environ.get("EVAL_CASES_TAG", "3-local")
     out: list[EvalCase] = []
     for i, row in enumerate(rows, start=1):
         if not isinstance(row, dict):
             raise ValueError(f"case[{i}] must be an object")
-        q = str(row.get("q", "")).strip()
+        targets = row.get("targets")
+        if isinstance(targets, list) and case_tag not in {str(x) for x in targets}:
+            continue
+        q_raw = row.get("q")
+        if q_raw is None:
+            q_raw = row.get("query")
+        q = str(q_raw or "").strip()
         if not q:
             raise ValueError(f"case[{i}] q is required")
         rel = row.get("relevant_ids")
+        if rel is None:
+            rel = row.get("relevant_property_ids")
         if not isinstance(rel, list) or not rel:
             raise ValueError(f"case[{i}] relevant_ids must be non-empty list")
+        filters = row.get("filters")
+        layout = row.get("layout")
+        price_lte = row.get("price_lte")
+        pet = row.get("pet")
+        if isinstance(filters, dict):
+            if layout is None:
+                layout = filters.get("layout")
+            if price_lte is None:
+                maybe_max_rent = filters.get("max_rent")
+                price_lte = int(maybe_max_rent) if maybe_max_rent is not None else None
+            if pet is None:
+                pet = filters.get("pet_ok")
         out.append(
             EvalCase(
                 name=str(row.get("name") or f"case-{i}"),
                 q=q,
-                layout=str(row["layout"]) if row.get("layout") is not None else None,
-                price_lte=int(row["price_lte"]) if row.get("price_lte") is not None else None,
-                pet=bool(row["pet"]) if row.get("pet") is not None else None,
-                limit=int(row.get("limit", 20)),
+                layout=str(layout) if layout is not None else None,
+                price_lte=int(price_lte) if price_lte is not None else None,
+                pet=bool(pet) if pet is not None else None,
+                limit=int(row.get("limit", row.get("top_k", 20))),
                 relevant_ids=[str(x) for x in rel],
             )
         )
+    if not out:
+        raise ValueError(f"no cases matched EVAL_CASES_TAG={case_tag}")
     return out
 
 

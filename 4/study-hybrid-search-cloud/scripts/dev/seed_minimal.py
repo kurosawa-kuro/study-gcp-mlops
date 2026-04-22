@@ -131,7 +131,7 @@ def _sync_meili_index(project_id: str) -> None:
         "--index",
         "properties",
     ]
-    require_identity_token = env("MEILI_REQUIRE_IDENTITY_TOKEN", "false").strip().lower() in {
+    require_identity_token = env("MEILI_REQUIRE_IDENTITY_TOKEN", "true").strip().lower() in {
         "1",
         "true",
         "yes",

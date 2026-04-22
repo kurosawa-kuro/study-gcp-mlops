@@ -34,10 +34,10 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
         deploy-all run-all destroy-all seed-test seed-test-clean \
-        train-smoke train-smoke-persist api-dev run-training-job-local clean \
+        train-smoke train-smoke-persist api-dev api-dev-search-rerank run-training-job-local clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
-        ops-accuracy-report local-accuracy-report \
+        ops-accuracy-report local-accuracy-report local-search-components ops-deploy-monitor \
         ops-skew-latest ops-search-volume ops-runs-recent \
         ops-skew-run ops-train-now ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed
@@ -110,10 +110,12 @@ run-all: ## End-to-end validation flow after deploy (layer check → smoke APIs 
 	$(MAKE) seed-test
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
+	$(MAKE) ops-search-components
 	$(MAKE) ops-feedback
 	$(MAKE) ops-ranking
 	$(MAKE) ops-label-seed
 	$(MAKE) ops-check-retrain
+	$(MAKE) ops-accuracy-report
 	$(MAKE) ops-daily
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
@@ -133,8 +135,11 @@ train-smoke: ## Dry-run the ranker training job locally (synthetic data, no GCS/
 train-smoke-persist: ## Dry-run ranker trainer and copy the model to $(MODEL_PATH_OVERRIDE)
 	uv run python -m ml.training.job --dry-run --save-to "$(MODEL_PATH_OVERRIDE)"
 
-api-dev: ## Start uvicorn locally (rerank-free /search requires ENABLE_SEARCH=1 + BQ creds)
+api-dev: ## Debug-only startup (ENABLE_SEARCH=false). Do not use for normal validation.
 	ENABLE_SEARCH=false uv run --package app uvicorn app.main:app --reload
+
+api-dev-search-rerank: ## Local /search + rerank enabled (uses MODEL_PATH_OVERRIDE on 127.0.0.1:8080)
+	cd app && ENABLE_SEARCH=true ENABLE_RERANK=true MODEL_PATH_OVERRIDE="$(MODEL_PATH_OVERRIDE)" uv run --package app uvicorn main:app --host 127.0.0.1 --port 8080
 
 # ----- Local deploy path (bypasses CI; uses Cloud Build) -----
 
@@ -196,6 +201,12 @@ ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
 
 ops-search-components: ## Strict gate: Meili/ME5/LightGBM contributions must be non-zero
 	uv run python -m scripts.local.search_component_check
+
+local-search-components: ## Strict gate on local API (TARGET=local, LOCAL_API_URL override supported)
+	TARGET=local uv run python -m scripts.local.search_component_check
+
+ops-deploy-monitor: ## Monitor Cloud Build and then validate readyz + component gate (set BUILD_ID=...)
+	uv run python -m scripts.local.deploy_monitor $(if $(BUILD_ID),--build-id "$(BUILD_ID)",)
 
 ops-accuracy-report: ## Simple ranking accuracy report on deployed Cloud Run (/search, TARGET=gcp)
 	TARGET=gcp uv run python -m scripts.local.accuracy_report

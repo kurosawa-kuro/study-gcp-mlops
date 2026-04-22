@@ -80,9 +80,3 @@ resource "google_cloud_run_v2_service_iam_member" "api_invoker" {
   member   = "serviceAccount:${var.service_accounts.api.email}"
 }
 
-resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
-  name     = google_cloud_run_v2_service.meili_search.name
-  location = var.region
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}

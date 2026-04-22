@@ -97,3 +97,24 @@ def test_component_check_fails_when_lightgbm_zero(monkeypatch, capsys) -> None:
     assert rc == 1
     assert "LightGBM rerank contribution is zero" in capsys.readouterr().err
 
+
+def test_component_check_local_target_uses_local_url_without_token(monkeypatch) -> None:
+    monkeypatch.setenv("TARGET", "local")
+    monkeypatch.setenv("LOCAL_API_URL", "http://127.0.0.1:8080")
+    captured: list[tuple[str, str, str | None]] = []
+
+    def _http_json(method, url, **kwargs):
+        captured.append((method, url, kwargs.get("token")))
+        if method == "GET" and url.endswith("/readyz"):
+            return 200, json.dumps({"status": "ready", "rerank_enabled": True})
+        return 200, json.dumps(_mock_results())
+
+    monkeypatch.setattr(search_component_check, "cloud_run_url", lambda: "https://should-not-be-used")
+    monkeypatch.setattr(search_component_check, "identity_token", lambda: "token")
+    monkeypatch.setattr(search_component_check, "http_json", _http_json)
+
+    rc = search_component_check.main()
+    assert rc == 0
+    assert captured[0][1].startswith("http://127.0.0.1:8080/")
+    assert captured[0][2] is None
+

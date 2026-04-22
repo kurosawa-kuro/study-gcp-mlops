@@ -69,7 +69,19 @@ resource "google_cloud_run_v2_service" "search_api" {
       }
       env {
         name  = "MEILI_REQUIRE_IDENTITY_TOKEN"
-        value = "false"
+        value = "true"
+      }
+      env {
+        name  = "ENABLE_SEARCH"
+        value = "true"
+      }
+      env {
+        name  = "ENABLE_RERANK"
+        value = "true"
+      }
+      env {
+        name  = "ENCODER_MODEL_DIR"
+        value = "intfloat/multilingual-e5-base"
       }
       env {
         name  = "SEARCH_CACHE_TTL_SECONDS"

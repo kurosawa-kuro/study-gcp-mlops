@@ -40,9 +40,17 @@ def main() -> int:
     query = os.environ.get("QUERY", "新宿区西新宿 1LDK")
     top_k = int(os.environ.get("TOP_K", "20"))
     max_rent = int(os.environ.get("MAX_RENT", "150000"))
+    target = os.environ.get("TARGET", "gcp").strip().lower()
 
-    url = cloud_run_url()
-    token = identity_token()
+    if target == "local":
+        url = os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/")
+        token = None
+    elif target == "gcp":
+        url = cloud_run_url()
+        token = identity_token()
+    else:
+        return fail("component-check config error: TARGET must be either 'local' or 'gcp'")
+
     payload = {"query": query, "filters": {"max_rent": max_rent}, "top_k": top_k}
     status, body = http_json("POST", f"{url}/search", token=token, payload=payload)
     if status != 200:

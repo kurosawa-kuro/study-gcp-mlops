@@ -42,6 +42,10 @@ class EvalCase:
 
 
 def _default_cases_path() -> Path:
+    repo_root = Path(__file__).resolve().parents[4]
+    shared = repo_root / "docs" / "accuracy_eval_cases.common.json"
+    if shared.exists():
+        return shared
     return Path(__file__).resolve().parent / "data" / "accuracy_eval_cases.sample.json"
 
 
@@ -50,22 +54,39 @@ def _load_cases(path: Path) -> list[EvalCase]:
     rows = payload.get("cases")
     if not isinstance(rows, list) or not rows:
         raise ValueError("cases must be a non-empty list")
+    case_tag = os.environ.get("EVAL_CASES_TAG", "4-cloud")
     cases: list[EvalCase] = []
     for i, row in enumerate(rows, start=1):
         if not isinstance(row, dict):
             raise ValueError(f"case[{i}] must be an object")
-        query = str(row.get("query", "")).strip()
+        targets = row.get("targets")
+        if isinstance(targets, list) and case_tag not in {str(x) for x in targets}:
+            continue
+        query_raw = row.get("query")
+        if query_raw is None:
+            query_raw = row.get("q")
+        query = str(query_raw or "").strip()
         if not query:
             raise ValueError(f"case[{i}] query is required")
-        relevant_raw = row.get("relevant_property_ids", [])
+        relevant_raw = row.get("relevant_property_ids")
+        if relevant_raw is None:
+            relevant_raw = row.get("relevant_ids", [])
         if not isinstance(relevant_raw, list) or not relevant_raw:
             raise ValueError(f"case[{i}] relevant_property_ids must be a non-empty list")
         relevant_property_ids = [str(x) for x in relevant_raw]
         name = str(row.get("name") or f"case-{i}")
-        filters = row.get("filters", {})
+        filters = row.get("filters")
+        if filters is None:
+            filters = {}
+            if row.get("layout") is not None:
+                filters["layout"] = row.get("layout")
+            if row.get("price_lte") is not None:
+                filters["max_rent"] = int(row["price_lte"])
+            if row.get("pet") is not None:
+                filters["pet_ok"] = bool(row["pet"])
         if not isinstance(filters, dict):
             raise ValueError(f"case[{i}] filters must be an object")
-        top_k = int(row.get("top_k", 20))
+        top_k = int(row.get("top_k", row.get("limit", 20)))
         cases.append(
             EvalCase(
                 name=name,
@@ -75,6 +96,8 @@ def _load_cases(path: Path) -> list[EvalCase]:
                 relevant_property_ids=relevant_property_ids,
             )
         )
+    if not cases:
+        raise ValueError(f"no cases matched EVAL_CASES_TAG={case_tag}")
     return cases
 
 

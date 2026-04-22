@@ -71,7 +71,7 @@ jobs:
           MEILI_BASE_URL=$(gcloud run services describe meili-search \
             --region "${{ env.REGION }}" \
             --format 'value(status.url)')
-          STATIC_ENV="PROJECT_ID=${{ env.PROJECT_ID }}|GCS_MODELS_BUCKET=mlops-dev-a-models|RANKING_LOG_TOPIC=ranking-log|FEEDBACK_TOPIC=search-feedback|RETRAIN_TOPIC=retrain-trigger|ENABLE_SEARCH=true|ENCODER_MODEL_DIR=intfloat/multilingual-e5-base|MEILI_BASE_URL=${MEILI_BASE_URL}|MEILI_REQUIRE_IDENTITY_TOKEN=false|LOG_AS_JSON=1|GCP_LOGGING_ENABLED=1"
+          STATIC_ENV="PROJECT_ID=${{ env.PROJECT_ID }}|GCS_MODELS_BUCKET=mlops-dev-a-models|RANKING_LOG_TOPIC=ranking-log|FEEDBACK_TOPIC=search-feedback|RETRAIN_TOPIC=retrain-trigger|ENABLE_SEARCH=true|ENABLE_RERANK=true|ENCODER_MODEL_DIR=intfloat/multilingual-e5-base|MEILI_BASE_URL=${MEILI_BASE_URL}|MEILI_REQUIRE_IDENTITY_TOKEN=true|LOG_AS_JSON=1|GCP_LOGGING_ENABLED=1"
           # gcloud `^|^` prefix lets us use `|` as the delimiter between KEY=value
           # pairs, which keeps Doppler secret values containing `,` intact.
           ENV_ARG="^|^${STATIC_ENV}"
