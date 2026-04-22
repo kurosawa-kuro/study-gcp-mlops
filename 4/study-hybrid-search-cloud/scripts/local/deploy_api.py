@@ -39,8 +39,9 @@ ENV_VARS = ",".join(
 # - search-api Cloud Build (docker build + push) recently takes ~625-805s
 #   in this project, so 810s is the current shortest safe window.
 BUILD_TIMEOUT_SEC = 810
-# - Cloud Run deploy usually converges within ~1 min. Keep a small buffer.
-DEPLOY_TIMEOUT_SEC = 120
+# - Cloud Run deploy can exceed 2 minutes on cold revisions (image pull/startup).
+#   Keep enough buffer to avoid false negatives while still failing real hangs.
+DEPLOY_TIMEOUT_SEC = 420
 
 
 def _print_cmd_output(label: str, proc: subprocess.CompletedProcess[str]) -> None:
@@ -110,6 +111,70 @@ def _diag_recent_revisions(project_id: str, region: str, service: str) -> None:
         capture_output=True,
     )
     _print_cmd_output("recent-revisions", proc)
+
+
+def _latest_created_revision(project_id: str, region: str, service: str) -> str:
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            service,
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.latestCreatedRevisionName)",
+        ],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    return (proc.stdout or "").strip()
+
+
+def _diag_revision_conditions(project_id: str, region: str, revision: str, *, stage: str) -> None:
+    if not revision:
+        return
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "run",
+            "revisions",
+            "describe",
+            revision,
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.conditions)",
+        ],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    _print_cmd_output(f"revision-conditions-{stage}", proc)
+
+
+def _diag_recent_error_logs(project_id: str, service: str, *, stage: str) -> None:
+    filt = (
+        'resource.type="cloud_run_revision" '
+        f'AND resource.labels.service_name="{service}" '
+        "AND severity>=ERROR"
+    )
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "logging",
+            "read",
+            filt,
+            f"--project={project_id}",
+            "--freshness=30m",
+            "--limit=20",
+            "--format=value(timestamp,resource.labels.revision_name,severity,textPayload,jsonPayload.message)",
+        ],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    _print_cmd_output(f"recent-error-logs-{stage}", proc)
 
 
 def _diag_image_digest(project_id: str, image_path: str, tag: str) -> None:
@@ -249,6 +314,11 @@ def main() -> int:
             file=sys.stderr,
         )
         _diag_service_state(project_id, region, service, stage="after-timeout")
+        latest_created = _latest_created_revision(project_id, region, service)
+        _diag_revision_conditions(
+            project_id, region, latest_created, stage=f"after-timeout-{latest_created}"
+        )
+        _diag_recent_error_logs(project_id, service, stage="after-timeout")
         _diag_recent_revisions(project_id, region, service)
         raise RuntimeError(
             f"gcloud run deploy {service} exceeded timeout ({DEPLOY_TIMEOUT_SEC}s)"
@@ -256,6 +326,11 @@ def main() -> int:
     _print_cmd_output("run-deploy", deploy_proc)
     if deploy_proc.returncode != 0:
         _diag_service_state(project_id, region, service, stage="after-deploy-fail")
+        latest_created = _latest_created_revision(project_id, region, service)
+        _diag_revision_conditions(
+            project_id, region, latest_created, stage=f"after-deploy-fail-{latest_created}"
+        )
+        _diag_recent_error_logs(project_id, service, stage="after-deploy-fail")
         _diag_recent_revisions(project_id, region, service)
         raise RuntimeError(f"gcloud run deploy {service} failed with exit={deploy_proc.returncode}")
 

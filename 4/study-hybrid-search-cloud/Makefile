@@ -17,6 +17,7 @@ REGION        ?= $(call _yaml_get,region)
 API_SERVICE   ?= $(call _yaml_get,api_service)
 TRAINING_JOB  ?= $(call _yaml_get,training_job)
 ARTIFACT_REPO ?= $(call _yaml_get,artifact_repo)
+MONITOR_LOG_DIR ?= $(ROOT)/logs/deploy-monitor
 
 # Override-able via CLI: `make tf-plan GITHUB_REPO=other/repo ONCALL_EMAIL=...`
 GITHUB_REPO   ?= $(call _yaml_get,github_repo)
@@ -33,7 +34,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
-        deploy-all run-all destroy-all seed-test seed-test-clean \
+        deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev api-dev-search-rerank run-training-job-local clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
@@ -102,7 +103,10 @@ tf-fmt-fix: ## terraform fmt (writes)
 tf-plan: ## terraform plan (requires GITHUB_REPO + ONCALL_EMAIL; saves infra/tfplan)
 	uv run python -m scripts.dev.tf_plan
 
-deploy-all: ## End-to-end provisioning + rollout (tf-bootstrap → apply → deploy-training-job-local → run-training-job-local → deploy-api-local)
+deploy-all: ## End-to-end provisioning + rollout WITH real-time monitor (default/safe path)
+	$(MAKE) ops-deploy-monitor
+
+deploy-all-direct: ## End-to-end provisioning + rollout WITHOUT monitor (debug only)
 	uv run python -m scripts.dev.deploy_all
 
 run-all: ## End-to-end validation flow after deploy (layer check → smoke APIs → feedback/train hooks → daily ops)
@@ -206,7 +210,10 @@ local-search-components: ## Strict gate on local API (TARGET=local, LOCAL_API_UR
 	TARGET=local uv run python -m scripts.local.search_component_check
 
 ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
-	uv run python -m scripts.local.deploy_monitor
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \
+	echo "monitor-log: $$log_file"; \
+	bash -o pipefail -c 'uv run python -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
 
 ops-deploy-checker: ## Post-deploy checker: build success + readyz + component gate
 	uv run python -m scripts.local.deploy_checker $(if $(API_BUILD_ID),--api-build-id "$(API_BUILD_ID)",) $(if $(MODEL_BUILD_ID),--model-build-id "$(MODEL_BUILD_ID)",)

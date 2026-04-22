@@ -200,10 +200,17 @@ def main(argv: list[str] | None = None) -> int:
     failure_reason = "deploy-all returned non-zero"
     if state.current_build_id:
         status, log_url = _build_describe(project_id, state.current_build_id)
-        failure_reason = (
-            "deploy-all failed during cloud-build wait "
-            f"(build_id={state.current_build_id}, status={status}, step={state.current_step_no})"
-        )
+        if status in {"WORKING", "QUEUED"}:
+            failure_reason = (
+                "deploy-all failed during cloud-build wait "
+                f"(build_id={state.current_build_id}, status={status}, step={state.current_step_no})"
+            )
+        else:
+            failure_reason = (
+                "deploy-all failed after cloud-build completed "
+                f"(build_id={state.current_build_id}, status={status}, step={state.current_step_no}, "
+                f"last_line={state.last_line})"
+            )
         if log_url:
             print(f"[monitor] failure-build-log-url {log_url}")
         if status == "TIMEOUT":
