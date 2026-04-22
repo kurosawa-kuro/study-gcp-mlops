@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "name": "sample-sapporo-2ldk",
+      "q": "札幌",
+      "layout": "2LDK",
+      "price_lte": 90000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": [
+        "1001"
+      ]
+    },
+    {
+      "name": "sample-sapporo-wide",
+      "q": "札幌 ペット可 2LDK",
+      "layout": "2LDK",
+      "price_lte": 110000,
+      "pet": true,
+      "limit": 20,
+      "relevant_ids": [
+        "1001"
+      ]
+    }
+  ]
+}

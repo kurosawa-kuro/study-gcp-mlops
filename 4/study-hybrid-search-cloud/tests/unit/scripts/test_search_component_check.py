@@ -25,10 +25,14 @@ def _mock_results() -> dict:
 def test_component_check_passes_when_all_components_contribute(monkeypatch) -> None:
     monkeypatch.setattr(search_component_check, "cloud_run_url", lambda: "https://example")
     monkeypatch.setattr(search_component_check, "identity_token", lambda: "token")
+    def _http_json(method, url, **_kw):
+        if method == "GET" and url.endswith("/readyz"):
+            return 200, json.dumps({"status": "ready", "rerank_enabled": True})
+        return 200, json.dumps(_mock_results())
     monkeypatch.setattr(
         search_component_check,
         "http_json",
-        lambda *_a, **_kw: (200, json.dumps(_mock_results())),
+        _http_json,
     )
     rc = search_component_check.main()
     assert rc == 0
@@ -39,10 +43,14 @@ def test_component_check_fails_when_meili_zero(monkeypatch, capsys) -> None:
     payload["results"][0]["lexical_rank"] = 10000
     monkeypatch.setattr(search_component_check, "cloud_run_url", lambda: "https://example")
     monkeypatch.setattr(search_component_check, "identity_token", lambda: "token")
+    def _http_json(method, url, **_kw):
+        if method == "GET" and url.endswith("/readyz"):
+            return 200, json.dumps({"status": "ready", "rerank_enabled": True})
+        return 200, json.dumps(payload)
     monkeypatch.setattr(
         search_component_check,
         "http_json",
-        lambda *_a, **_kw: (200, json.dumps(payload)),
+        _http_json,
     )
     rc = search_component_check.main()
     assert rc == 1
@@ -55,14 +63,20 @@ def test_component_check_fails_when_me5_zero(monkeypatch, capsys) -> None:
     payload["results"][0]["me5_score"] = 0.0
     monkeypatch.setattr(search_component_check, "cloud_run_url", lambda: "https://example")
     monkeypatch.setattr(search_component_check, "identity_token", lambda: "token")
+    def _http_json(method, url, **_kw):
+        if method == "GET" and url.endswith("/readyz"):
+            return 200, json.dumps({"status": "ready", "rerank_enabled": True})
+        return 200, json.dumps(payload)
     monkeypatch.setattr(
         search_component_check,
         "http_json",
-        lambda *_a, **_kw: (200, json.dumps(payload)),
+        _http_json,
     )
     rc = search_component_check.main()
     assert rc == 1
-    assert "ME5 semantic contribution is zero" in capsys.readouterr().err
+    stderr = capsys.readouterr().err
+    assert "ME5 semantic contribution is zero" in stderr
+    assert "encoder is None -> query_vector=[]" in stderr
 
 
 def test_component_check_fails_when_lightgbm_zero(monkeypatch, capsys) -> None:
@@ -70,10 +84,14 @@ def test_component_check_fails_when_lightgbm_zero(monkeypatch, capsys) -> None:
     payload["results"][0]["score"] = None
     monkeypatch.setattr(search_component_check, "cloud_run_url", lambda: "https://example")
     monkeypatch.setattr(search_component_check, "identity_token", lambda: "token")
+    def _http_json(method, url, **_kw):
+        if method == "GET" and url.endswith("/readyz"):
+            return 200, json.dumps({"status": "ready", "rerank_enabled": False})
+        return 200, json.dumps(payload)
     monkeypatch.setattr(
         search_component_check,
         "http_json",
-        lambda *_a, **_kw: (200, json.dumps(payload)),
+        _http_json,
     )
     rc = search_component_check.main()
     assert rc == 1

@@ -279,19 +279,19 @@ def main() -> int:
     if (rc := search_check_main()) != 0:
         return rc
 
-    _step(12, total, "component gate (Meilisearch / ME5 / LightGBM must all contribute)")
-    if (rc := search_component_check_main()) != 0:
-        return rc
-
-    _step(13, total, "ops-label-seed (bootstrap feedback labels)")
+    _step(12, total, "ops-label-seed (bootstrap feedback labels)")
     if (rc := training_label_seed_main()) != 0:
         return rc
 
-    _step(14, total, "training-data gate (rows/positives/request_ids must be non-empty)")
+    _step(13, total, "training-data gate (rows/positives/request_ids must be non-empty)")
     _assert_training_data_ready(project_id)
 
-    _step(15, total, "run-training-job-local again (train on non-empty real labels)")
+    _step(14, total, "run-training-job-local again (train on non-empty real labels)")
     if (rc := run_training_job_main()) != 0:
+        return rc
+
+    _step(15, total, "component gate (Meilisearch / ME5 / LightGBM must all contribute)")
+    if (rc := search_component_check_main()) != 0:
         return rc
 
     print()

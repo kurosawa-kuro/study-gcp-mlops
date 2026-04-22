@@ -70,6 +70,15 @@ raw.properties (upstream ETL)
 
 `common/**` は 3 ワークフロー (api / training-job / embedding-job) の対象に含める。`common/src/common/embeddings/**` は app (query encode) と embedding-job (passage encode) の共有コードなので `deploy-api.yml` / `deploy-embedding-job.yml` の両方が path filter に含める。認証はすべて WIF。
 
+## 簡易精度評価レポート
+
+`/search` の実レスポンスから、簡易な `nDCG@K / HitRate@K / MRR@K` を集計する運用スクリプトを追加した。
+
+- GCP (Cloud Run): `make ops-accuracy-report`
+- ローカル API: `make local-accuracy-report`
+
+評価ケースは `scripts/local/data/accuracy_eval_cases.sample.json`。任意データを使う場合は `EVAL_CASES_FILE=/path/to/cases.json` を指定する。
+
 ## ドキュメント
 
 初めてこのリポジトリに触る人は、まず [`docs/04_運用.md §1 環境構築`](docs/04_運用.md) の **STEP 1–17** を上から叩く。

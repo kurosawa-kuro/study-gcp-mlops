@@ -10,7 +10,7 @@ DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 	wait-db \
 	check-layers \
 	db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval \
-	ops-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed \
+	ops-sync ops-livez ops-search ops-feedback ops-ranking ops-ranking-verbose ops-label-seed ops-accuracy-report \
 	features-daily features-report \
 	ops-embed \
 	ops-train-build ops-train-fit ops-train-fit-safe \
@@ -107,6 +107,9 @@ ops-ranking-verbose: ## Detailed rerank inspection (lgbm_score / me5_score)
 
 ops-label-seed: ## Seed feedback events (click/favorite/inquiry)
 	$(PYTHON) scripts/local/ops/training_label_seed.py
+
+ops-accuracy-report: ## Simple ranking accuracy report (/search -> nDCG/HitRate/MRR)
+	$(PYTHON) scripts/local/ops/accuracy_report.py
 
 # ----- Feature / embedding batch -----
 

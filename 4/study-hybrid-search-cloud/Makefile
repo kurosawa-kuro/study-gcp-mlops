@@ -37,6 +37,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
         train-smoke train-smoke-persist api-dev run-training-job-local clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
+        ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
         ops-skew-run ops-train-now ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed
@@ -195,6 +196,12 @@ ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
 
 ops-search-components: ## Strict gate: Meili/ME5/LightGBM contributions must be non-zero
 	uv run python -m scripts.local.search_component_check
+
+ops-accuracy-report: ## Simple ranking accuracy report on deployed Cloud Run (/search, TARGET=gcp)
+	TARGET=gcp uv run python -m scripts.local.accuracy_report
+
+local-accuracy-report: ## Simple ranking accuracy report against local API (/search, TARGET=local)
+	TARGET=local uv run python -m scripts.local.accuracy_report
 
 ops-ranking: ## POST /search and inspect lexical_rank / final_rank / score / me5_score
 	uv run python -m scripts.local.ranking_check

@@ -32,10 +32,10 @@ def test_deploy_all_runs_non_empty_search_gate(monkeypatch) -> None:
     assert rc == 0
     assert order[-5:] == [
         "search_gate",
-        "component_gate",
         "label_seed",
         "training_data_gate",
         "run_training",
+        "component_gate",
     ]
 
 
