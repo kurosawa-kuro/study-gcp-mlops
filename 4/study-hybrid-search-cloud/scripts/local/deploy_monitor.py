@@ -1,84 +1,54 @@
-"""Monitor deploy progress and run post-deploy gates.
+"""Real-time deploy monitor for in-progress deploy-all.
 
 Usage:
-  uv run python -m scripts.local.deploy_monitor --build-id <cloud-build-id>
+  make ops-deploy-monitor
+  uv run python -m scripts.local.deploy_monitor
 
 Behavior:
-1) Poll Cloud Build status until terminal state.
-2) If build succeeded, poll /readyz until rerank_enabled=true and model_path non-null.
-3) Run strict component gate (same as make ops-search-components).
+1) Starts deploy-all as a child process (unbuffered output).
+2) Streams logs in real time and extracts current step context.
+3) During Cloud Build wait, periodically prints build status/log URL.
+4) Detects long silent periods and reports where deployment is stuck.
+5) On failure, prints likely timeout root cause with step/build context.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import subprocess
 import time
-from typing import Any
+from dataclasses import dataclass
+from datetime import datetime, timezone
 
-from scripts._common import cloud_run_url, env, fail, http_json, identity_token, run
+from scripts._common import env, fail, run
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Monitor deploy and validate final gates.")
-    parser.add_argument(
-        "--build-id",
-        required=False,
-        default="",
-        help="Cloud Build ID to monitor (optional; omitted => auto-detect latest search-api build)",
-    )
+    parser = argparse.ArgumentParser(description="Monitor deploy-all in real time.")
     parser.add_argument(
         "--poll-sec",
         type=int,
-        default=10,
-        help="Polling interval seconds (default: 10)",
+        default=8,
+        help="Polling interval for progress heartbeat (default: 8)",
     )
     parser.add_argument(
-        "--ready-timeout-sec",
+        "--stall-warn-sec",
         type=int,
-        default=600,
-        help="Timeout for /readyz rerank check (default: 600)",
+        default=120,
+        help="Warn when no new log line is seen for this many seconds (default: 120)",
+    )
+    parser.add_argument(
+        "--quiet-steps",
+        action="store_true",
+        help="Do not print every raw line; print only heartbeat/summary logs",
     )
     return parser.parse_args(argv)
 
 
-def _resolve_latest_build_id(project_id: str, service: str) -> str:
-    proc = run(
-        [
-            "gcloud",
-            "builds",
-            "list",
-            f"--project={project_id}",
-            "--sort-by=~create_time",
-            "--limit=30",
-            "--format=json",
-        ],
-        capture=True,
-    )
-    try:
-        rows = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("failed to parse gcloud builds list output") from exc
-    if not isinstance(rows, list):
-        raise RuntimeError("gcloud builds list returned non-list payload")
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        build_id = str(row.get("id") or "").strip()
-        if not build_id:
-            continue
-        substitutions: dict[str, Any] = row.get("substitutions") or {}
-        uri = str(substitutions.get("_URI") or "")
-        images = row.get("images") or []
-        uri_hit = f"/{service}:" in uri
-        images_hit = any(isinstance(i, str) and f"/{service}:" in i for i in images)
-        if uri_hit or images_hit:
-            return build_id
-    raise RuntimeError(f"no recent Cloud Build found for service={service}")
-
-
-def _build_status(project_id: str, build_id: str) -> str:
+def _build_describe(project_id: str, build_id: str) -> tuple[str, str]:
     proc = run(
         [
             "gcloud",
@@ -86,102 +56,164 @@ def _build_status(project_id: str, build_id: str) -> str:
             "describe",
             build_id,
             f"--project={project_id}",
-            "--format=value(status)",
+            "--format=json",
         ],
         capture=True,
     )
-    return (proc.stdout or "").strip()
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return "", ""
+    status = str(payload.get("status") or "")
+    log_url = str(payload.get("logUrl") or "")
+    return status, log_url
 
 
-def _wait_build(project_id: str, build_id: str, poll_sec: int) -> bool:
-    print(f"==> monitor build: id={build_id}")
-    while True:
-        status = _build_status(project_id, build_id)
-        print(f"[build] status={status}")
-        if status == "SUCCESS":
-            return True
-        if status in {"FAILURE", "INTERNAL_ERROR", "TIMEOUT", "CANCELLED", "EXPIRED"}:
-            return False
-        time.sleep(max(poll_sec, 1))
+_STEP_RE = re.compile(r"deploy-all\s+step\s+(\d+)/(\d+):\s+(.+)$")
+_BUILD_WAIT_RE = re.compile(r"Cloud Build wait id=([a-z0-9-]+)\s+timeout=(\d+)s")
 
 
-def _wait_ready(*, timeout_sec: int, poll_sec: int) -> bool:
-    url = cloud_run_url()
-    token = identity_token()
-    deadline = time.monotonic() + timeout_sec
-    print(f"==> monitor readyz: url={url}/readyz timeout={timeout_sec}s")
-    attempt = 0
-    while time.monotonic() < deadline:
-        attempt += 1
-        status, body = http_json("GET", f"{url}/readyz", token=token)
-        remaining = int(max(0, deadline - time.monotonic()))
-        if status == 200:
-            try:
-                parsed = json.loads(body)
-            except json.JSONDecodeError:
-                parsed = None
-            if isinstance(parsed, dict):
-                rerank_enabled = bool(parsed.get("rerank_enabled"))
-                model_path = parsed.get("model_path")
-                if rerank_enabled and bool(model_path):
-                    print(
-                        "[readyz] READY "
-                        f"(attempt={attempt}, remaining={remaining}s, "
-                        f"rerank_enabled={rerank_enabled}, model_path={model_path})"
-                    )
-                    return True
-                print(
-                    "[readyz] WAITING "
-                    f"(attempt={attempt}, remaining={remaining}s, "
-                    f"search_enabled={parsed.get('search_enabled')}, "
-                    f"rerank_enabled={parsed.get('rerank_enabled')}, "
-                    f"model_path={parsed.get('model_path')}) "
-                    "- startup/model warm-up in progress"
-                )
-            else:
-                print(
-                    f"[readyz] WAITING (attempt={attempt}, remaining={remaining}s) "
-                    "- response JSON shape is unexpected"
-                )
-        else:
-            print(
-                f"[readyz] WAITING (attempt={attempt}, remaining={remaining}s, http={status}) "
-                "- service still converging"
-            )
-        time.sleep(max(poll_sec, 1))
-    return False
+@dataclass
+class MonitorState:
+    current_step_no: int = 0
+    current_step_total: int = 0
+    current_step_label: str = "not-started"
+    current_build_id: str = ""
+    current_build_timeout_sec: int = 0
+    current_build_started_at: float = 0.0
+    last_line_at: float = 0.0
+    last_line: str = ""
+
+
+def _now_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _maybe_parse_step(line: str, state: MonitorState) -> None:
+    m = _STEP_RE.search(line)
+    if not m:
+        return
+    state.current_step_no = int(m.group(1))
+    state.current_step_total = int(m.group(2))
+    state.current_step_label = m.group(3).strip()
+    state.current_build_id = ""
+    state.current_build_timeout_sec = 0
+    state.current_build_started_at = 0.0
+    print(
+        f"[monitor] step-enter step={state.current_step_no}/{state.current_step_total} "
+        f"label={state.current_step_label}"
+    )
+
+
+def _maybe_parse_build_wait(line: str, state: MonitorState, now_ts: float) -> None:
+    m = _BUILD_WAIT_RE.search(line)
+    if not m:
+        return
+    state.current_build_id = m.group(1)
+    state.current_build_timeout_sec = int(m.group(2))
+    state.current_build_started_at = now_ts
+    print(
+        f"[monitor] build-wait-start build_id={state.current_build_id} "
+        f"timeout_sec={state.current_build_timeout_sec} step={state.current_step_no}"
+    )
+
+
+def _print_heartbeat(state: MonitorState, project_id: str, now_ts: float, stall_warn_sec: int) -> None:
+    idle_sec = int(max(0, now_ts - state.last_line_at))
+    base = (
+        f"[monitor] heartbeat t={_now_utc()} step={state.current_step_no}/{state.current_step_total} "
+        f"label={state.current_step_label} idle_sec={idle_sec}"
+    )
+
+    if state.current_build_id:
+        status, log_url = _build_describe(project_id, state.current_build_id)
+        elapsed = int(max(0, now_ts - state.current_build_started_at))
+        timeout_sec = state.current_build_timeout_sec
+        remaining = max(0, timeout_sec - elapsed) if timeout_sec else -1
+        print(
+            f"{base} build_id={state.current_build_id} build_status={status} "
+            f"build_elapsed_sec={elapsed} build_remaining_sec={remaining}"
+        )
+        if log_url:
+            print(f"[monitor] build-log-url {log_url}")
+    else:
+        print(base)
+
+    if idle_sec >= stall_warn_sec:
+        print(
+            "[monitor] stall-warning "
+            f"no-new-log-for={idle_sec}s current_step={state.current_step_no} "
+            f"last_line={state.last_line}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     project_id = env("PROJECT_ID")
-    service = env("API_SERVICE")
-    build_id = args.build_id.strip()
-    if not build_id:
-        try:
-            build_id = _resolve_latest_build_id(project_id, service)
-        except Exception as exc:
-            return fail(f"deploy-monitor config error: failed to auto-resolve build id: {exc}")
-        print(f"==> auto-detected build id: {build_id} (service={service})")
+    state = MonitorState()
+    now = time.monotonic()
+    state.last_line_at = now
+    state.current_step_label = "launching"
 
-    if not _wait_build(project_id, build_id, args.poll_sec):
-        return fail("deploy-monitor failed: Cloud Build did not succeed")
-
-    if not _wait_ready(timeout_sec=args.ready_timeout_sec, poll_sec=args.poll_sec):
-        return fail(
-            "deploy-monitor failed: /readyz did not reach rerank_enabled=true with model_path set"
-        )
-
-    print("==> run component gate")
-    proc = subprocess.run(
-        ["uv", "run", "python", "-m", "scripts.local.search_component_check"],
-        check=False,
+    child_env = dict(os.environ)
+    child_env["PYTHONUNBUFFERED"] = "1"
+    cmd = ["uv", "run", "python", "-u", "-m", "scripts.dev.deploy_all"]
+    print(f"[monitor] start deploy-all command={' '.join(cmd)}")
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        env=child_env,
     )
-    if proc.returncode != 0:
-        return fail("deploy-monitor failed: component gate did not pass")
 
-    print("==> deploy-monitor passed: build success + readyz rerank + component gate")
-    return 0
+    assert proc.stdout is not None
+    next_heartbeat = time.monotonic() + max(1, args.poll_sec)
+    while True:
+        line = proc.stdout.readline()
+        now_ts = time.monotonic()
+        if line:
+            stripped = line.rstrip("\n")
+            state.last_line = stripped
+            state.last_line_at = now_ts
+            _maybe_parse_step(stripped, state)
+            _maybe_parse_build_wait(stripped, state, now_ts)
+            if not args.quiet_steps:
+                print(stripped)
+        elif proc.poll() is not None:
+            break
+
+        if now_ts >= next_heartbeat:
+            _print_heartbeat(state, project_id, now_ts, args.stall_warn_sec)
+            next_heartbeat = now_ts + max(1, args.poll_sec)
+
+    rc = proc.wait()
+    if rc == 0:
+        print(
+            "[monitor] deploy-all succeeded "
+            f"final_step={state.current_step_no}/{state.current_step_total} "
+            f"label={state.current_step_label}"
+        )
+        return 0
+
+    failure_reason = "deploy-all returned non-zero"
+    if state.current_build_id:
+        status, log_url = _build_describe(project_id, state.current_build_id)
+        failure_reason = (
+            "deploy-all failed during cloud-build wait "
+            f"(build_id={state.current_build_id}, status={status}, step={state.current_step_no})"
+        )
+        if log_url:
+            print(f"[monitor] failure-build-log-url {log_url}")
+        if status == "TIMEOUT":
+            failure_reason += " timeout detected in Cloud Build"
+    elif state.current_step_no > 0:
+        failure_reason = (
+            f"deploy-all failed at step {state.current_step_no}/{state.current_step_total} "
+            f"({state.current_step_label})"
+        )
+    return fail(f"[monitor] {failure_reason}")
 
 
 if __name__ == "__main__":

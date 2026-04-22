@@ -37,7 +37,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO
         train-smoke train-smoke-persist api-dev api-dev-search-rerank run-training-job-local clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
-        ops-accuracy-report local-accuracy-report local-search-components ops-deploy-monitor \
+        ops-accuracy-report local-accuracy-report local-search-components ops-deploy-monitor ops-deploy-checker \
         ops-skew-latest ops-search-volume ops-runs-recent \
         ops-skew-run ops-train-now ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed
@@ -205,8 +205,11 @@ ops-search-components: ## Strict gate: Meili/ME5/LightGBM contributions must be 
 local-search-components: ## Strict gate on local API (TARGET=local, LOCAL_API_URL override supported)
 	TARGET=local uv run python -m scripts.local.search_component_check
 
-ops-deploy-monitor: ## Monitor Cloud Build and then validate readyz + component gate (set BUILD_ID=...)
-	uv run python -m scripts.local.deploy_monitor $(if $(BUILD_ID),--build-id "$(BUILD_ID)",)
+ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
+	uv run python -m scripts.local.deploy_monitor
+
+ops-deploy-checker: ## Post-deploy checker: build success + readyz + component gate
+	uv run python -m scripts.local.deploy_checker $(if $(API_BUILD_ID),--api-build-id "$(API_BUILD_ID)",) $(if $(MODEL_BUILD_ID),--model-build-id "$(MODEL_BUILD_ID)",)
 
 ops-accuracy-report: ## Simple ranking accuracy report on deployed Cloud Run (/search, TARGET=gcp)
 	TARGET=gcp uv run python -m scripts.local.accuracy_report
