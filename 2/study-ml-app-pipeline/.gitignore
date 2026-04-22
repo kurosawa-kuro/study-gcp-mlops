@@ -11,7 +11,8 @@ __pycache__/
 data/*.db
 
 # Models
-ml/registry/artifacts/
+ml/registry/artifacts/*
+!ml/registry/artifacts/.gitkeep
 
 # W&B
 ml/wandb/

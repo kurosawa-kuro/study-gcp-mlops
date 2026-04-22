@@ -1,62 +1,50 @@
-# Docker 配置規約（Phase1-4 共通）
+# Docker 配置規約（整理版）
 
-この文書は `study-gcp-mlops` 全体で Dockerfile の配置・命名・役割を統一するための規約。
+## 目的
 
-## 1. 目的
+- フェーズ間で Dockerfile の置き場所を揃える
+- CI / 運用スクリプトの参照先を固定する
+- 旧形式の混在を抑える
 
-- Phase 間で Dockerfile の配置ゆれをなくす
-- 「どこに何の Dockerfile があるか」を即判別できるようにする
-- CI/CD の参照先を固定し、移行時の参照切れを防ぐ
+---
 
-## 2. 標準ディレクトリ
+## 標準配置
 
-- **Service 用**: `infra/run/services/<service_name>/Dockerfile`
-- **Job 用**: `infra/run/jobs/<job_name>/Dockerfile`
+- Service 用: `infra/run/services/<service_name>/Dockerfile`
+- Job 用: `infra/run/jobs/<job_name>/Dockerfile`
 
-`<service_name>` / `<job_name>` はスネークケースで管理し、実リソース名との対応を文書化する。
+`<service_name>` / `<job_name>` は `snake_case` を使う。
 
-## 3. 命名規則
+---
 
-- Dockerfile 名は原則 **`Dockerfile` 固定**
-- `Dockerfile.api` / `Dockerfile.trainer` のような接尾辞付き命名は **legacy 扱い**
-- `infra/run/jobs/<job_name>/Dockerfile`, `infra/run/services/<service_name>/Dockerfile` の
-  `<job_name>`, `<service_name>` は **snake_case（`[a-z0-9_]+`）** に統一する
+## 命名ルール
 
-## 4. Phase ごとの運用方針
+- ファイル名は原則 `Dockerfile` 固定
+- `Dockerfile.<suffix>` は legacy 扱い
+- legacy を使う場合は、対象フェーズと理由を明記する
 
-- **Phase4**: 完全準拠（`infra/run/services/*/Dockerfile`, `infra/run/jobs/*/Dockerfile`）
-- **Phase3**: API は準拠済（`infra/run/services/search_api/Dockerfile`）。Job は `infra/run/jobs/*.Dockerfile` から `<job_name>/Dockerfile` へ段階移行対象
-- **Phase2**: 準拠済（`infra/run/services/search_api/Dockerfile`）
-- **Phase1**: 互換維持のため legacy 許容（`Dockerfile.api`, `Dockerfile.trainer`）
+---
 
-## 5. CI/CD 参照ルール
+## フェーズ別の扱い
 
-- workflow / cloudbuild は必ず `infra/run/**/Dockerfile` を参照する
-- legacy 参照（`app/Dockerfile`, `Dockerfile.*`）が残る場合は、移行期限を docs に明記する
+- Phase 2 以降は標準配置を基本とする
+- Phase 1 は教材互換のため legacy が残っていても可
 
-## 6. 最低限の Dockerfile 要件
+---
 
-- `PYTHONDONTWRITEBYTECODE=1`, `PYTHONUNBUFFERED=1` を設定
-- 非 root 実行（可能な範囲で）
-- 実行エントリーポイントは `CMD` で明示
-- 依存解決は lock / requirements と整合させる
+## チェック
 
-## 7. チェック運用
-
-リポジトリルートで以下を実行:
+ルートで以下を実行:
 
 ```bash
 python3 tools/check_docker_layout.py
 ```
 
-このチェックは以下を検証する:
+実際の required パスや例外ルールは、上記スクリプト実装を正とする。
 
-- Phase2/3/4 の required Dockerfile が規約パスに存在すること
-- Phase2/3/4 の Dockerfile が `infra/run/{jobs,services}/<name>/Dockerfile` 形式に一致すること
-- `<name>` が snake_case に一致すること
-- 定義外の `.Dockerfile` 接尾辞ファイルが紛れ込んでいないこと
+---
 
-## 8. 今後の移行ターゲット
+## 運用メモ
 
-- Phase3 jobs: `infra/run/jobs/embedding/Dockerfile` / `training.Dockerfile` → `infra/run/jobs/<job_name>/Dockerfile`
-- Phase1: `Dockerfile.api`, `Dockerfile.trainer` は学習用 legacy として維持（削除しない）
+- フェーズ再編（番号変更・移設）が発生したら、まず `tools/check_docker_layout.py` を更新
+- この文書は原則「方針のみ」を保持し、詳細な移行履歴は別ファイルに切り出す

@@ -26,16 +26,15 @@ _DEFAULTS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Build container and load latest model."""
+    """Build container and warm up predictor."""
     settings = Settings()
     container = build_container(settings)
     app.state.container = container
     try:
-        app.state.booster = container.model_store.load("latest")
-        logger.info("Model loaded from latest artifact")
+        container.predictor.warmup()
+        logger.info("Predictor warmed up with latest model")
     except Exception as e:
-        logger.warning("Model load skipped at startup: %s", e)
-        app.state.booster = None
+        logger.warning("Predictor warmup skipped at startup: %s", e)
     yield
 
 
