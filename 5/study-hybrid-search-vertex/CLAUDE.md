@@ -17,12 +17,12 @@
 
 ---
 
-## hybrid-search-cloud の設計テーゼ (題材: 不動産ハイブリッド検索)
+## hybrid-search-vertex の設計テーゼ (題材: 不動産ハイブリッド検索)
 
 - **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1a) Meilisearch BM25、(1b) BigQuery VECTOR_SEARCH、(2) RRF 融合、(3) LightGBM `lambdarank` 再ランク
-- **BigQuery + Cloud Run 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`)、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI / Model Registry / BQML 非採用**
+- **BigQuery + Cloud Run + Vertex AI 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`) と Vertex Model Registry、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI 採用 / BQML 非採用**
 - **Training-Serving Skew 対策が load-bearing**。Dataform SQL (`feature_mart.property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で lockstep 維持 (`ctr = SAFE_DIVIDE(click_count, impression_count)` など、分子分母の順序が訓練側と推論側で 1:1)
-- **学習 = Cloud Run Jobs (`training-job` + `embedding-job`) / 推論 = Cloud Run Service (`search-api`)**。両方を Service にしない。モデルは**コンテナ同梱せず**、FastAPI `lifespan` で `mlops.training_runs` から最新 `run_id` の `model_path` を解決 → GCS から `model.txt` を download → `lgb.Booster` にロード (Phase 6 以降)
+- **学習 = Vertex AI Pipelines (`embed_pipeline` + `train_pipeline`) / 推論 = Cloud Run Service (`search-api`) + Vertex AI Endpoints**。モデルは API コンテナへ同梱せず、`search-api` は `VertexEndpointEncoder` / `VertexEndpointReranker` を通して推論を委譲する
 - **Phase 5 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/04_運用.md §1 STEP 17`
 - **スコープ固定**: 不動産ハイブリッド検索のみ。旧 California Housing 回帰は Phase 10b/10c で完全削除済
 
