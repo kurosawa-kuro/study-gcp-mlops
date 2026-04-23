@@ -45,7 +45,13 @@ def _load_settings() -> dict[str, str]:
         key, _, value = line.partition(":")
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        if key:
+        if not key:
+            continue
+        # Skip YAML list markers (lines like `- foo`) and block-style list keys
+        # (e.g. `admin_user_emails:` with an empty value followed by `- foo`).
+        if key.startswith("-"):
+            continue
+        if value:
             settings[key.upper()] = value
     return settings
 

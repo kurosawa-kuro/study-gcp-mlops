@@ -1,18 +1,32 @@
+# ---------------------------------------------------------------------------
+# Phase 5/6 共通: `.dockerignore` を「漏れなく context に残す」構成に緩めた。
+# 過去に `**/data/` や `infra/` の包括除外で `ml/data/` や `infra/run/jobs/*`
+# が巻き込まれて COPY 失敗 → container startup 失敗が連鎖したため
+# (Phase 5 Run 3 の `ModuleNotFoundError: ml.data` / Run 7 の meili-sync 事故)。
+#
+# 現状は以下の 3 カテゴリのみ除外:
+# 1. Python / テスト / エディタの中間ファイル (サイズ圧縮、機能影響ゼロ)
+# 2. Terraform の local state / plan 出力 (巨大 + 秘密情報)
+# 3. `.git` / `.github` (Cloud Build が独自に扱う)
+#
+# 他の業務コード (app/, ml/, scripts/, infra/run/, pipeline/, env/, 等) は
+# 全て build context に残す。動作確認が全段落 PASS した後に段階的に
+# 除外を追加する。追加時は必ず全 Dockerfile の `COPY` 行を grep し、
+# Python package 名 (ml/data / ml/embed / ml/train 等) と衝突しないか確認。
+# ---------------------------------------------------------------------------
+
+# ----- Python bytecode / caches -----
 **/__pycache__/
 **/*.pyc
 **/.pytest_cache/
 **/.ruff_cache/
 **/.mypy_cache/
 **/.venv/
+
+# ----- Terraform local state (巨大 / 秘密情報) -----
 **/.terraform/
 **/*.tfstate*
+
+# ----- VCS / CI metadata (Cloud Build が独自に処理) -----
 .git/
 .github/
-docs/
-infra/
-pipeline/data_job/dataform/
-**/tests/
-**/data/
-**/models/
-**/wandb/
-**/*.md

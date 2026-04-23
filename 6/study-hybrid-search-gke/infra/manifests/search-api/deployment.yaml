@@ -61,8 +61,11 @@ spec:
             - name: ENABLE_RERANK
               value: "true"
             # KServe InferenceService の cluster-local エンドポイント
+            # encoder は Phase 5 から継承した Vertex CPR 規約 server (AIP_PREDICT_ROUTE
+            # default=/predict) なので `/predict` を直指定する。reranker は KServe
+            # 公式 MLServer LightGBM runtime なので KServe v1 protocol path。
             - name: KSERVE_ENCODER_URL
-              value: "http://property-encoder.kserve-inference.svc.cluster.local/v1/models/property-encoder:predict"
+              value: "http://property-encoder.kserve-inference.svc.cluster.local/predict"
             - name: KSERVE_RERANKER_URL
               value: "http://property-reranker.kserve-inference.svc.cluster.local/v1/models/property-reranker:predict"
             - name: KSERVE_PREDICT_TIMEOUT_SECONDS

@@ -87,15 +87,24 @@ def _download_artifact_dir(gcs_uri: str, workdir: Path) -> Path:
     prefix = GcsPrefix.parse(gcs_uri)
     local_root = workdir / "model"
     local_root.mkdir(parents=True, exist_ok=True)
-    if prefix.prefix and not prefix.prefix.endswith("/"):
-        raise RuntimeError("AIP_STORAGE_URI must point to a directory prefix")
+    # GcsPrefix.parse() は trailing slash を strip する仕様 (artifact_store.py の
+    # `prefix.strip("/")`)。ここでは strip 後の prefix をそのまま list_blobs の
+    # prefix 引数に渡し、各 blob の name から切り出して download する。
+    # prefix が (末尾スラッシュ有無にかかわらず) ディレクトリを指していることは
+    # Vertex が AIP_STORAGE_URI として保証する運用前提とする。
+    # Phase 5 Run 6 で self-contradict な `not endswith("/") → raise` 判定が
+    # encoder container を起動直後 exit させていた事故 (docs/02_移行ロードマップ.md §1.4)
+    # を踏まないよう、判定を削除し slash 補正は下で行う。
     from google.cloud import storage  # type: ignore[attr-defined]
 
     client = storage.Client()
-    for blob in client.list_blobs(prefix.bucket, prefix=prefix.prefix):
+    # list_blobs の prefix は directory として扱うため末尾 `/` を付ける。
+    # 先頭 `blob.name` から prefix_with_slash を剥がして相対パスに変換する。
+    prefix_with_slash = f"{prefix.prefix}/" if prefix.prefix else ""
+    for blob in client.list_blobs(prefix.bucket, prefix=prefix_with_slash):
         if blob.name.endswith("/"):
             continue
-        rel = blob.name[len(prefix.prefix) :].lstrip("/") if prefix.prefix else blob.name
+        rel = blob.name[len(prefix_with_slash) :] if prefix_with_slash else blob.name
         download_file(f"gs://{prefix.bucket}/{blob.name}", local_root / rel)
     return local_root
 

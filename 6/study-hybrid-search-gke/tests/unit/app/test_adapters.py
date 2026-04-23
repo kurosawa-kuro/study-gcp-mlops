@@ -71,7 +71,9 @@ def test_kserve_encoder_parses_embedding_dict_response_v1() -> None:
 
     fake_client.post.assert_called_once()
     sent_json = fake_client.post.call_args.kwargs["json"]
-    assert sent_json == {"instances": [{"text": "query: 赤羽駅徒歩10分"}]}
+    # Phase 5 Run 6 の adapter バグ再発防止: text / kind は分離フィールドで送り、
+    # ME5 の `query: ` prefix は server 側 E5Encoder が付与する契約。
+    assert sent_json == {"instances": [{"text": "赤羽駅徒歩10分", "kind": "query"}]}
     assert vector == [0.1, 0.2, 0.3]
     assert "property-encoder" in adapter.endpoint_name
 

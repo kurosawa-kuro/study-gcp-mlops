@@ -19,8 +19,13 @@ metadata:
 spec:
   predictor:
     serviceAccountName: encoder
+    # 学習リポは最小スペック方針 (memory `feedback_low_spec_learning.md` /
+    # docs/02_移行ロードマップ.md §7)。ME5 (multilingual-e5-base) は ~560MB
+    # params なので 1cpu/2Gi requests で推論可。peak で limits まで swing する。
+    # maxReplicas=1 にして GKE Autopilot CPU quota 予約と学習用コストを最小化。
+    # Production 化時は User 判断で 2cpu/4Gi + maxReplicas=3 に戻す。
     minReplicas: 1
-    maxReplicas: 3
+    maxReplicas: 1
     containers:
       - name: kserve-container
         # Artifact Registry に push する自前イメージ
@@ -31,14 +36,22 @@ spec:
           - containerPort: 8080
             protocol: TCP
         env:
-          - name: STORAGE_URI
-            value: "gs://mlops-dev-a-models/encoder/latest"
+          # encoder server (ml/serving/encoder.py) は Phase 5 から継承した
+          # Vertex CPR 規約で `AIP_STORAGE_URI` を読む。KServe の `STORAGE_URI`
+          # 慣例ではなく Vertex 規約を優先 (server 書き換え回避)。
+          # docs/02_移行ロードマップ.md §1.3 参照。trailing slash は必須
+          # (GcsPrefix.parse は strip するが、下流の list_blobs が directory
+          # として扱うため placeholder 段階でも `/` を付けておく)。
+          - name: AIP_STORAGE_URI
+            value: "gs://mlops-dev-a-models/encoder/latest/"
           - name: MODEL_NAME
             value: "property-encoder"
         resources:
+          # Autopilot general-purpose class は memory:cpu を 1:1 〜 6.5:1 に
+          # 制約。ここは 2:1 で統一。
           requests:
+            cpu: "1"
+            memory: "2Gi"
+          limits:
             cpu: "2"
             memory: "4Gi"
-          limits:
-            cpu: "4"
-            memory: "8Gi"

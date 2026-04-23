@@ -96,7 +96,14 @@ def _patch_reranker_storage_uri(storage_uri: str) -> None:
 
 
 def _patch_encoder_storage_uri(storage_uri: str) -> None:
-    """Encoder uses a custom Python predictor — STORAGE_URI is an env var."""
+    """Encoder uses a custom Python predictor (Vertex CPR 規約を継承) —
+    env var 名は ``AIP_STORAGE_URI`` (KServe の ``STORAGE_URI`` ではない)。
+    Phase 5 Run 6 で encoder server が読む env 名と manifest の env 名が
+    食い違うと container が startup で exit する事故が発生したため、ここでも
+    同じ名前で揃える。trailing slash は GcsPrefix.parse が strip するが、
+    list_blobs が directory として扱うため `/` を補ってから patch する。
+    """
+    normalized = storage_uri.rstrip("/") + "/"
     patch: dict[str, Any] = {
         "spec": {
             "predictor": {
@@ -104,7 +111,7 @@ def _patch_encoder_storage_uri(storage_uri: str) -> None:
                     {
                         "name": "kserve-container",
                         "env": [
-                            {"name": "STORAGE_URI", "value": storage_uri},
+                            {"name": "AIP_STORAGE_URI", "value": normalized},
                         ],
                     }
                 ]

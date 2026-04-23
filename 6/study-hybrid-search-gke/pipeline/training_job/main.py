@@ -35,7 +35,7 @@ def property_search_train_pipeline(
     ranking_log_table: str = "ranking_log",
     feedback_events_table: str = "feedback_events",
     window_days: int = 90,
-    trainer_image: str = "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/trainer:latest",
+    trainer_image: str = "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
     experiment_name: str = "property-reranker-lgbm",
     baseline_hyperparameters_json: str = '{"num_leaves":31,"learning_rate":0.05,"feature_fraction":0.9,"bagging_fraction":0.8,"min_data_in_leaf":50,"lambdarank_truncation_level":20}',
     enable_tuning: bool = False,
@@ -45,7 +45,7 @@ def property_search_train_pipeline(
     gate_threshold: float = 0.6,
     model_display_name: str = "property-reranker",
     endpoint_resource_name: str = "",
-    serving_container_image_uri: str = "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/reranker:latest",
+    serving_container_image_uri: str = "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-reranker:latest",
     deploy_service_account: str = "",
     traffic_new_percentage: int = 10,
     deploy_machine_type: str = "n1-standard-2",
@@ -90,7 +90,10 @@ def property_search_train_pipeline(
             service_account=deploy_service_account,
             traffic_new_percentage=traffic_new_percentage,
             deploy_machine_type=deploy_machine_type,
-            model_artifact=train_task.outputs["model"],
+            # KFP の Input[Artifact] 経由ではなく、train_reranker が string で
+            # 返した model.uri を直接渡す。return 値は "Output" というデフォルト
+            # 名の outputs 項目として参照する。
+            model_artifact_uri=train_task.outputs["Output"],
         )
 
 
@@ -107,7 +110,7 @@ def build_pipeline_spec() -> dict[str, object]:
             "ranking_log_table": "ranking_log",
             "feedback_events_table": "feedback_events",
             "window_days": 90,
-            "trainer_image": "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/trainer:latest",
+            "trainer_image": "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
             "experiment_name": "property-reranker-lgbm",
             "enable_tuning": False,
             "gate_metric_name": "ndcg_at_10",

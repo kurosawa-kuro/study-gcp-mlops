@@ -1,4 +1,12 @@
-"""Resolve model monitoring configuration for the reranker endpoint."""
+"""Resolve model monitoring configuration payload (informational only in Phase 6).
+
+Phase 6 縮退事項 (docs/02_移行ロードマップ.md §5.5 / §6): Vertex Model Monitoring v2
+は Vertex Endpoint 前提のため KServe 化で失う。このモジュールはもはや実リソース
+(Vertex monitoring job など) を作らず、参考値を stdout に JSON で印字するだけの
+placeholder として残している。BigQuery 側 skew 検知 (`monitoring/validate_feature_skew.sql`)
+は継続動作する。`make setup-model-monitoring` / `scripts.local.setup.setup_model_monitoring.main`
+を呼んでも副作用は無い。`deploy_all.py` からは 2026-04 以降、呼び出しを外した。
+"""
 
 from __future__ import annotations
 

@@ -57,7 +57,11 @@ class KServeEncoder:
         self._client = client or httpx.Client(timeout=timeout_seconds)
 
     def embed(self, text: str, kind: Literal["query", "passage"]) -> list[float]:
-        payload = {"instances": [{"text": f"{kind}: {text.strip()}"}]}
+        # Encoder server (ml/serving/encoder.py::EncoderInstance) は text と kind を
+        # 分離フィールドで受け取り、server 側 E5Encoder が ME5 の `<kind>: ` prefix
+        # を付与する契約。Phase 5 Run 6 で client 側 prefix 連結が 422 を誘発した
+        # 痛み (docs/02_移行ロードマップ.md §1.1) から、ここでは prefix しない。
+        payload = {"instances": [{"text": text.strip(), "kind": kind}]}
         response = self._client.post(self.endpoint_url, json=payload)
         response.raise_for_status()
         predictions = _extract_predictions(response.json())
