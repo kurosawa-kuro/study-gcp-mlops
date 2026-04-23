@@ -9,7 +9,8 @@
 6. `terraform apply tfplan -auto-approve` — apply infra (cluster + IAM + KServe)
 7. `kubectl apply -k infra/manifests/` — apply search-api + InferenceService manifests
 8. `deploy/kserve_models` — patch InferenceService with latest Model Registry artifacts
-9. `deploy/api_gke` — Cloud Build + kubectl set image search-api
+9. `setup_model_monitoring` — resolve monitoring payload for reranker endpoint
+10. `deploy/api_gke` — Cloud Build + kubectl set image search-api
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the moment
@@ -25,6 +26,7 @@ from scripts._common import env, run
 from scripts.ci.sync_dataform import main as sync_dataform_main
 from scripts.local.deploy.api_gke import main as deploy_api_main
 from scripts.local.deploy.kserve_models import main as deploy_kserve_models_main
+from scripts.local.setup.setup_model_monitoring import main as setup_model_monitoring_main
 from scripts.local.setup.tf_bootstrap import main as tf_bootstrap_main
 from scripts.local.setup.tf_init import main as tf_init_main
 from scripts.local.setup.tf_plan import main as tf_plan_main
@@ -168,7 +170,7 @@ MANIFESTS = Path(__file__).resolve().parents[3] / "infra" / "manifests"
 
 
 def main() -> int:
-    total = 9
+    total = 10
     project_id = env("PROJECT_ID")
 
     _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
@@ -200,7 +202,11 @@ def main() -> int:
     if (rc := deploy_kserve_models_main()) != 0:
         return rc
 
-    _step(9, total, "deploy-api-gke (Cloud Build + kubectl set image search-api)")
+    _step(9, total, "setup-model-monitoring (resolve reranker monitoring payload)")
+    if (rc := setup_model_monitoring_main()) != 0:
+        return rc
+
+    _step(10, total, "deploy-api-gke (Cloud Build + kubectl set image search-api)")
     if (rc := deploy_api_main()) != 0:
         return rc
 

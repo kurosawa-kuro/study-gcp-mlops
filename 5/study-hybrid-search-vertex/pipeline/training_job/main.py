@@ -90,7 +90,10 @@ def property_search_train_pipeline(
             service_account=deploy_service_account,
             traffic_new_percentage=traffic_new_percentage,
             deploy_machine_type=deploy_machine_type,
-            model_artifact=train_task.outputs["model"],
+            # KFP の Input[Artifact] 経由ではなく、train_reranker が string で
+            # 返した model.uri を直接渡す。return 値は "Output" というデフォルト
+            # 名の outputs 項目として参照する。
+            model_artifact_uri=train_task.outputs["Output"],
         )
 
 

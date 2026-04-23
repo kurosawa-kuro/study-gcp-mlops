@@ -17,6 +17,7 @@ on:
       - pipeline/batch_serving_job/**
       - pipeline/workflow/**
       - scripts/local/setup/create_schedule.py
+      - scripts/local/setup/setup_model_monitoring.py
       - pyproject.toml
       - uv.lock
       - .github/workflows/deploy-pipeline.yml
@@ -62,6 +63,10 @@ jobs:
         run: |
           gsutil -m cp dist/pipelines/*.yaml \
             gs://${{ env.PIPELINE_ROOT_BUCKET }}/templates/
+
+      - name: Ensure Model Monitoring job
+        run: |
+          uv run python -m scripts.local.setup.setup_model_monitoring
 
       - name: Ensure PipelineJobSchedule (daily embed + weekly train)
         run: |

@@ -32,7 +32,8 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
         check-layers sync-dataform-config \
-        tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
+	tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
+	setup-model-monitoring \
         setup-pipeline-schedule \
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
@@ -102,6 +103,9 @@ tf-fmt-fix: ## terraform fmt (writes)
 
 tf-plan: ## terraform plan (requires GITHUB_REPO + ONCALL_EMAIL; saves tfplan)
 	uv run python -m scripts.local.setup.tf_plan
+
+setup-model-monitoring: ## Print resolved Vertex Model Monitoring setup payload
+	uv run python -m scripts.local.setup.setup_model_monitoring
 
 setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payload
 	uv run python -m scripts.local.setup.create_schedule

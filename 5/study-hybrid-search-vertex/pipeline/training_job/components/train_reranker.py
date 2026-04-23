@@ -12,7 +12,11 @@ def train_reranker(
     window_days: int,
     model: dsl.Output[dsl.Model],
     metrics: dsl.Output[dsl.Metrics],
-) -> None:
+) -> str:
+    """Return the model artifact URI as a string so downstream components can
+    consume it without relying on Input[Artifact] deserialization (Phase 5
+    encountered a KFP executor issue where Input artifacts caused worker
+    to exit before emitting logs)."""
     import sys
     import traceback
 
@@ -62,7 +66,8 @@ def train_reranker(
             json.dumps(metrics_payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         _log(f"  wrote metrics={metrics_payload}")
-        _log("DONE")
+        _log(f"DONE — returning model.uri={model.uri}")
+        return str(model.uri)
     except Exception:
         _log("ERROR in train_reranker")
         _log(traceback.format_exc())

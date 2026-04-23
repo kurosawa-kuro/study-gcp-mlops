@@ -56,12 +56,18 @@ def main() -> int:
 
     endpoint_name = plan["endpoint"]
     endpoint = aiplatform.Endpoint(endpoint_name=endpoint_name)
+    # Phase 5 の mlops-dev-a は CustomModelServingCPUsPerProjectPerRegion=8 で、
+    # min=1/max=5 かける 2 vCPU = 10 vCPU を要求すると 429 になる。検証用なので
+    # max_replica_count=1 に固定 (env で上書き可)。
+    import os as _os
+
+    max_replicas = int(_os.environ.get("PROMOTE_MAX_REPLICAS", "1"))
     matched.deploy(
         endpoint=endpoint,
         deployed_model_display_name=plan["display_name"],
-        machine_type="n1-standard-2",
+        machine_type=_os.environ.get("PROMOTE_MACHINE_TYPE", "n1-standard-2"),
         min_replica_count=1,
-        max_replica_count=5,
+        max_replica_count=max_replicas,
         traffic_percentage=100,
         sync=True,
     )

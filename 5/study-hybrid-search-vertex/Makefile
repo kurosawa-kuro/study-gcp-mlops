@@ -28,6 +28,9 @@ ONCALL_EMAIL  ?= $(call _yaml_get,oncall_email)
 # Local model path produced by `make train-smoke-persist`.
 MODEL_PATH_OVERRIDE ?= /tmp/hybrid-search-cloud-smoke-model.txt
 
+# deploy-monitor 出力先 (ops-deploy-monitor が tee する log を保存)
+MONITOR_LOG_DIR ?= $(ROOT)/logs/deploy-monitor
+
 export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
@@ -37,6 +40,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
+        ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
         ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
@@ -114,6 +118,12 @@ deploy-all: ## End-to-end provisioning + search-api rollout (tf-bootstrap → ap
 
 deploy-all-direct: ## Compatibility alias of deploy-all (Phase4 naming)
 	$(MAKE) deploy-all
+
+ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \
+	echo "monitor-log: $$log_file"; \
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
 
 run-all: ## End-to-end validation flow after deploy (layer check → seed → train pipeline submit → smoke APIs → daily ops)
 	$(MAKE) check-layers
