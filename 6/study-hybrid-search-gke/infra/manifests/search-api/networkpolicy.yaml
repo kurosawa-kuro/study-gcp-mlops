@@ -1,0 +1,43 @@
+# KServe InferenceService への egress は search namespace の search-api Pod
+# だけに許可 (bilateral: KServe 側も対応 NP を持つ)。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: search-api-egress
+  namespace: search
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: search-api
+  policyTypes:
+    - Egress
+  egress:
+    # KServe inference への内部アクセス
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kserve-inference
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+    # Google API / BigQuery / Pub/Sub 等への外部アクセス (Private Google Access)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53

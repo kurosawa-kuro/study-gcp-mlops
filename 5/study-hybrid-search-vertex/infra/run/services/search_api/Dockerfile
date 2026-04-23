@@ -23,6 +23,8 @@ RUN uv sync --frozen --no-dev --extra app --no-editable || \
 FROM python:3.12-slim-bookworm AS runtime
 
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /src/app /home/app/app
+COPY --from=builder /src/ml /home/app/ml
 ENV PATH="/opt/venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

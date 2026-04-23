@@ -1,0 +1,12 @@
+# 値は環境ごとに差分がある。env overlay (kustomization) で実値を入れるか、
+# scripts/local/deploy/api_gke.py が `kubectl create configmap --dry-run=client`
+# で env/config/setting.yaml から合成する。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: search-api-config
+  namespace: search
+data:
+  project_id: "mlops-dev-a"
+  models_bucket: "mlops-dev-a-models"
+  meili_base_url: "https://meili-search-XXXXX-an.a.run.app"

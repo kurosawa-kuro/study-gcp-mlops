@@ -1,0 +1,44 @@
+# property-encoder — multilingual-e5 serving via KServe Python predictor
+#
+# ランタイム選定メモ (docs/02_移行ロードマップ.md §11 段階 B):
+# - 第一候補: 自前 Python predictor (sentence-transformers + transformers)
+# - 第二候補: Huggingface serving runtime (HF runtime の e5 サポート状況要検証)
+# - GPU の要否は P95 latency 実測で判断。Autopilot で GPU は `nvidia-l4` 等の
+#   acceleratorClass を `spec.predictor.acceleratorClass` に指定する。
+#
+# `storageUri` は scripts/local/deploy/kserve_models.py が Vertex Model Registry から
+# 引いて書き戻す (初期値は Phase 5 の encoder artifact を指す placeholder)。
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: property-encoder
+  namespace: kserve-inference
+  annotations:
+    # RawDeployment mode (Knative なし) で HPA / Deployment を直接作らせる
+    serving.kserve.io/deploymentMode: "RawDeployment"
+spec:
+  predictor:
+    serviceAccountName: encoder
+    minReplicas: 1
+    maxReplicas: 3
+    containers:
+      - name: kserve-container
+        # Artifact Registry に push する自前イメージ
+        # (ml/embed/container/Dockerfile を KServe Python predictor 仕様で
+        # 書き直したもの、`scripts/local/deploy/kserve_models.py` が更新)
+        image: gcr.io/cloudrun/hello
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        env:
+          - name: STORAGE_URI
+            value: "gs://mlops-dev-a-models/encoder/latest"
+          - name: MODEL_NAME
+            value: "property-encoder"
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"

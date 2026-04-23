@@ -14,8 +14,8 @@ import time
 
 from scripts._common import env, run, submit_cloud_build_async, wait_cloud_build
 
-BUILD_TIMEOUT_SEC = 900
-DEPLOY_TIMEOUT_SEC = 180
+BUILD_TIMEOUT_SEC = 1800
+DEPLOY_TIMEOUT_SEC = 600
 
 
 def _assert_model_ready(project_id: str) -> None:
@@ -37,11 +37,38 @@ def _assert_model_ready(project_id: str) -> None:
     )
     lines = [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
     finished_runs = int(lines[-1]) if lines else 0
-    if finished_runs <= 0:
-        raise RuntimeError(
-            "model-first gate failed: no finished training run found in "
-            f"`{project_id}.mlops.training_runs`"
-        )
+    if finished_runs > 0:
+        return
+    # Phase5 transition path: pipeline train task can succeed while register step fails.
+    # In that case training_runs table may still be empty, but model artifacts were produced.
+    if _has_recent_successful_train_task(project_id):
+        return
+    raise RuntimeError(
+        "model-first gate failed: no finished training run found in "
+        f"`{project_id}.mlops.training_runs` and no recent successful train-reranker task."
+    )
+
+
+def _has_recent_successful_train_task(project_id: str) -> bool:
+    try:
+        from google.cloud import aiplatform
+    except Exception:
+        return False
+
+    region = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
+    aiplatform.init(project=project_id, location=region)
+    jobs = aiplatform.PipelineJob.list(
+        filter='display_name="property-search-train"',
+        order_by="create_time desc",
+    )
+    for job in jobs[:10]:
+        # list() response does not always include task_details; re-fetch full job.
+        full_job = aiplatform.PipelineJob.get(job.resource_name)
+        details = getattr(full_job._gca_resource.job_detail, "task_details", [])
+        for task in details:
+            if task.task_name == "train-reranker" and int(task.state) == 3:
+                return True
+    return False
 
 
 def _diag(label: str, proc: subprocess.CompletedProcess[str]) -> None:
@@ -59,9 +86,44 @@ def _require_non_empty_env(name: str) -> str:
     return value
 
 
+def _resolve_endpoint_id_from_display_name(*, project_id: str, location: str, display_name: str) -> str:
+    proc = run(
+        [
+            "gcloud",
+            "ai",
+            "endpoints",
+            "list",
+            f"--project={project_id}",
+            f"--region={location}",
+            "--filter",
+            f"displayName={display_name}",
+            "--format=value(name)",
+            "--limit=1",
+        ],
+        capture=True,
+        check=False,
+    )
+    full_name = (proc.stdout or "").strip()
+    if not full_name:
+        raise RuntimeError(
+            f"{display_name} endpoint was not found; set VERTEX_ENCODER_ENDPOINT_ID manually"
+        )
+    # Typical format: projects/<p>/locations/<loc>/endpoints/<id>
+    endpoint_id = full_name.rsplit("/", 1)[-1]
+    if not endpoint_id:
+        raise RuntimeError(f"failed to parse endpoint id from {full_name!r}")
+    return endpoint_id
+
+
 def _build_env_vars(*, project_id: str) -> str:
     vertex_location = env("VERTEX_LOCATION", "asia-northeast1").strip() or "asia-northeast1"
-    encoder_endpoint_id = _require_non_empty_env("VERTEX_ENCODER_ENDPOINT_ID")
+    encoder_endpoint_id = env("VERTEX_ENCODER_ENDPOINT_ID", "").strip()
+    if not encoder_endpoint_id:
+        encoder_endpoint_id = _resolve_endpoint_id_from_display_name(
+            project_id=project_id,
+            location=vertex_location,
+            display_name="property-encoder-endpoint",
+        )
     reranker_endpoint_id = env("VERTEX_RERANKER_ENDPOINT_ID", "").strip()
     enable_rerank = "true" if reranker_endpoint_id else "false"
     return ",".join(
@@ -99,7 +161,7 @@ def main() -> int:
     print(f"==> Cloud Build submit {uri}", flush=True)
     build_id = submit_cloud_build_async(
         project_id=project_id,
-        config="cloudbuild.api.yaml",
+        config="infra/run/services/search_api/cloudbuild.yaml",
         substitutions=f"_URI={uri}",
     )
     print(f"==> Cloud Build wait id={build_id} timeout={BUILD_TIMEOUT_SEC}s", flush=True)

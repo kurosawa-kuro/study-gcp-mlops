@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## このディレクトリの性質
 
-MLOps 学習用の **5 フェーズ構成の親ディレクトリ**。  
+MLOps 学習用の **6 フェーズ構成の親ディレクトリ**。  
 全 phase を単一の親 Git リポジトリで管理する。フェーズを跨ぐ共通ビルド / テストは持たず、作業は常に各 phase 配下で完結する。
 
 | Phase | ディレクトリ | テーマ | 学習の主題 |
@@ -14,12 +14,13 @@ MLOps 学習用の **5 フェーズ構成の親ディレクトリ**。
 | 3 | `3/study-hybrid-search-local/` | 不動産検索 (Local) | ハイブリッド検索 + Port/Adapter (Meilisearch + PostgreSQL + Redis + multilingual-e5) |
 | 4 | `4/study-hybrid-search-cloud/` | 不動産検索 (GCP) | GCP マネージドサービス化 (Meilisearch on Cloud Run + BigQuery `VECTOR_SEARCH` + Terraform + WIF) |
 | 5 | `5/study-hybrid-search-vertex/` | 不動産検索 (Vertex AI) | Vertex AI プリミティブ化 (Pipelines / Feature Store / Vector Search / Model Registry / Monitoring v2) |
+| 6 | `6/study-hybrid-search-gke/` | 不動産検索 (GKE + KServe, Draft) | **Phase 5 の serving 層のみ** を GKE Deployment + KServe InferenceService に差し替え (Pipelines / Feature Group / Model Registry / BigQuery / Meilisearch は継承) |
 
 Phase 1 -> 2 は「学習基礎」と「アプリ・設計パターン」を分離し、Phase 3 以降で検索ドメインに展開する。詳細は `README.md` を参照。
 
 Phase 間でコードは共有しないが、**設計思想（Port/Adapter、`core -> ports <- adapters` の依存方向）は一貫**させ、adapter 実装だけ差し替えていく — これが phase を跨ぐ変更を判断するときの軸。複数 phase に同名の概念があっても、**実装 (adapter) の差し替えだけで済むか、思想 (port / core) 自体に触れるのかを必ず区別する**。
 
-## 非負制約（Phase 3/4/5 共通）
+## 非負制約（Phase 3/4/5/6 共通）
 
 - ハイブリッド検索の基本構成は **LightGBM + multilingual-e5 + Meilisearch** を必須とする
 - この 3 要素を削除・置換・無効化する変更は、明示的な user 合意がない限り実施しない
@@ -34,15 +35,16 @@ Phase 間でコードは共有しないが、**設計思想（Port/Adapter、`co
 - ドキュメント衝突時の権威順位
 - その phase 特有の「紛らわしい点」
 
-が載っており、本ファイルの抽象的な説明より優先する。特に Phase 4 / 5 の CLAUDE.md は設計テーゼ / 非負制約 / parity invariant を載せた load-bearing なドキュメント。
+が載っており、本ファイルの抽象的な説明より優先する。特に Phase 4 / 5 / 6 の CLAUDE.md は設計テーゼ / 非負制約 / parity invariant を載せた load-bearing なドキュメント。
 
-親は単一 Git リポだが、各 phase は独立 Python 環境・独立 Makefile なので、**他 phase のコマンドや設計慣行をそのまま持ち込まない** (例: Phase 1 は Docker Compose + `make all`、Phase 4/5 は `uv` workspace + `make sync && make check`)。
+親は単一 Git リポだが、各 phase は独立 Python 環境・独立 Makefile なので、**他 phase のコマンドや設計慣行をそのまま持ち込まない** (例: Phase 1 は Docker Compose + `make all`、Phase 4/5/6 は `uv` workspace + `make sync && make check`)。
 
 ## 実行方式の段差（学習設計）
 
 - Phase 1/2: Docker Compose 中心（ローカルで工程を理解）
 - Phase 3: `uv` + Docker Compose 併用
 - Phase 4/5: クラウド実行基盤中心（Cloud Run / BigQuery / Vertex AI）
+- Phase 6: GKE + KServe 中心（学習側は Phase 5 の Vertex AI Pipelines を継承、serving 差し替え）
 
 この段差は、設計思想を維持したまま実行基盤を段階的に差し替えるためのもの。
 
@@ -63,9 +65,10 @@ cd 2/study-ml-app-pipeline && make            # Docker Compose 系: build/seed/t
 cd 3/study-hybrid-search-local && make help   # ops-bootstrap / ops-daily / ops-weekly 系 (Docker Compose)
 cd 4/study-hybrid-search-cloud && make help   # uv + Terraform + Cloud Run 系 (make check が CI 同等)
 cd 5/study-hybrid-search-vertex && make help  # Phase 4 継承 + Vertex AI
+cd 6/study-hybrid-search-gke && make help     # Phase 5 継承 + GKE + KServe (Draft)
 ```
 
-Phase 4 / 5 はローカル CI 同等チェックとして `make check` (ruff + ruff format --check + mypy strict + pytest) があり、変更後はこれを走らせる。Phase 1 / 2 は `make test` (pytest のみ)、Phase 3 は `make test` + `make check-layers` + `make verify-pipeline`。
+Phase 4 / 5 / 6 はローカル CI 同等チェックとして `make check` (ruff + ruff format --check + mypy strict + pytest) があり、変更後はこれを走らせる。Phase 1 / 2 は `make test` (pytest のみ)、Phase 3 は `make test` + `make check-layers` + `make verify-pipeline`。
 
 ## 参照リポジトリ (Phase 4 / 5 が継承元として挙げるもの)
 
