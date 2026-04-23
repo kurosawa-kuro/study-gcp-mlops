@@ -13,35 +13,57 @@ def train_reranker(
     model: dsl.Output[dsl.Model],
     metrics: dsl.Output[dsl.Metrics],
 ) -> None:
-    import json
-    from pathlib import Path
+    import sys
+    import traceback
 
-    model_payload = {
-        "component": "train_reranker",
-        "trainer_image": trainer_image,
-        "training_frame_uri": training_frame.uri,
-        "hyperparameters_json": hyperparameters_json,
-        "experiment_name": experiment_name,
-        "window_days": window_days,
-    }
-    # KFP v2 の dsl.Output[dsl.Model] を Vertex AI Model.upload の
-    # `artifact_uri`（ディレクトリプレフィックス想定）にそのまま渡せる形に揃える。
-    # model.path をディレクトリにし、その中に JSON を入れる。
-    # Vertex は artifact_uri 配下のファイルを Model artifact として同期する。
-    model_dir = Path(model.path)
-    if model_dir.exists() and not model_dir.is_dir():
-        model_dir.unlink()
-    model_dir.mkdir(parents=True, exist_ok=True)
-    (model_dir / "model.json").write_text(
-        json.dumps(model_payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    def _log(msg: str) -> None:
+        print(f"[train_reranker] {msg}", flush=True)
+        print(f"[train_reranker] {msg}", file=sys.stderr, flush=True)
 
-    metrics_payload = {
-        "ndcg_at_10": 0.7,
-        "map": 0.5,
-        "recall_at_20": 0.8,
-    }
-    # metrics は単一ファイルで OK（evaluate-reranker が Path(...).read_text で読むため）
-    Path(metrics.path).write_text(
-        json.dumps(metrics_payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    _log("STEP 1 — component entry")
+    _log(f"  python={sys.version}")
+    _log(f"  trainer_image={trainer_image}")
+    _log(f"  experiment_name={experiment_name} window_days={window_days}")
+    _log(f"  training_frame.uri={training_frame.uri}")
+    _log(f"  training_frame.path={training_frame.path}")
+    _log(f"  model.uri={model.uri} model.path={model.path}")
+    _log(f"  metrics.uri={metrics.uri} metrics.path={metrics.path}")
+
+    try:
+        import json
+        from pathlib import Path
+
+        _log("STEP 2 — build model payload")
+        model_payload = {
+            "component": "train_reranker",
+            "trainer_image": trainer_image,
+            "training_frame_uri": training_frame.uri,
+            "hyperparameters_json": hyperparameters_json,
+            "experiment_name": experiment_name,
+            "window_days": window_days,
+        }
+        # KFP v2 convention: model.path は単一ファイル。書いた内容はそのまま
+        # gs://<pipeline-root>/.../model というオブジェクト名で GCS に sync される。
+        # Vertex Model.upload は `artifact_uri` にディレクトリプレフィックスを期待
+        # するので、consumer (register_reranker) 側で親ディレクトリを渡す。
+        _log(f"STEP 3 — write model.json to {model.path}")
+        Path(model.path).write_text(
+            json.dumps(model_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        _log(f"  wrote {Path(model.path).stat().st_size} bytes")
+
+        _log("STEP 4 — write metrics payload")
+        metrics_payload = {
+            "ndcg_at_10": 0.7,
+            "map": 0.5,
+            "recall_at_20": 0.8,
+        }
+        Path(metrics.path).write_text(
+            json.dumps(metrics_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        _log(f"  wrote metrics={metrics_payload}")
+        _log("DONE")
+    except Exception:
+        _log("ERROR in train_reranker")
+        _log(traceback.format_exc())
+        raise
