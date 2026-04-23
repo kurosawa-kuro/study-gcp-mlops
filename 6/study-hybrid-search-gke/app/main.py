@@ -229,7 +229,7 @@ def create_app() -> FastAPI:
         )
 
     @fastapi_app.get("/")
-    def ui(request: Request):
+    def ui(request: Request) -> object:
         search_payload = {
             "query": "渋谷 1LDK",
             "filters": {

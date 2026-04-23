@@ -14,7 +14,8 @@ WORKFLOWS_DIR = ROOT / ".github" / "workflows"
 
 def test_encoder_image_workflow_paths() -> None:
     text = (WORKFLOWS_DIR / "deploy-encoder-image.yml").read_text()
-    assert "ml/embed/**" in text
+    assert "infra/run/services/encoder/Dockerfile" in text
+    assert "ml/serving/**" in text
 
 
 def test_reranker_image_workflow_paths() -> None:

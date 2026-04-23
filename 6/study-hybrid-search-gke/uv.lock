@@ -2423,7 +2423,7 @@ wheels = [
 ]
 
 [[package]]
-name = "study-hybrid-search-vertex"
+name = "study-hybrid-search-gke"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
