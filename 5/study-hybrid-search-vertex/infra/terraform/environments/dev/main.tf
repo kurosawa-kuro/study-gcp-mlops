@@ -13,8 +13,9 @@
 module "iam" {
   source = "../../modules/iam"
 
-  project_id  = var.project_id
-  github_repo = var.github_repo
+  project_id        = var.project_id
+  github_repo       = var.github_repo
+  admin_user_emails = var.admin_user_emails
 
   depends_on = [google_project_service.enabled]
 }

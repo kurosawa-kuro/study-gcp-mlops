@@ -39,6 +39,12 @@ resource "google_cloud_run_v2_service" "meili_search" {
 
     containers {
       image = var.meili_image
+      # Meilisearch 公式 image の default port は 7700、Cloud Run は 8080 を
+      # listen 要求。env `MEILI_HTTP_ADDR=0.0.0.0:8080` + `ports.container_port=8080`
+      # で整合させる (2026-04-23 Phase 5 実運用で確定)。
+      ports {
+        container_port = 8080
+      }
       resources {
         limits = {
           cpu    = "1"
@@ -49,6 +55,11 @@ resource "google_cloud_run_v2_service" "meili_search" {
       env {
         name  = "MEILI_DB_PATH"
         value = "/meili_data"
+      }
+
+      env {
+        name  = "MEILI_HTTP_ADDR"
+        value = "0.0.0.0:8080"
       }
 
       volume_mounts {

@@ -69,6 +69,12 @@ variable "enable_deletion_protection" {
   default     = true
 }
 
+variable "admin_user_emails" {
+  description = "Developer user accounts that need to impersonate sa-api for local one-off ops (e.g. Meilisearch document sync needing OIDC token with audience=meili-search URL). Forwarded to the iam module."
+  type        = list(string)
+  default     = []
+}
+
 variable "search_cache_ttl_seconds" {
   description = "Default /search cache TTL seconds passed to search-api"
   type        = number

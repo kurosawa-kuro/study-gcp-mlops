@@ -87,9 +87,7 @@ def main() -> int:
             return 2
         project = os.environ.get("PROJECT_ID", "mlops-dev-a")
         index_name = os.environ.get("INDEX_NAME", "properties")
-        table_fqn = os.environ.get(
-            "TABLE_FQN", f"{project}.feature_mart.properties_cleaned"
-        )
+        table_fqn = os.environ.get("TABLE_FQN", f"{project}.feature_mart.properties_cleaned")
         batch_size = int(os.environ.get("BATCH_SIZE", "1000"))
         _log(
             f"STEP 1 start base={base} project={project} index={index_name} "

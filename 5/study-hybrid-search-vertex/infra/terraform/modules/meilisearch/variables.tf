@@ -20,7 +20,7 @@ variable "meili_data_bucket_name" {
 }
 
 variable "meili_image" {
-  description = "Container image for meilisearch service"
+  description = "Container image for meilisearch service. Default uses the official Meilisearch image from Docker Hub (Cloud Run supports public Docker Hub images)."
   type        = string
-  default     = "gcr.io/cloudrun/hello"
+  default     = "docker.io/getmeili/meilisearch:v1.11"
 }

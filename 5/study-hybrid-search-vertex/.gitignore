@@ -43,6 +43,7 @@ env/secret/*
 service-account*.json
 
 # ----- Local model caches / experiment tracking -----
+.cache/
 models/
 wandb/
 ml/wandb/

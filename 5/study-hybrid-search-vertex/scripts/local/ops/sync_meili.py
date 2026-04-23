@@ -3,6 +3,14 @@
 Reads ``feature_mart.properties_cleaned`` from BigQuery and upserts documents
 into Meilisearch index ``properties``. Invoked as a one-shot job from Cloud
 Run Jobs or locally via ``make sync-meili``.
+
+**NUMERIC TYPE NOTE (2026-04-23 実運用知見)**:
+BigQuery の INT64 / BOOL 列は、`google.cloud.bigquery` Python client 経由では
+Python の ``int`` / ``bool`` として返るが、``bq query --format=json`` CLI 経由
+では **全て string に変換される**。本 CLI は BQ Python client を使うため numeric
+のまま維持されるが、他の手段で JSON を生成して PUT する場合は **`rent`,
+`walk_min`, `age_years` を int、`pet_ok` を bool** に戻さないと Meilisearch の
+filter (例: ``rent <= 150000``) が string 比較になり全件 0 hit になる。
 """
 
 from __future__ import annotations

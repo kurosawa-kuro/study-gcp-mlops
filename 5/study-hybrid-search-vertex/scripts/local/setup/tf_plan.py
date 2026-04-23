@@ -9,10 +9,11 @@ repo / oncall address.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
-from scripts._common import DEFAULTS, fail, run
+from scripts._common import DEFAULTS, _load_list_setting, fail, run
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 
@@ -20,6 +21,9 @@ INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environme
 def main() -> int:
     github_repo = os.environ.get("GITHUB_REPO") or DEFAULTS.get("GITHUB_REPO", "")
     oncall_email = os.environ.get("ONCALL_EMAIL") or DEFAULTS.get("ONCALL_EMAIL", "")
+    # `admin_user_emails:` は YAML block list なので専用 loader で読む。
+    # 空 list は Terraform 側で binding 無しになる (default `[]`)。
+    admin_user_emails = _load_list_setting("admin_user_emails")
 
     if not oncall_email or "@" not in oncall_email:
         return fail(
@@ -43,6 +47,7 @@ def main() -> int:
             "plan",
             f"-var=github_repo={github_repo}",
             f"-var=oncall_email={oncall_email}",
+            f"-var=admin_user_emails={json.dumps(admin_user_emails)}",
             "-out=tfplan",
         ]
     )

@@ -137,7 +137,29 @@ def _resolve_endpoint_id_from_display_name(
     return endpoint_id
 
 
-def _build_env_vars(*, project_id: str) -> str:
+def _resolve_meili_base_url(*, project_id: str, region: str) -> str:
+    """Resolve the meili-search Cloud Run service URL."""
+    proc = run(
+        [
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            "meili-search",
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.url)",
+        ],
+        capture=True,
+        check=False,
+    )
+    url = (proc.stdout or "").strip()
+    if not url:
+        raise RuntimeError("meili-search Cloud Run URL not found; deploy meili-search first")
+    return url
+
+
+def _build_env_vars(*, project_id: str, region: str) -> str:
     vertex_location = env("VERTEX_LOCATION", "asia-northeast1").strip() or "asia-northeast1"
     encoder_endpoint_id = env("VERTEX_ENCODER_ENDPOINT_ID", "").strip()
     if not encoder_endpoint_id:
@@ -156,6 +178,14 @@ def _build_env_vars(*, project_id: str) -> str:
         f"ENABLE_RERANK={enable_rerank}",
         flush=True,
     )
+    # Phase 5 2026-04-23 実運用教訓: `--set-env-vars` は既存 env を全置換する
+    # ため、Terraform 側で初期注入した MEILI_BASE_URL が revision 更新で消失し、
+    # search-api の lexical adapter が NoopLexicalSearch に fallback していた。
+    # deploy script 側でも常に MEILI_BASE_URL を含めるようにする。
+    meili_base_url = env("MEILI_BASE_URL", "").strip()
+    if not meili_base_url:
+        meili_base_url = _resolve_meili_base_url(project_id=project_id, region=region)
+    print(f"==> MEILI_BASE_URL={meili_base_url}", flush=True)
     return ",".join(
         [
             f"PROJECT_ID={project_id}",
@@ -168,6 +198,8 @@ def _build_env_vars(*, project_id: str) -> str:
             f"VERTEX_LOCATION={vertex_location}",
             f"VERTEX_ENCODER_ENDPOINT_ID={encoder_endpoint_id}",
             f"VERTEX_RERANKER_ENDPOINT_ID={reranker_endpoint_id}",
+            f"MEILI_BASE_URL={meili_base_url}",
+            "MEILI_REQUIRE_IDENTITY_TOKEN=true",
             "LOG_AS_JSON=1",
             "GCP_LOGGING_ENABLED=1",
         ]
@@ -179,7 +211,7 @@ def main() -> int:
     region = env("REGION")
     artifact_repo = env("ARTIFACT_REPO")
     service = env("API_SERVICE")
-    env_vars = _build_env_vars(project_id=project_id)
+    env_vars = _build_env_vars(project_id=project_id, region=region)
 
     _assert_model_ready(project_id)
 

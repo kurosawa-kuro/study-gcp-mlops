@@ -45,9 +45,56 @@ def _load_settings() -> dict[str, str]:
         key, _, value = line.partition(":")
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        if key:
+        if not key:
+            continue
+        # Skip YAML list markers (lines like `- foo`) and block-style list keys
+        # (e.g. `admin_user_emails:` with an empty value followed by `- foo`).
+        if key.startswith("-"):
+            continue
+        if value:
             settings[key.upper()] = value
     return settings
+
+
+def _load_list_setting(list_key: str) -> list[str]:
+    """Read a YAML block-style list from env/config/setting.yaml.
+
+    Supports the shape::
+
+        admin_user_emails:
+          - user1@example.com
+          - user2@example.com
+
+    Returns [] if the key is absent or has no list items. Quoted strings
+    (``"foo"`` / ``'foo'``) are unwrapped. Kept minimal; does not support
+    flow-style (`[a, b]`) or nesting.
+    """
+    if not _SETTINGS_PATH.exists():
+        return []
+    items: list[str] = []
+    in_block = False
+    for raw in _SETTINGS_PATH.read_text(encoding="utf-8").splitlines():
+        stripped = raw.split("#", 1)[0].rstrip()
+        if not stripped.strip():
+            continue
+        if not in_block:
+            if stripped.strip().startswith(f"{list_key}:"):
+                tail = stripped.split(":", 1)[1].strip()
+                if tail:
+                    # inline form not supported here — bail
+                    return []
+                in_block = True
+            continue
+        # in block: accept either `  - value` or break on first non-indented / non-dash line
+        if not raw.startswith((" ", "\t")):
+            break
+        item = stripped.strip()
+        if not item.startswith("-"):
+            break
+        item = item[1:].strip().strip('"').strip("'")
+        if item:
+            items.append(item)
+    return items
 
 
 DEFAULTS = _load_settings()
