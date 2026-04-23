@@ -158,6 +158,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 
 ## 紛らわしい点
 
+- **`.dockerignore` の包括パターンは container の起動直後クラッシュの温床** — 過去に `**/data/` が `ml/data/` (Python package) を巻き込み、`infra/` が `infra/run/jobs/*/sync_meili_job.py` を巻き込んで COPY 失敗 → `ModuleNotFoundError` / `stat: file does not exist` を発生。**方針: 新規イメージを通すフェーズでは `.dockerignore` を最小構成 (cache / tfstate / `.git` のみ) まで緩め、全段 PASS してから段階的に除外を追加する**。直感に反して「広く切り捨てる」が危険、「必要最小限の除外」を守る。`**/foo/` のように top-level wildcards を書くときは `ml/foo/` 等の Python package と衝突しないか事前にチェック
 - `monitoring/validate_feature_skew.sql` は BQML の `ML.VALIDATE_DATA_SKEW()` 関数**ではなく**、カスタム mean-drift 実装 (`mean_drift_sigma`)
 - `FORCE_RELOAD=<ts>` は特殊な env ではなく、任意の env 変更で Cloud Run revision が再生成され lifespan が再ロードされる性質を利用した慣用。`make ops-reload-api` がラッパー
 - Doppler 連携は仕様 (Secret Manager → Cloud Run env) としては記述済みだが、deploy workflow は GitHub Secret 経由 (`secrets.DOPPLER_TOKEN_*`) で Doppler CLI を呼び、Secret Manager 容器は誰も読んでいない。当面は `--set-env-vars` 直書き運用
