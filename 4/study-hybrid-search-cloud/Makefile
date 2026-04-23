@@ -213,7 +213,7 @@ ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/
 	@mkdir -p "$(MONITOR_LOG_DIR)"
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \
 	echo "monitor-log: $$log_file"; \
-	bash -o pipefail -c 'uv run python -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
 
 ops-deploy-checker: ## Post-deploy checker: build success + readyz + component gate
 	uv run python -m scripts.local.deploy_checker $(if $(API_BUILD_ID),--api-build-id "$(API_BUILD_ID)",) $(if $(MODEL_BUILD_ID),--model-build-id "$(MODEL_BUILD_ID)",)

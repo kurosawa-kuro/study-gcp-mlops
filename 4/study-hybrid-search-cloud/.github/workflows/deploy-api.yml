@@ -87,6 +87,6 @@ jobs:
             --min-instances 1 --max-instances 10 \
             --cpu-boost \
             --execution-environment gen2 \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --set-env-vars "${ENV_ARG}" \
             --labels "git-sha=${GITHUB_SHA::8}"

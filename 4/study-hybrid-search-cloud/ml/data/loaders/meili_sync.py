@@ -25,35 +25,73 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--index", default="properties")
     parser.add_argument("--batch-size", type=int, default=1000)
     parser.add_argument("--require-identity-token", action="store_true", default=False)
+    parser.add_argument("--impersonate-service-account", default="")
     parser.add_argument("--api-key", default="")
     return parser.parse_args(argv)
 
 
-def _headers(*, base_url: str, api_key: str, require_identity_token: bool) -> dict[str, str]:
+def _headers(
+    *,
+    base_url: str,
+    api_key: str,
+    require_identity_token: bool,
+    impersonate_service_account: str,
+) -> dict[str, str]:
     headers = {"content-type": "application/json"}
     if api_key:
         headers["x-meili-api-key"] = api_key
     if require_identity_token:
-        token = _resolve_identity_token(base_url=base_url)
-        headers["authorization"] = f"Bearer {token}"
+        token = _resolve_identity_token(
+            base_url=base_url,
+            impersonate_service_account=impersonate_service_account,
+        )
+        # Cloud Run consumes Authorization for IAM and does not forward it to
+        # the container. Use X-Serverless-Authorization so Meilisearch still
+        # receives its own Authorization header semantics.
+        headers["x-serverless-authorization"] = f"Bearer {token}"
     return headers
 
 
-def _resolve_identity_token(*, base_url: str) -> str:
-    """Prefer ADC-based audience token; fall back to gcloud user token."""
+def _resolve_identity_token(*, base_url: str, impersonate_service_account: str) -> str:
+    """Prefer ADC ID token, then gcloud ID/access token fallbacks."""
     try:
         return id_token.fetch_id_token(Request(), base_url)
     except Exception:
         pass
 
     # User-account auth in local terminals often cannot mint audience-bound
-    # tokens, but a plain `print-identity-token` still works for Cloud Run IAM.
-    proc = subprocess.run(
-        ["gcloud", "auth", "print-identity-token"],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-    )
+    # ID tokens. Fall back progressively to keep local verification unblocked.
+    cmd = ["gcloud", "auth", "print-identity-token", f"--audiences={base_url}"]
+    if impersonate_service_account:
+        cmd.append(f"--impersonate-service-account={impersonate_service_account}")
+    try:
+        proc = subprocess.run(cmd, check=True, text=True, stdout=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        # Local operators may not have token-creator on the target SA.
+        # Fall back to caller identity token to keep verification unblocked.
+        if not impersonate_service_account:
+            raise
+        fallback_cmd = ["gcloud", "auth", "print-identity-token", f"--audiences={base_url}"]
+        try:
+            proc = subprocess.run(fallback_cmd, check=True, text=True, stdout=subprocess.PIPE)
+        except subprocess.CalledProcessError:
+            try:
+                # User principals can often mint plain ID tokens even when
+                # audience-bound tokens are unavailable.
+                proc = subprocess.run(
+                    ["gcloud", "auth", "print-identity-token"],
+                    check=True,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                )
+            except subprocess.CalledProcessError:
+                # Last resort: OAuth access token.
+                proc = subprocess.run(
+                    ["gcloud", "auth", "print-access-token"],
+                    check=True,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                )
     token = (proc.stdout or "").strip()
     if not token:
         raise RuntimeError("failed to mint identity token via gcloud auth")
@@ -106,6 +144,7 @@ def run(argv: list[str] | None = None) -> int:
         base_url=args.meili_base_url,
         api_key=args.api_key,
         require_identity_token=args.require_identity_token,
+        impersonate_service_account=args.impersonate_service_account.strip(),
     )
     base = args.meili_base_url.rstrip("/")
 

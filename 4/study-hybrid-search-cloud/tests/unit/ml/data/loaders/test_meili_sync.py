@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+
 from ml.data.loaders import meili_sync
 
 
@@ -52,3 +54,45 @@ def test_resolve_latest_task_uid_with_retry_eventually_finds_uid(monkeypatch) ->
     )
 
     assert uid == 99
+
+
+def test_resolve_identity_token_falls_back_when_impersonation_denied(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd: list[str], *, check: bool, text: bool, stdout: int):
+        calls.append(cmd)
+        if "--impersonate-service-account=sa-api@mlops-dev-a.iam.gserviceaccount.com" in cmd:
+            raise subprocess.CalledProcessError(returncode=1, cmd=cmd)
+        if any(part.startswith("--audiences=") for part in cmd):
+            raise subprocess.CalledProcessError(returncode=1, cmd=cmd)
+        class _Proc:
+            stdout = "token-from-fallback\n"
+
+        return _Proc()
+
+    monkeypatch.setattr(meili_sync.id_token, "fetch_id_token", lambda *_args, **_kwargs: (_ for _ in ()).throw(Exception("adc failed")))
+    monkeypatch.setattr(meili_sync.subprocess, "run", _fake_run)
+
+    token = meili_sync._resolve_identity_token(
+        base_url="https://meili.example",
+        impersonate_service_account="sa-api@mlops-dev-a.iam.gserviceaccount.com",
+    )
+
+    assert token == "token-from-fallback"
+    assert len(calls) == 3
+    assert any("--impersonate-service-account=sa-api@mlops-dev-a.iam.gserviceaccount.com" in c for c in calls[0])
+    assert calls[2] == ["gcloud", "auth", "print-identity-token"]
+
+
+def test_headers_use_serverless_authorization(monkeypatch) -> None:
+    monkeypatch.setattr(meili_sync, "_resolve_identity_token", lambda **_kwargs: "id-token")
+
+    headers = meili_sync._headers(
+        base_url="https://meili.example",
+        api_key="",
+        require_identity_token=True,
+        impersonate_service_account="",
+    )
+
+    assert headers["x-serverless-authorization"] == "Bearer id-token"
+    assert "authorization" not in headers

@@ -295,7 +295,7 @@ def main() -> int:
         "--max-instances=10",
         "--cpu-boost",
         "--execution-environment=gen2",
-        "--no-allow-unauthenticated",
+        "--allow-unauthenticated",
         f"--set-env-vars={ENV_VARS.format(project_id=project_id, meili_base_url=meili_base_url)}",
         f"--labels=git-sha={sha}",
     ]

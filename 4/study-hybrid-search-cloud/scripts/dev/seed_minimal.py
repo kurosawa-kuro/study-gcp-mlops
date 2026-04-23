@@ -139,6 +139,12 @@ def _sync_meili_index(project_id: str) -> None:
     }
     if require_identity_token:
         cmd.append("--require-identity-token")
+        cmd.extend(
+            [
+                "--impersonate-service-account",
+                f"sa-api@{project_id}.iam.gserviceaccount.com",
+            ]
+        )
     run(cmd)
 
 

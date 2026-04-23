@@ -212,13 +212,20 @@ resource "google_cloud_run_v2_job" "embedding_job" {
   }
 }
 
-# ----- Invoker IAM: only explicit identities can invoke search-api / training-job -----
+# ----- Invoker IAM: search-api is public (sample app), jobs stay restricted -----
 
 resource "google_cloud_run_v2_service_iam_member" "api_scheduler_invoker" {
   name     = google_cloud_run_v2_service.search_api.name
   location = var.region
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.service_accounts.scheduler.email}"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "api_public_invoker" {
+  name     = google_cloud_run_v2_service.search_api.name
+  location = var.region
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 resource "google_cloud_run_v2_job_iam_member" "trigger_invoker" {
@@ -383,6 +390,7 @@ resource "google_cloud_scheduler_job" "check_retrain_daily" {
 
   depends_on = [
     google_cloud_run_v2_service_iam_member.api_scheduler_invoker,
+    google_cloud_run_v2_service_iam_member.api_public_invoker,
   ]
 }
 

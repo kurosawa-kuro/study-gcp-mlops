@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import re
+import select
 import subprocess
 import time
 from dataclasses import dataclass
@@ -170,17 +171,22 @@ def main(argv: list[str] | None = None) -> int:
 
     assert proc.stdout is not None
     next_heartbeat = time.monotonic() + max(1, args.poll_sec)
+    poll_interval = min(max(1, args.poll_sec), 2)
     while True:
-        line = proc.stdout.readline()
         now_ts = time.monotonic()
-        if line:
-            stripped = line.rstrip("\n")
-            state.last_line = stripped
-            state.last_line_at = now_ts
-            _maybe_parse_step(stripped, state)
-            _maybe_parse_build_wait(stripped, state, now_ts)
-            if not args.quiet_steps:
-                print(stripped)
+        ready, _, _ = select.select([proc.stdout], [], [], poll_interval)
+        if ready:
+            line = proc.stdout.readline()
+            if line:
+                stripped = line.rstrip("\n")
+                state.last_line = stripped
+                state.last_line_at = now_ts
+                _maybe_parse_step(stripped, state)
+                _maybe_parse_build_wait(stripped, state, now_ts)
+                if not args.quiet_steps:
+                    print(stripped)
+            elif proc.poll() is not None:
+                break
         elif proc.poll() is not None:
             break
 

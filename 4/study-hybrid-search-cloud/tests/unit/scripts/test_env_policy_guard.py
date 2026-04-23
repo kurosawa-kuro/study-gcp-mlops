@@ -24,6 +24,18 @@ def test_meili_identity_token_is_always_enabled_in_runtime_and_deploy_paths() ->
     assert "MEILI_REQUIRE_IDENTITY_TOKEN=false" not in workflow
 
 
+def test_search_api_is_public_in_deploy_paths() -> None:
+    runtime_tf = _read("infra/terraform/modules/runtime/main.tf")
+    deploy_api = _read("scripts/local/deploy_api.py")
+    workflow = _read(".github/workflows/deploy-api.yml")
+
+    assert 'member   = "allUsers"' in runtime_tf
+    assert "--allow-unauthenticated" in deploy_api
+    assert "--allow-unauthenticated" in workflow
+    assert "--no-allow-unauthenticated" not in deploy_api
+    assert "--no-allow-unauthenticated" not in workflow
+
+
 def test_meilisearch_service_is_not_public_invoker() -> None:
     meili_tf = _read("infra/terraform/modules/meilisearch/main.tf")
     assert "allUsers" not in meili_tf
