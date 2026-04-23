@@ -50,7 +50,10 @@ class VertexEndpointEncoder:
         )
 
     def embed(self, text: str, kind: Literal["query", "passage"]) -> list[float]:
-        payload = {"text": f"{kind}: {text.strip()}"}
+        # Vertex encoder server (ml/serving/encoder.py::EncoderInstance) expects
+        # separate `text` and `kind` fields; the server applies the ME5
+        # `<kind>:` prefix internally via E5Encoder. Do not pre-prefix here.
+        payload = {"text": text.strip(), "kind": kind}
         response = self._endpoint.predict(instances=[payload])
         predictions = list(getattr(response, "predictions", []))
         if not predictions:

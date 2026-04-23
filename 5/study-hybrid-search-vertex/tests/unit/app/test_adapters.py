@@ -62,7 +62,9 @@ def test_vertex_endpoint_encoder_parses_embedding_dict_response() -> None:
     )
     vector = adapter.embed("赤羽駅徒歩10分", "query")
 
-    fake_endpoint.predict.assert_called_once_with(instances=[{"text": "query: 赤羽駅徒歩10分"}])
+    fake_endpoint.predict.assert_called_once_with(
+        instances=[{"text": "赤羽駅徒歩10分", "kind": "query"}]
+    )
     assert vector == [0.1, 0.2, 0.3]
     assert adapter.endpoint_name == "projects/p/locations/asia-northeast1/endpoints/123"
 
