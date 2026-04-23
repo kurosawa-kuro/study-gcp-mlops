@@ -14,7 +14,7 @@ from pathlib import Path
 
 from scripts._common import DEFAULTS, fail, run
 
-INFRA = Path(__file__).resolve().parent.parent.parent / "infra"
+INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 
 
 def main() -> int:

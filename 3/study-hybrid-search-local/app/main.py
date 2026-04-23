@@ -31,6 +31,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/readyz")
+def readyz() -> dict[str, str]:
+    # Phase 4/5 alignment: expose a readiness alias with the same healthy payload.
+    return {"status": "ok"}
+
+
 @app.get("/")
 def home(request: Request):
     search_defaults = {

@@ -34,10 +34,11 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
         setup-model-monitoring setup-pipeline-schedule \
-        deploy-all run-all destroy-all seed-test seed-test-clean \
+        deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
-        ops-api-url ops-daily ops-livez ops-search ops-ranking ops-feedback ops-enable-search \
+        ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
+        ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
 	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed
@@ -111,16 +112,21 @@ setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payloa
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-bootstrap → apply → deploy-api-local)
 	uv run python -m scripts.local.setup.deploy_all
 
+deploy-all-direct: ## Compatibility alias of deploy-all (Phase4 naming)
+	$(MAKE) deploy-all
+
 run-all: ## End-to-end validation flow after deploy (layer check → seed → train pipeline submit → smoke APIs → daily ops)
 	$(MAKE) check-layers
 	$(MAKE) seed-test
 	$(MAKE) ops-train-now
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
+	$(MAKE) ops-search-components
 	$(MAKE) ops-feedback
 	$(MAKE) ops-ranking
 	$(MAKE) ops-label-seed
 	$(MAKE) ops-daily
+	$(MAKE) ops-accuracy-report
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.local.setup.destroy_all
@@ -202,6 +208,9 @@ ops-livez: ## Hit /livez on the deployed search-api (IAM-gated)
 ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
 	uv run python -m scripts.local.ops.search_check
 
+ops-search-components: ## Strict gate: lexical/semantic/rerank contributions must all be non-zero
+	uv run python -m scripts.local.ops.search_component_check
+
 ops-ranking: ## POST /search and inspect lexical_rank / final_rank / score / me5_score
 	uv run python -m scripts.local.ops.ranking_check
 
@@ -213,3 +222,9 @@ ops-label-seed: ## Seed feedback events (click/favorite/inquiry) against /search
 
 ops-check-retrain: ## POST /jobs/check-retrain with OIDC; pipe to jq
 	uv run python -m scripts.local.ops.check_retrain
+
+ops-accuracy-report: ## Simple ranking accuracy report on deployed Cloud Run (/search, TARGET=gcp)
+	TARGET=gcp uv run python -m scripts.local.ops.accuracy_report
+
+local-accuracy-report: ## Simple ranking accuracy report against local API (/search, TARGET=local)
+	TARGET=local uv run python -m scripts.local.ops.accuracy_report

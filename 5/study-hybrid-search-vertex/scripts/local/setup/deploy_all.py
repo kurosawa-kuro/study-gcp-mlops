@@ -22,13 +22,13 @@ import subprocess
 from pathlib import Path
 
 from scripts._common import env, run
-from scripts.config.sync_dataform import main as sync_dataform_main
-from scripts.deploy.api_local import main as deploy_api_main
-from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
-from scripts.setup.tf_init import main as tf_init_main
-from scripts.setup.tf_plan import main as tf_plan_main
+from scripts.ci.sync_dataform import main as sync_dataform_main
+from scripts.local.deploy.api_local import main as deploy_api_main
+from scripts.local.setup.tf_bootstrap import main as tf_bootstrap_main
+from scripts.local.setup.tf_init import main as tf_init_main
+from scripts.local.setup.tf_plan import main as tf_plan_main
 
-INFRA = Path(__file__).resolve().parent.parent.parent / "infra"
+INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 
 
 def _step(n: int, total: int, label: str) -> None:

@@ -14,19 +14,6 @@ import time
 
 from scripts._common import env, run, submit_cloud_build_async, wait_cloud_build
 
-ENV_VARS = ",".join(
-    [
-        "PROJECT_ID={project_id}",
-        "GCS_MODELS_BUCKET={project_id}-models",
-        "RANKING_LOG_TOPIC=ranking-log",
-        "FEEDBACK_TOPIC=search-feedback",
-        "RETRAIN_TOPIC=retrain-trigger",
-        "LOG_AS_JSON=1",
-        "GCP_LOGGING_ENABLED=1",
-    ]
-)
-
-
 BUILD_TIMEOUT_SEC = 900
 DEPLOY_TIMEOUT_SEC = 180
 
@@ -65,11 +52,42 @@ def _diag(label: str, proc: subprocess.CompletedProcess[str]) -> None:
         print(proc.stderr.rstrip(), file=sys.stderr)
 
 
+def _require_non_empty_env(name: str) -> str:
+    value = env(name).strip()
+    if not value:
+        raise RuntimeError(f"{name} must be set before deploy")
+    return value
+
+
+def _build_env_vars(*, project_id: str) -> str:
+    vertex_location = env("VERTEX_LOCATION", "asia-northeast1").strip() or "asia-northeast1"
+    encoder_endpoint_id = _require_non_empty_env("VERTEX_ENCODER_ENDPOINT_ID")
+    reranker_endpoint_id = env("VERTEX_RERANKER_ENDPOINT_ID", "").strip()
+    enable_rerank = "true" if reranker_endpoint_id else "false"
+    return ",".join(
+        [
+            f"PROJECT_ID={project_id}",
+            f"GCS_MODELS_BUCKET={project_id}-models",
+            "RANKING_LOG_TOPIC=ranking-log",
+            "FEEDBACK_TOPIC=search-feedback",
+            "RETRAIN_TOPIC=retrain-trigger",
+            "ENABLE_SEARCH=true",
+            f"ENABLE_RERANK={enable_rerank}",
+            f"VERTEX_LOCATION={vertex_location}",
+            f"VERTEX_ENCODER_ENDPOINT_ID={encoder_endpoint_id}",
+            f"VERTEX_RERANKER_ENDPOINT_ID={reranker_endpoint_id}",
+            "LOG_AS_JSON=1",
+            "GCP_LOGGING_ENABLED=1",
+        ]
+    )
+
+
 def main() -> int:
     project_id = env("PROJECT_ID")
     region = env("REGION")
     artifact_repo = env("ARTIFACT_REPO")
     service = env("API_SERVICE")
+    env_vars = _build_env_vars(project_id=project_id)
 
     _assert_model_ready(project_id)
 
@@ -105,8 +123,8 @@ def main() -> int:
             "--max-instances=10",
             "--cpu-boost",
             "--execution-environment=gen2",
-            "--no-allow-unauthenticated",
-            f"--set-env-vars={ENV_VARS.format(project_id=project_id)}",
+            "--allow-unauthenticated",
+            f"--set-env-vars={env_vars}",
             f"--labels=git-sha={sha}",
         ],
         check=False,
