@@ -24,7 +24,15 @@ def train_reranker(
         "experiment_name": experiment_name,
         "window_days": window_days,
     }
-    Path(model.path).write_text(
+    # KFP v2 の dsl.Output[dsl.Model] を Vertex AI Model.upload の
+    # `artifact_uri`（ディレクトリプレフィックス想定）にそのまま渡せる形に揃える。
+    # model.path をディレクトリにし、その中に JSON を入れる。
+    # Vertex は artifact_uri 配下のファイルを Model artifact として同期する。
+    model_dir = Path(model.path)
+    if model_dir.exists() and not model_dir.is_dir():
+        model_dir.unlink()
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.json").write_text(
         json.dumps(model_payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
@@ -33,6 +41,7 @@ def train_reranker(
         "map": 0.5,
         "recall_at_20": 0.8,
     }
+    # metrics は単一ファイルで OK（evaluate-reranker が Path(...).read_text で読むため）
     Path(metrics.path).write_text(
         json.dumps(metrics_payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )

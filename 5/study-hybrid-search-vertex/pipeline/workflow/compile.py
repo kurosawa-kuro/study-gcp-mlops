@@ -41,7 +41,7 @@ DEFAULT_SPECS: dict[str, dict[str, object]] = {
             "ranking_log_table": "ranking_log",
             "feedback_events_table": "feedback_events",
             "window_days": 90,
-            "trainer_image": "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/trainer:latest",
+            "trainer_image": "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
             "experiment_name": "property-reranker-lgbm",
             "enable_tuning": False,
             "gate_metric_name": "ndcg_at_10",

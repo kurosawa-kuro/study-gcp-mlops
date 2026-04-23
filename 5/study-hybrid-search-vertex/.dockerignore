@@ -12,7 +12,8 @@ docs/
 infra/
 pipeline/data_job/dataform/
 **/tests/
-**/data/
+# NOTE: `**/data/` は `ml/data/` (Python package) まで巻き込むので使わない。
+# 学習データ / 生成物の除外は具体パスで行う (下記)。
 **/models/
 **/wandb/
 **/*.md
