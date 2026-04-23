@@ -38,12 +38,27 @@ DATASET_DIR = Path("ml/data/datasets")
 DATASET_PATH = DATASET_DIR / "seed_minimal_properties.csv"
 
 
-def _store_and_load_properties() -> list[tuple[str, str, str, str, int, str, int, int, float, bool]]:
+def _store_and_load_properties() -> list[
+    tuple[str, str, str, str, int, str, int, int, float, bool]
+]:
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
 
     with DATASET_PATH.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["property_id", "title", "city", "ward", "rent", "layout", "walk_min", "age_years", "area_m2", "pet_ok"])
+        writer.writerow(
+            [
+                "property_id",
+                "title",
+                "city",
+                "ward",
+                "rent",
+                "layout",
+                "walk_min",
+                "age_years",
+                "area_m2",
+                "pet_ok",
+            ]
+        )
         for p in PROPERTIES:
             writer.writerow(p)
 

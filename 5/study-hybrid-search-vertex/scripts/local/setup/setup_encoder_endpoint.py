@@ -88,31 +88,64 @@ def _get_or_create_endpoint(aiplatform: Any, spec: dict[str, Any]) -> Any:
 
 
 def _apply(spec: dict[str, Any]) -> dict[str, Any]:
+    import sys
+    import traceback
+
+    def _log(msg: str) -> None:
+        print(f"[setup_encoder] {msg}", flush=True)
+        print(f"[setup_encoder] {msg}", file=sys.stderr, flush=True)
+
+    _log("STEP 1 — validate spec")
+    _log(f"  artifact_uri={spec['artifact_uri']!r}")
+    _log(f"  serving_container_image_uri={spec['serving_container_image_uri']!r}")
+    _log(f"  machine_type={spec['machine_type']}")
+    _log(
+        f"  min_replica_count={spec['min_replica_count']} max_replica_count={spec['max_replica_count']}"
+    )
+    _log(f"  service_account={spec['service_account']!r}")
+    _log(f"  endpoint_display_name={spec['endpoint_display_name']}")
+    _log(f"  model_display_name={spec['model_display_name']}")
+
     if not spec["artifact_uri"]:
         raise RuntimeError(
             "artifact_uri is empty; run scripts/setup/upload_encoder_assets.py --apply first"
         )
-    from google.cloud import aiplatform
+    try:
+        _log("STEP 2 — import aiplatform + init")
+        from google.cloud import aiplatform
 
-    aiplatform.init(project=spec["project_id"], location=spec["vertex_location"])
-    model = aiplatform.Model.upload(
-        display_name=spec["model_display_name"],
-        serving_container_image_uri=spec["serving_container_image_uri"],
-        serving_container_predict_route=spec["serving_container_predict_route"],
-        serving_container_health_route=spec["serving_container_health_route"],
-        serving_container_ports=spec["serving_container_ports"],
-        artifact_uri=spec["artifact_uri"],
-        version_aliases=[spec["model_alias"]],
-    )
-    endpoint = _get_or_create_endpoint(aiplatform, spec)
-    model.deploy(
-        endpoint=endpoint,
-        machine_type=spec["machine_type"],
-        min_replica_count=spec["min_replica_count"],
-        max_replica_count=spec["max_replica_count"],
-        traffic_percentage=spec["traffic_percentage"],
-        service_account=spec["service_account"],
-    )
+        aiplatform.init(project=spec["project_id"], location=spec["vertex_location"])
+
+        _log("STEP 3 — aiplatform.Model.upload")
+        model = aiplatform.Model.upload(
+            display_name=spec["model_display_name"],
+            serving_container_image_uri=spec["serving_container_image_uri"],
+            serving_container_predict_route=spec["serving_container_predict_route"],
+            serving_container_health_route=spec["serving_container_health_route"],
+            serving_container_ports=spec["serving_container_ports"],
+            artifact_uri=spec["artifact_uri"],
+            version_aliases=[spec["model_alias"]],
+        )
+        _log(f"  Model.upload OK resource={model.resource_name} version={model.version_id}")
+
+        _log("STEP 4 — get or create endpoint")
+        endpoint = _get_or_create_endpoint(aiplatform, spec)
+        _log(f"  endpoint resource={endpoint.resource_name}")
+
+        _log("STEP 5 — Model.deploy")
+        model.deploy(
+            endpoint=endpoint,
+            machine_type=spec["machine_type"],
+            min_replica_count=spec["min_replica_count"],
+            max_replica_count=spec["max_replica_count"],
+            traffic_percentage=spec["traffic_percentage"],
+            service_account=spec["service_account"],
+        )
+        _log("  Model.deploy OK")
+    except Exception:
+        _log("ERROR in _apply")
+        _log(traceback.format_exc())
+        raise
     return {
         "endpoint_resource_name": endpoint.resource_name,
         "model_resource_name": model.resource_name,

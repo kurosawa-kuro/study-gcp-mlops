@@ -37,9 +37,7 @@ def _latest_pipeline_run(project_id: str, location: str, display_name: str) -> s
     raise RuntimeError(f"No SUCCEEDED pipeline found with display_name={display_name}")
 
 
-def _resolve_model_uri_from_gcs(
-    *, project_id: str, pipeline_resource_name: str
-) -> str:
+def _resolve_model_uri_from_gcs(*, project_id: str, pipeline_resource_name: str) -> str:
     """Walk pipeline-root bucket and find train-reranker's executor_output.json."""
     import google.cloud.storage as gcs_storage
     from google.cloud import aiplatform
@@ -89,9 +87,7 @@ def _resolve_model_uri_from_gcs(
                     return uri
             elif isinstance(raw, str) and raw:
                 return raw
-    raise RuntimeError(
-        f"could not locate train-reranker output under gs://{bucket_name}/{base}"
-    )
+    raise RuntimeError(f"could not locate train-reranker output under gs://{bucket_name}/{base}")
 
 
 def _upload_model(
@@ -175,9 +171,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[register_model] model_uri={model_uri}")
 
     # Vertex Model.upload expects a DIRECTORY prefix, not an OBJECT URI.
-    artifact_dir_uri = (
-        model_uri.rsplit("/", 1)[0] + "/" if "/" in model_uri else model_uri
-    )
+    artifact_dir_uri = model_uri.rsplit("/", 1)[0] + "/" if "/" in model_uri else model_uri
     print(f"[register_model] artifact_dir_uri={artifact_dir_uri}")
     print(f"[register_model] model_display_name={args.model_display_name}")
     print(f"[register_model] serving_container_image_uri={serving_image}")

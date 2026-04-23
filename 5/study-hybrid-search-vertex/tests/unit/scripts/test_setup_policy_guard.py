@@ -20,7 +20,9 @@ def test_setup_scripts_use_local_and_ci_import_paths() -> None:
     assert "from scripts.local.setup.tf_plan import main as tf_plan_main" in deploy_all
     assert "from scripts.setup." not in deploy_all
 
-    assert "from scripts.local.setup.seed_minimal_clean import main as seed_clean_main" in destroy_all
+    assert (
+        "from scripts.local.setup.seed_minimal_clean import main as seed_clean_main" in destroy_all
+    )
     assert "from scripts.setup.seed_minimal_clean" not in destroy_all
 
 
@@ -30,7 +32,9 @@ def test_setup_scripts_target_dev_terraform_environment() -> None:
     tf_init = _read("scripts/local/setup/tf_init.py")
     tf_plan = _read("scripts/local/setup/tf_plan.py")
 
-    expected = 'Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"'
+    expected = (
+        'Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"'
+    )
     assert expected in deploy_all
     assert expected in destroy_all
     assert expected in tf_init

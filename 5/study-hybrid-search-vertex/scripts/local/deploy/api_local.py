@@ -19,11 +19,8 @@ DEPLOY_TIMEOUT_SEC = 600
 
 
 def _assert_model_ready(project_id: str) -> None:
-    query = (
-        "SELECT COUNT(1) "
-        f"FROM `{project_id}.mlops.training_runs` "
-        "WHERE finished_at IS NOT NULL"
-    )
+    print(f"==> model-first gate: checking {project_id}.mlops.training_runs", flush=True)
+    query = f"SELECT COUNT(1) FROM `{project_id}.mlops.training_runs` WHERE finished_at IS NOT NULL"
     proc = run(
         [
             "bq",
@@ -37,11 +34,15 @@ def _assert_model_ready(project_id: str) -> None:
     )
     lines = [line.strip() for line in (proc.stdout or "").splitlines() if line.strip()]
     finished_runs = int(lines[-1]) if lines else 0
+    print(f"==> finished_runs count={finished_runs}", flush=True)
     if finished_runs > 0:
+        print("==> model-first gate: PASS via training_runs", flush=True)
         return
     # Phase5 transition path: pipeline train task can succeed while register step fails.
     # In that case training_runs table may still be empty, but model artifacts were produced.
+    print("==> training_runs empty — fallback to Vertex Pipeline task_details scan", flush=True)
     if _has_recent_successful_train_task(project_id):
+        print("==> model-first gate: PASS via Vertex Pipeline train-reranker", flush=True)
         return
     raise RuntimeError(
         "model-first gate failed: no finished training run found in "
@@ -53,21 +54,34 @@ def _has_recent_successful_train_task(project_id: str) -> bool:
     try:
         from google.cloud import aiplatform
     except Exception:
+        print("==> google.cloud.aiplatform import failed", file=sys.stderr, flush=True)
         return False
 
     region = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
+    print(
+        f"==> Vertex PipelineJob.list project={project_id} region={region} "
+        f"filter='display_name=property-search-train'",
+        flush=True,
+    )
     aiplatform.init(project=project_id, location=region)
     jobs = aiplatform.PipelineJob.list(
         filter='display_name="property-search-train"',
         order_by="create_time desc",
     )
-    for job in jobs[:10]:
+    print(f"==> {len(jobs)} pipeline(s) matched; scanning top 10", flush=True)
+    for idx, job in enumerate(jobs[:10]):
         # list() response does not always include task_details; re-fetch full job.
         full_job = aiplatform.PipelineJob.get(job.resource_name)
         details = getattr(full_job._gca_resource.job_detail, "task_details", [])
         for task in details:
             if task.task_name == "train-reranker" and int(task.state) == 3:
+                print(
+                    f"==> SUCCEEDED train-reranker found in pipeline[{idx}] "
+                    f"resource={job.resource_name}",
+                    flush=True,
+                )
                 return True
+    print("==> no SUCCEEDED train-reranker in recent 10 pipelines", flush=True)
     return False
 
 
@@ -86,7 +100,13 @@ def _require_non_empty_env(name: str) -> str:
     return value
 
 
-def _resolve_endpoint_id_from_display_name(*, project_id: str, location: str, display_name: str) -> str:
+def _resolve_endpoint_id_from_display_name(
+    *, project_id: str, location: str, display_name: str
+) -> str:
+    print(
+        f"==> resolving endpoint_id for display_name={display_name} in {project_id}/{location}",
+        flush=True,
+    )
     proc = run(
         [
             "gcloud",
@@ -104,6 +124,7 @@ def _resolve_endpoint_id_from_display_name(*, project_id: str, location: str, di
         check=False,
     )
     full_name = (proc.stdout or "").strip()
+    print(f"==> gcloud returned: {full_name!r}", flush=True)
     if not full_name:
         raise RuntimeError(
             f"{display_name} endpoint was not found; set VERTEX_ENCODER_ENDPOINT_ID manually"
@@ -112,6 +133,7 @@ def _resolve_endpoint_id_from_display_name(*, project_id: str, location: str, di
     endpoint_id = full_name.rsplit("/", 1)[-1]
     if not endpoint_id:
         raise RuntimeError(f"failed to parse endpoint id from {full_name!r}")
+    print(f"==> resolved endpoint_id={endpoint_id}", flush=True)
     return endpoint_id
 
 
@@ -119,13 +141,21 @@ def _build_env_vars(*, project_id: str) -> str:
     vertex_location = env("VERTEX_LOCATION", "asia-northeast1").strip() or "asia-northeast1"
     encoder_endpoint_id = env("VERTEX_ENCODER_ENDPOINT_ID", "").strip()
     if not encoder_endpoint_id:
+        print("==> VERTEX_ENCODER_ENDPOINT_ID empty, auto-resolving from display name", flush=True)
         encoder_endpoint_id = _resolve_endpoint_id_from_display_name(
             project_id=project_id,
             location=vertex_location,
             display_name="property-encoder-endpoint",
         )
+    else:
+        print(f"==> using VERTEX_ENCODER_ENDPOINT_ID={encoder_endpoint_id} from env", flush=True)
     reranker_endpoint_id = env("VERTEX_RERANKER_ENDPOINT_ID", "").strip()
     enable_rerank = "true" if reranker_endpoint_id else "false"
+    print(
+        f"==> VERTEX_RERANKER_ENDPOINT_ID={reranker_endpoint_id or '<empty>'} "
+        f"ENABLE_RERANK={enable_rerank}",
+        flush=True,
+    )
     return ",".join(
         [
             f"PROJECT_ID={project_id}",

@@ -28,7 +28,10 @@ class FakeQueries:
         return self._feedback_rows
 
     def ndcg_in_window(self, *, start: datetime, end: datetime) -> float | None:
-        if end > datetime.now(timezone.utc) - timedelta(days=5):
+        # 「end が NOW 前後の window なら最新 NDCG、それ以前なら古い NDCG」を
+        # テストフィクスチャで判定する。wall clock 依存は避け、NOW (テスト用
+        # 固定値) からの差分で判定する。
+        if end > NOW - timedelta(days=5):
             return self._ndcg_now
         return self._ndcg_week_ago
 
