@@ -1,6 +1,4 @@
 from scripts.setup.print_github_variables import (
-    build_gh_commands,
-    build_variable_rows,
     main,
 )
 

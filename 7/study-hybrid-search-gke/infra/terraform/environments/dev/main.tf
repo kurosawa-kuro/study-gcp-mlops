@@ -211,9 +211,19 @@ module "vector_search" {
 module "slo" {
   source = "../../modules/slo"
 
-  project_id               = var.project_id
-  region                   = var.region
-  service_name             = "search-api"
+  project_id   = var.project_id
+  region       = var.region
+  service_name = "search-api"
+
+  # Phase 7: attach SLOs to the GKE Deployment/Service, not Cloud Run. The SLI
+  # filters switch to prometheus.googleapis.com/http_requests_total (exported
+  # by PodMonitoring → GMP) and the telemetry anchor points at the k8s Service
+  # inside the GKE Autopilot cluster.
+  service_type         = "k8s_service"
+  k8s_namespace        = "search"
+  gke_cluster_name     = var.gke_cluster_name
+  gke_cluster_location = var.region
+
   notification_channel_ids = [module.monitoring.notification_channel_id]
 
   availability_goal    = var.slo_availability_goal
@@ -224,6 +234,6 @@ module "slo" {
   depends_on = [
     google_project_service.enabled,
     module.monitoring,
-    module.runtime,
+    module.gke,
   ]
 }

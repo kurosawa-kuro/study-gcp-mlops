@@ -20,18 +20,88 @@
 # the channel that module.monitoring already creates — no duplicate email
 # channel resource here.
 
+locals {
+  # Two SLI shapes share the rest of the module; only the filter strings and
+  # the telemetry anchor differ. GKE filters use prometheus.googleapis.com
+  # metrics exported by PodMonitoring (FastAPI /metrics scrape). Cloud Run
+  # filters use the built-in run.googleapis.com/* metrics.
+  cluster_location = var.gke_cluster_location != "" ? var.gke_cluster_location : var.region
+
+  telemetry_resource_name_by_type = {
+    "k8s_service" = "//container.googleapis.com/projects/${var.project_id}/locations/${local.cluster_location}/clusters/${var.gke_cluster_name}/k8s/namespaces/${var.k8s_namespace}/services/${var.service_name}"
+    "cloud_run"   = "//run.googleapis.com/projects/${var.project_id}/locations/${var.region}/services/${var.service_name}"
+  }
+  telemetry_resource_name = local.telemetry_resource_name_by_type[var.service_type]
+
+  good_filter_by_type = {
+    "k8s_service" = <<-EOT
+      metric.type="prometheus.googleapis.com/http_requests_total/counter"
+      resource.type="prometheus_target"
+      resource.label."namespace"="${var.k8s_namespace}"
+      metric.label."service"="${var.service_name}"
+      metric.label."status"=monitoring.regex.full_match("2..")
+    EOT
+    "cloud_run"   = <<-EOT
+      metric.type="run.googleapis.com/request_count"
+      resource.type="cloud_run_revision"
+      resource.label."service_name"="${var.service_name}"
+      metric.label."response_code_class"="2xx"
+    EOT
+  }
+  good_filter = local.good_filter_by_type[var.service_type]
+
+  total_filter_by_type = {
+    "k8s_service" = <<-EOT
+      metric.type="prometheus.googleapis.com/http_requests_total/counter"
+      resource.type="prometheus_target"
+      resource.label."namespace"="${var.k8s_namespace}"
+      metric.label."service"="${var.service_name}"
+    EOT
+    "cloud_run"   = <<-EOT
+      metric.type="run.googleapis.com/request_count"
+      resource.type="cloud_run_revision"
+      resource.label."service_name"="${var.service_name}"
+    EOT
+  }
+  total_filter = local.total_filter_by_type[var.service_type]
+
+  # Latency SLI: GKE → prometheus http_request_duration_seconds histogram
+  # exported by FastAPI /metrics (PodMonitoring scrape). Cloud Run → built-in
+  # run.googleapis.com/request_latencies distribution (ms).
+  latency_filter_by_type = {
+    "k8s_service" = <<-EOT
+      metric.type="prometheus.googleapis.com/http_request_duration_seconds/histogram"
+      resource.type="prometheus_target"
+      resource.label."namespace"="${var.k8s_namespace}"
+      metric.label."service"="${var.service_name}"
+    EOT
+    "cloud_run"   = <<-EOT
+      metric.type="run.googleapis.com/request_latencies"
+      resource.type="cloud_run_revision"
+      resource.label."service_name"="${var.service_name}"
+    EOT
+  }
+  latency_filter = local.latency_filter_by_type[var.service_type]
+
+  # prometheus histogram is in seconds, so range.max for GKE must be ms/1000.
+  # Cloud Run distribution is already in ms.
+  latency_range_max = var.service_type == "k8s_service" ? (var.latency_threshold_ms / 1000.0) : var.latency_threshold_ms
+}
+
 resource "google_monitoring_custom_service" "search_api" {
   project      = var.project_id
   service_id   = "${var.service_name}-${var.service_id_suffix}"
-  display_name = "${var.service_name} (Phase 6 SLO anchor)"
+  display_name = "${var.service_name} (${var.service_type} SLO anchor)"
 
   telemetry {
-    resource_name = "//run.googleapis.com/projects/${var.project_id}/locations/${var.region}/services/${var.service_name}"
+    resource_name = local.telemetry_resource_name
   }
 }
 
 # =========================================================================
-# Availability SLO — 2xx / total on run.googleapis.com/request_count.
+# Availability SLO — 2xx / total request ratio. Filter source (Cloud Run
+# request_count vs Prometheus http_requests_total) is selected by
+# var.service_type above.
 # =========================================================================
 
 resource "google_monitoring_slo" "availability" {
@@ -45,24 +115,16 @@ resource "google_monitoring_slo" "availability" {
 
   request_based_sli {
     good_total_ratio {
-      good_service_filter  = <<-EOT
-        metric.type="run.googleapis.com/request_count"
-        resource.type="cloud_run_revision"
-        resource.label."service_name"="${var.service_name}"
-        metric.label."response_code_class"="2xx"
-      EOT
-      total_service_filter = <<-EOT
-        metric.type="run.googleapis.com/request_count"
-        resource.type="cloud_run_revision"
-        resource.label."service_name"="${var.service_name}"
-      EOT
+      good_service_filter  = local.good_filter
+      total_service_filter = local.total_filter
     }
   }
 }
 
 # =========================================================================
-# Latency SLO — fraction of requests under latency_threshold_ms.
-# Uses run.googleapis.com/request_latencies (DISTRIBUTION, unit=ms).
+# Latency SLO — fraction of requests under latency_threshold_ms. GKE uses
+# a Prometheus histogram in seconds (range.max converted above); Cloud Run
+# uses the built-in request_latencies distribution (ms).
 # =========================================================================
 
 resource "google_monitoring_slo" "latency" {
@@ -76,13 +138,9 @@ resource "google_monitoring_slo" "latency" {
 
   request_based_sli {
     distribution_cut {
-      distribution_filter = <<-EOT
-        metric.type="run.googleapis.com/request_latencies"
-        resource.type="cloud_run_revision"
-        resource.label."service_name"="${var.service_name}"
-      EOT
+      distribution_filter = local.latency_filter
       range {
-        max = var.latency_threshold_ms
+        max = local.latency_range_max
       }
     }
   }

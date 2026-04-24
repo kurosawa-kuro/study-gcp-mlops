@@ -103,3 +103,132 @@ def test_kserve_encoder_parses_v2_open_inference_response() -> None:
     vector = adapter.embed("q", "query")
 
     assert vector == [0.1, 0.2]
+
+
+def test_kserve_reranker_predict_with_explain_via_predict_route() -> None:
+    """No dedicated explain URL → POST to predict URL with parameters.explain=true.
+
+    Matches the Phase 6 Vertex CPR reranker contract in ``ml/serving/reranker.py``
+    where ``/predict`` accepts ``parameters.explain=True`` and returns both
+    ``predictions`` and ``attributions`` in one round-trip.
+    """
+    fake_client = _fake_httpx_client(
+        {
+            "predictions": [0.9, 0.2],
+            "attributions": [
+                {"rent": 0.15, "walk_min": -0.05, "_baseline": 0.5},
+                {"rent": -0.1, "walk_min": 0.08, "_baseline": 0.5},
+            ],
+        }
+    )
+    adapter = KServeReranker(
+        endpoint_url="http://property-reranker.kserve-inference.svc.cluster.local/v1/models/property-reranker:predict",
+        client=fake_client,
+    )
+    scores, attrs = adapter.predict_with_explain(
+        [[1.0, 2.0], [3.0, 4.0]],
+        feature_names=["rent", "walk_min"],
+    )
+
+    fake_client.post.assert_called_once()
+    sent = fake_client.post.call_args.kwargs["json"]
+    assert sent["instances"] == [[1.0, 2.0], [3.0, 4.0]]
+    assert sent["parameters"] == {"explain": True, "feature_names": ["rent", "walk_min"]}
+    assert scores == [0.9, 0.2]
+    assert attrs == [
+        {"rent": 0.15, "walk_min": -0.05, "_baseline": 0.5},
+        {"rent": -0.1, "walk_min": 0.08, "_baseline": 0.5},
+    ]
+
+
+def test_kserve_reranker_predict_with_explain_via_dedicated_url() -> None:
+    """When ``explain_url`` is set, the adapter calls it instead of predict URL.
+
+    The dedicated route returns ``{attributions}`` only, so the adapter issues
+    a second plain ``predict`` call to get scores. Tests verify both calls.
+    """
+    explain_response = _fake_httpx_client(
+        {
+            "attributions": [
+                {"rent": 0.2, "_baseline": 0.5},
+            ]
+        }
+    )
+    # First POST = /explain (returns attributions), second POST = /predict (scores)
+    explain_response.post.side_effect = [
+        explain_response.post.return_value,
+        _fake_httpx_client({"predictions": [0.77]}).post.return_value,
+    ]
+    adapter = KServeReranker(
+        endpoint_url="http://r/v1/models/m:predict",
+        explain_url="http://r/v1/models/m:explain",
+        client=explain_response,
+    )
+    scores, attrs = adapter.predict_with_explain([[1.0, 2.0]], feature_names=["rent"])
+
+    assert explain_response.post.call_count == 2
+    first_call = explain_response.post.call_args_list[0]
+    second_call = explain_response.post.call_args_list[1]
+    # First call went to explain URL with {instances, feature_names}
+    assert first_call.args[0] == "http://r/v1/models/m:explain"
+    assert first_call.kwargs["json"] == {"instances": [[1.0, 2.0]], "feature_names": ["rent"]}
+    # Second call went to predict URL (plain predict for scores)
+    assert second_call.args[0] == "http://r/v1/models/m:predict"
+    assert second_call.kwargs["json"] == {"instances": [[1.0, 2.0]]}
+    assert scores == [0.77]
+    assert attrs == [{"rent": 0.2, "_baseline": 0.5}]
+
+
+def test_kserve_reranker_predict_with_explain_degrades_when_attrs_missing() -> None:
+    """MLServer LightGBM runtime ignores ``parameters.explain=true`` and returns
+    scores only. Adapter must not raise — it returns empty attribution dicts so
+    the ``/search?explain=true`` path stays 200 with attributions=None per row.
+    """
+    fake_client = _fake_httpx_client({"predictions": [0.5, 0.6]})
+    adapter = KServeReranker(endpoint_url="http://r/v1/models/m:predict", client=fake_client)
+    scores, attrs = adapter.predict_with_explain(
+        [[1.0, 2.0], [3.0, 4.0]],
+        feature_names=["rent", "walk_min"],
+    )
+
+    assert scores == [0.5, 0.6]
+    assert attrs == [{}, {}]  # empty per-instance dicts (graceful degradation)
+
+
+def test_kserve_reranker_predict_with_explain_empty_instances_short_circuits() -> None:
+    fake_client = _fake_httpx_client({})
+    adapter = KServeReranker(endpoint_url="http://r/", client=fake_client)
+    scores, attrs = adapter.predict_with_explain([], feature_names=[])
+    assert scores == []
+    assert attrs == []
+    fake_client.post.assert_not_called()
+
+
+def test_kserve_reranker_satisfies_reranker_explainer_protocol() -> None:
+    """Structural check matching ``ranking.py``'s ``hasattr(reranker,
+    'predict_with_explain')`` gate: KServeReranker must expose both ``predict``
+    and ``predict_with_explain`` so services can opt into the explain path.
+    """
+    adapter = KServeReranker(endpoint_url="http://r/")
+    assert callable(getattr(adapter, "predict", None))
+    assert callable(getattr(adapter, "predict_with_explain", None))
+
+
+def test_kserve_reranker_parses_v2_attributions_output() -> None:
+    """V2 Open Inference: attributions come back as a named output with dict-rows data."""
+    fake_client = _fake_httpx_client(
+        {
+            "outputs": [
+                {"name": "predictions", "data": [0.5]},
+                {
+                    "name": "attributions",
+                    "data": [{"rent": 0.3, "_baseline": 0.2}],
+                },
+            ]
+        }
+    )
+    adapter = KServeReranker(endpoint_url="http://r/v2/models/m/infer", client=fake_client)
+    scores, attrs = adapter.predict_with_explain([[1.0]], feature_names=["rent"])
+
+    assert scores == [0.5]
+    assert attrs == [{"rent": 0.3, "_baseline": 0.2}]

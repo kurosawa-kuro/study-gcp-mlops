@@ -181,13 +181,64 @@ class KServeEncoder:
         return vec
 
 
+def _extract_attributions(
+    response_json: dict[str, Any],
+    n_instances: int,
+) -> list[dict[str, float]] | None:
+    """Parse per-instance attribution dicts from a reranker response.
+
+    Supported response shapes (in priority order):
+      1. Phase 6 Vertex CPR server — ``{"predictions": [...], "attributions": [...]}``
+         or ``{"attributions": [...]}`` (from dedicated ``/explain`` route).
+      2. KServe v2 — ``{"outputs": [..., {"name": "attributions", "data": [...]}]}``.
+
+    Returns ``None`` when the response carries no attribution payload (e.g. the
+    operator is still running the MLServer LightGBM runtime, which ignores
+    ``parameters.explain=true``). Caller can treat ``None`` as "explain not
+    supported by the deployed container — see docs/02_移行ロードマップ.md §4.2 T4".
+    """
+    attrs = response_json.get("attributions")
+    if isinstance(attrs, list) and len(attrs) == n_instances:
+        return [
+            {str(k): float(v) for k, v in row.items()} for row in attrs if isinstance(row, dict)
+        ] or None
+    outputs = response_json.get("outputs")
+    if isinstance(outputs, list):
+        for out in outputs:
+            if isinstance(out, dict) and out.get("name") == "attributions":
+                data = out.get("data")
+                if isinstance(data, list) and len(data) == n_instances:
+                    return [
+                        {str(k): float(v) for k, v in row.items()}
+                        for row in data
+                        if isinstance(row, dict)
+                    ] or None
+    return None
+
+
 class KServeReranker:
-    """Adapter over a KServe InferenceService that returns one score per row."""
+    """Adapter over a KServe InferenceService that returns one score per row.
+
+    Supports both plain scoring (``predict``) and scoring with per-instance
+    TreeSHAP attributions (``predict_with_explain``, Phase 6 T4). The explain
+    path POSTs to ``endpoint_url`` with ``parameters.explain=true``; when the
+    deployed container is the Phase 6 Vertex CPR reranker (or a future KServe
+    runtime that honors the same parameter), the response carries
+    ``attributions`` alongside ``predictions``. If the container ignores the
+    parameter (e.g. stock MLServer LightGBM runtime) we log a warning and fall
+    back to returning scores-only + empty attribution dicts so callers degrade
+    gracefully instead of 500.
+
+    Operators that deploy a dedicated ``/explain`` route (separate URL) can
+    pass ``explain_url`` at construction time; the adapter will prefer that URL
+    when attributions are requested.
+    """
 
     def __init__(
         self,
         *,
         endpoint_url: str,
+        explain_url: str | None = None,
         timeout_seconds: float = 30.0,
         client: httpx.Client | None = None,
     ) -> None:
@@ -196,12 +247,15 @@ class KServeReranker:
             raise ValueError("KServeReranker requires a non-empty endpoint_url")
         self.endpoint_name = self.endpoint_url
         self.model_path = self.endpoint_url
+        self.explain_url = explain_url.strip() if explain_url else None
         self._timeout_seconds = timeout_seconds
         self._client = client or httpx.Client(timeout=timeout_seconds)
         logger.info(
-            "KServeReranker init endpoint_url=%s timeout=%.1fs (expect path "
-            "`/v1/models/property-reranker:predict` for MLServer LightGBM runtime)",
+            "KServeReranker init endpoint_url=%s explain_url=%s timeout=%.1fs (expect "
+            "path `/v1/models/property-reranker:predict` for MLServer LightGBM runtime; "
+            "explain requires Vertex CPR container or equivalent)",
             self.endpoint_url,
+            self.explain_url or "(fallback: parameters.explain=true on predict URL)",
             timeout_seconds,
         )
 
@@ -273,3 +327,115 @@ class KServeReranker:
             max(scores) if scores else 0.0,
         )
         return scores
+
+    def predict_with_explain(
+        self,
+        instances: list[list[float]],
+        feature_names: list[str],
+    ) -> tuple[list[float], list[dict[str, float]]]:
+        """Score + TreeSHAP attribution in a single round-trip.
+
+        Dispatches via ``explain_url`` (dedicated ``/explain`` route) when the
+        adapter was constructed with one, otherwise POSTs to ``endpoint_url``
+        with ``parameters.explain=true`` + ``feature_names`` (matching the
+        Phase 6 Vertex CPR reranker contract in ``ml/serving/reranker.py``).
+
+        Degradation policy: if the deployed container silently ignores the
+        explain parameter and returns only scores, we emit a warning and
+        return empty ``{}`` attribution dicts for every instance. The caller
+        (``app.services.ranking``) surfaces these as ``attributions=None``
+        per row, so the ``/search?explain=true`` response stays 200 with
+        attributions missing rather than 500-ing on the client.
+        """
+        if not instances:
+            logger.warning("reranker.predict_with_explain called with empty instances")
+            return [], []
+        url = self.explain_url or self.endpoint_url
+        use_explain_route = self.explain_url is not None
+        if use_explain_route:
+            # Dedicated /explain route (Phase 6 Vertex CPR custom server): body
+            # is {instances, feature_names}, response is {attributions}. We
+            # still need scores, so issue a separate predict call afterwards
+            # when attributions come back.
+            payload: dict[str, Any] = {"instances": instances, "feature_names": feature_names}
+        else:
+            # /predict with explain param: single round-trip, response carries
+            # both predictions and attributions.
+            payload = {
+                "instances": instances,
+                "parameters": {"explain": True, "feature_names": feature_names},
+            }
+        logger.info(
+            "reranker.predict_with_explain START url=%s batch=%d use_explain_route=%s",
+            url,
+            len(instances),
+            use_explain_route,
+        )
+        start = time.monotonic()
+        try:
+            response = self._client.post(url, json=payload)
+        except httpx.HTTPError as exc:
+            logger.exception(
+                "reranker.predict_with_explain HTTPError url=%s batch=%d exc_type=%s msg=%s\n%s",
+                url,
+                len(instances),
+                type(exc).__name__,
+                str(exc),
+                traceback.format_exc(),
+            )
+            raise
+        elapsed_ms = (time.monotonic() - start) * 1000
+        if response.status_code >= 400:
+            body_preview = response.text[:500]
+            logger.error(
+                "reranker.predict_with_explain HTTP %d url=%s batch=%d elapsed_ms=%.0f body[:500]=%r",
+                response.status_code,
+                url,
+                len(instances),
+                elapsed_ms,
+                body_preview,
+            )
+        response.raise_for_status()
+        response_json = response.json()
+        attributions = _extract_attributions(response_json, len(instances))
+        if use_explain_route:
+            # /explain gave us only attributions; fetch scores with a regular
+            # predict call. Cheap because it runs against the same booster.
+            scores = self.predict(instances)
+        else:
+            try:
+                predictions = _extract_predictions(response_json)
+            except KeyError:
+                logger.error(
+                    "reranker.predict_with_explain response missing predictions. summary=%s",
+                    _response_summary(response_json),
+                )
+                raise
+            scores = []
+            for p in predictions:
+                if isinstance(p, dict):
+                    raw = p.get("score", p.get("value", 0.0))
+                    scores.append(float(raw) if raw is not None else 0.0)
+                else:
+                    scores.append(float(p))
+        if attributions is None:
+            logger.warning(
+                "reranker.predict_with_explain url=%s batch=%d: response carries no "
+                "attribution payload — deployed container likely ignores explain. "
+                "Returning empty dicts. Switch reranker container to the Phase 6 Vertex "
+                "CPR image (ml/serving/reranker.py) or wire `explain_url` to a route "
+                "that returns {attributions}. summary=%s",
+                url,
+                len(instances),
+                _response_summary(response_json),
+            )
+            attributions = [{} for _ in instances]
+        logger.info(
+            "reranker.predict_with_explain OK url=%s batch=%d scores=%d attrs=%d elapsed_ms=%.0f",
+            url,
+            len(instances),
+            len(scores),
+            len(attributions),
+            elapsed_ms,
+        )
+        return scores, attributions

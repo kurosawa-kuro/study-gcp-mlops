@@ -237,6 +237,7 @@ def _build_reranker_client(settings: ApiSettings) -> tuple[RerankerClient | None
     try:
         client = KServeReranker(
             endpoint_url=settings.kserve_reranker_url,
+            explain_url=settings.kserve_reranker_explain_url or None,
             timeout_seconds=settings.kserve_predict_timeout_seconds,
         )
     except Exception:

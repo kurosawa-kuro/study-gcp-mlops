@@ -31,6 +31,11 @@ class ApiSettings(BaseAppSettings):
     # auth is required on the encoder / reranker side.
     kserve_encoder_url: str = ""
     kserve_reranker_url: str = ""
+    # Optional dedicated explain route (Phase 6 T4). Leave empty to have the
+    # adapter POST `parameters.explain=true` to ``kserve_reranker_url`` instead.
+    # Set this when the deployed reranker exposes a separate ``/explain`` path
+    # (Phase 6 Vertex CPR custom server in ``ml/serving/reranker.py``).
+    kserve_reranker_explain_url: str = ""
     kserve_predict_timeout_seconds: float = 30.0
 
     # --- Phase 6 /search rerank (optional bolt-on) ---------------------------

@@ -99,13 +99,25 @@ def test_pipeline_workflow_paths() -> None:
     assert "create_schedule" in text
 
 
-def test_api_workflow_keeps_broad_filter_and_injects_vertex_env() -> None:
+def test_api_workflow_keeps_broad_filter_and_rolls_out_via_kubectl() -> None:
+    """Phase 7 deploy-api.yml contract.
+
+    The workflow triggers on ``app/**`` and ``ml/**`` changes, then rolls the
+    new image via ``kubectl set image`` + ``kubectl rollout status`` (not
+    ``gcloud run deploy``). Phase 5/6 Vertex env injection moved out of the
+    deploy-api workflow — the Deployment ConfigMap (infra/manifests/search-api)
+    owns KSERVE_* URLs now, and Vertex endpoint IDs are no longer needed
+    because encoder/reranker live on KServe instead of Vertex Endpoints.
+    """
     text = (WORKFLOWS_DIR / "deploy-api.yml").read_text()
     assert "- app/**" in text
     assert "- ml/**" in text
-    assert "VERTEX_ENCODER_ENDPOINT_ID" in text
-    assert "VERTEX_RERANKER_ENDPOINT_ID" in text
-    assert "VERTEX_LOCATION" in text
-    assert "--memory 2Gi" in text, (
-        "search-api memory drops to 2Gi once encoder + reranker live on Vertex"
+    assert "kubectl set image" in text, (
+        "Phase 7 rolls search-api via `kubectl set image`, not `gcloud run deploy`."
+    )
+    assert "deployment/" in text, (
+        "`kubectl set image deployment/<name>` is the Phase 7 rollout target."
+    )
+    assert "rollout status" in text, (
+        "`kubectl rollout status` must gate the CI step on successful rollout."
     )

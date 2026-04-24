@@ -25,5 +25,5 @@ class NullExperimentTracker:
     ) -> None:
         pass
 
-    def log_metrics(self, metrics: dict[str, float]) -> None:  # noqa: ARG002
+    def log_metrics(self, metrics: dict[str, float]) -> None:
         pass
