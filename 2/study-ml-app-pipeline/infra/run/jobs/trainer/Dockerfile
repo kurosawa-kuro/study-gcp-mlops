@@ -22,4 +22,4 @@ COPY env/config/ env/config/
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "-m", "pipeline.train_job.main"]
+CMD ["python", "-m", "pipeline.training_job.main"]

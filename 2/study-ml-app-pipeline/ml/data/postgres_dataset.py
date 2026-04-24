@@ -6,7 +6,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
-from ml.ports.dataset import DatasetReader
+from ml.data.port import DatasetReader
 
 
 class PostgresDatasetAdapter(DatasetReader):

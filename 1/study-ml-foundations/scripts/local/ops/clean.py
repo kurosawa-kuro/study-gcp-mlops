@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from core import compose, project_root, run, step
+from _common import compose, project_root, run, step
 
 
 def main() -> None:

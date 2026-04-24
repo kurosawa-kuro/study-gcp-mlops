@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from ml.core.feature_engineering import engineer_features_input
-from ml.core.preprocess import preprocess_input
-from ml.core.schema import MODEL_COLS
+from ml.data.feature_engineering import engineer_features_input
+from ml.data.preprocess import preprocess_input
+from ml.data.schema import MODEL_COLS
 
 
 def predict_price(booster, values: dict) -> float:

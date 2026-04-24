@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from ml.core.preprocess import preprocess, preprocess_input
+from ml.data.preprocess import preprocess, preprocess_input
 
 
 class TestPreprocess:

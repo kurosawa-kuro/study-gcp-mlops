@@ -4,7 +4,7 @@ from pathlib import Path
 
 import lightgbm as lgb
 
-from ml.core.evaluation import save_metrics
+from ml.evaluation.metrics import save_metrics
 from ml.ports.model_store import ModelStore
 
 

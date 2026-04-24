@@ -13,7 +13,7 @@ from app.api.predict import router as predict_router
 from app.config import Settings
 from common.logging import get_logger
 from ml.container import build_container
-from ml.core.schema import FEATURE_COLS, TARGET_COL
+from ml.data.schema import FEATURE_COLS, TARGET_COL
 
 logger = get_logger(__name__)
 

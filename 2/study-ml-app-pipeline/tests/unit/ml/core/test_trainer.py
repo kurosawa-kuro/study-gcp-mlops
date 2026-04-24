@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from ml.core.feature_engineering import engineer_features
-from ml.core.preprocess import preprocess
-from ml.core.trainer import train
+from ml.data.feature_engineering import engineer_features
+from ml.data.preprocess import preprocess
+from ml.training.trainer import train
 
 
 def test_train_returns_metrics_and_booster(sample_df, tmp_path):

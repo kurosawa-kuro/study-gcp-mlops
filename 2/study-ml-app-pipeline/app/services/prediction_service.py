@@ -1,4 +1,4 @@
-from ml.core.inference import predict_price as predict_price_from_booster
+from ml.serving.inference import predict_price as predict_price_from_booster
 
 
 def predict_price(booster, values: dict) -> float:

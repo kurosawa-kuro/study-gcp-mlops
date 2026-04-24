@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ml.core.evaluation import evaluate, r2_score, rmse, save_metrics
+from ml.evaluation.metrics import evaluate, r2_score, rmse, save_metrics
 
 
 def test_rmse_perfect():

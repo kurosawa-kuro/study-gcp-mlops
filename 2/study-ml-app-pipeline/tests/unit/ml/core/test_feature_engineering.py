@@ -1,6 +1,6 @@
 """Feature engineering tests."""
 
-from ml.core.feature_engineering import engineer_features, engineer_features_input
+from ml.data.feature_engineering import engineer_features, engineer_features_input
 
 
 def test_engineer_features_adds_columns(sample_df):

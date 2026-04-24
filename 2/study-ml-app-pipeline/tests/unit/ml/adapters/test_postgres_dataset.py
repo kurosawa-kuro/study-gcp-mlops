@@ -1,6 +1,6 @@
 """PostgreSQL dataset adapter tests."""
 
-from ml.adapters.postgres_dataset import PostgresDatasetAdapter
+from ml.data.postgres_dataset import PostgresDatasetAdapter
 
 
 def test_load_train(sample_db):

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from common.logging import get_logger
-from ml.core.schema import FEATURE_COLS, TARGET_COL
+from ml.data.schema import FEATURE_COLS, TARGET_COL
 
 logger = get_logger(__name__)
 

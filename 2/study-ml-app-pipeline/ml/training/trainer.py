@@ -6,8 +6,8 @@ import lightgbm as lgb
 import pandas as pd
 
 from common.logging import get_logger
-from ml.core.evaluation import evaluate, save_metrics
-from ml.core.schema import MODEL_COLS, TARGET_COL
+from ml.data.schema import MODEL_COLS, TARGET_COL
+from ml.evaluation.metrics import evaluate, save_metrics
 
 logger = get_logger(__name__)
 NUM_BOOST_ROUND = 300

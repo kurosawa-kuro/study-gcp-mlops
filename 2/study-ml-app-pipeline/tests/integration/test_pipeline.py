@@ -5,8 +5,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
-from pipeline.predict_job.main import main as predict_main
-from pipeline.train_job.main import main as train_main
+from pipeline.batch_serving_job.main import main as predict_main
+from pipeline.training_job.main import main as train_main
 
 
 def _apply_db_env(monkeypatch, postgres_url: str) -> None:

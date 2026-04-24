@@ -4,9 +4,9 @@ from app.config import Settings
 from common.logging import get_logger
 from common.run_id import generate_run_id
 from ml.container import build_container
-from ml.core.feature_engineering import engineer_features
-from ml.core.preprocess import preprocess
-from ml.core.trainer import train
+from ml.data.feature_engineering import engineer_features
+from ml.data.preprocess import preprocess
+from ml.training.trainer import train
 
 logger = get_logger(__name__)
 

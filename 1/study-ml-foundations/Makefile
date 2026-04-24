@@ -61,4 +61,4 @@ clean: ## docker compose down + remove generated files
 	$(PYTHON) scripts/local/ops/clean.py
 
 free-ports: ## Stop non-project containers binding host :5432
-	$(PYTHON) -c "import sys; sys.path.insert(0, 'scripts'); from core import free_host_ports; free_host_ports()"
+	$(PYTHON) -c "import sys; sys.path.insert(0, 'scripts'); from _common import free_host_ports; free_host_ports()"

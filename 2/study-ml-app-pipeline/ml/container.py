@@ -3,11 +3,11 @@
 from dataclasses import dataclass
 
 from ml.adapters.filesystem_model_store import FilesystemModelStore
-from ml.adapters.predictor import ModelStorePredictor
-from ml.adapters.postgres_dataset import PostgresDatasetAdapter
-from ml.ports.dataset import DatasetReader
+from ml.data.port import DatasetReader
+from ml.data.postgres_dataset import PostgresDatasetAdapter
 from ml.ports.model_store import ModelStore
-from ml.ports.predictor import Predictor
+from ml.serving.port import Predictor
+from ml.serving.predictor import ModelStorePredictor
 
 
 @dataclass(frozen=True)

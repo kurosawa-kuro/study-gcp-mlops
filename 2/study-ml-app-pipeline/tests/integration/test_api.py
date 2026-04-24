@@ -12,9 +12,9 @@ from app.main import app
 def api_client(tmp_path, sample_df):
     """学習済みモデルを作成し、FastAPI TestClient を返す."""
     from ml.adapters.filesystem_model_store import FilesystemModelStore
-    from ml.core.feature_engineering import engineer_features
-    from ml.core.preprocess import preprocess
-    from ml.core.trainer import train
+    from ml.data.feature_engineering import engineer_features
+    from ml.data.preprocess import preprocess
+    from ml.training.trainer import train
 
     model_dir = str(tmp_path / "ml" / "registry" / "artifacts")
     train_df = engineer_features(preprocess(sample_df.iloc[:80]))
