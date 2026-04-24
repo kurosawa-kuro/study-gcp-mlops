@@ -11,7 +11,6 @@ Steps:
    (benign if endpoints absent or already empty)
 2. `gcloud storage rm --recursive gs://mlops-dev-a-models/*` — wipe model artifacts
 3. `gcloud storage rm --recursive gs://mlops-dev-a-artifacts/*` — wipe encoder assets
-4. Clear Vertex Model Registry (optional; by default, keeps model versions)
 
 Unlike destroy-all, does NOT touch:
 - Terraform state / infrastructure (SAs, datasets, topics, etc.)
@@ -29,29 +28,18 @@ Usage:
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
-from pathlib import Path
 
 from scripts._common import env, run
 
-APPLY = env.get("APPLY", "0") == "1"
-
-# Vertex Endpoint resource IDs (must match infra/terraform/modules/vertex/main.tf)
-ENCODER_ENDPOINT_ID = "property-encoder-endpoint"
-RERANKER_ENDPOINT_ID = "property-reranker-endpoint"
-
-# GCS buckets to wipe
-MODELS_BUCKET = f"gs://{env('PROJECT_ID')}-models"
-ARTIFACTS_BUCKET = f"gs://{env('PROJECT_ID')}-artifacts"
-
-# Vertex AI location
-VERTEX_LOCATION = env("VERTEX_LOCATION", "asia-northeast1")
-
 
 def _step(n: int, label: str) -> None:
+    apply_mode = os.getenv("APPLY", "0") == "1"
     print()
     print(f"[destroy-phase6-learning] step {n}: {label}")
-    if not APPLY:
+    if not apply_mode:
         print("  (dry-run mode; pass APPLY=1 to execute)")
 
 
@@ -66,8 +54,23 @@ def _gcloud_capture(args: list[str]) -> tuple[int, str]:
 
 
 def main() -> int:
-    project_id = env("PROJECT_ID")
-    region = env("REGION")
+    apply_mode = os.getenv("APPLY", "0") == "1"
+    
+    try:
+        project_id = env("PROJECT_ID")
+        vertex_location = env("VERTEX_LOCATION", "asia-northeast1")
+    except Exception as e:
+        print(f"❌ Error loading environment: {e}")
+        print("   Ensure env/config/setting.yaml is present and configured.")
+        return 1
+    
+    # Vertex Endpoint resource IDs (must match infra/terraform/modules/vertex/main.tf)
+    encoder_endpoint_id = "property-encoder-endpoint"
+    reranker_endpoint_id = "property-reranker-endpoint"
+    
+    # GCS buckets to wipe
+    models_bucket = f"gs://{project_id}-models"
+    artifacts_bucket = f"gs://{project_id}-artifacts"
 
     print()
     print("=" * 70)
@@ -77,7 +80,7 @@ def main() -> int:
     # Step 1: Undeploy models from endpoints
     _step(1, "undeploy encoder/reranker endpoints")
 
-    for endpoint_name in [ENCODER_ENDPOINT_ID, RERANKER_ENDPOINT_ID]:
+    for endpoint_name in [encoder_endpoint_id, reranker_endpoint_id]:
         print(f"  → {endpoint_name} (getting deployed model IDs...)")
 
         rc, desc_json = _gcloud_capture([
@@ -85,7 +88,7 @@ def main() -> int:
             "endpoints",
             "describe",
             endpoint_name,
-            f"--location={VERTEX_LOCATION}",
+            f"--location={vertex_location}",
             f"--project={project_id}",
             "--format=json",
         ])
@@ -96,7 +99,6 @@ def main() -> int:
 
         # Extract deployedModels from JSON
         try:
-            import json
             desc = json.loads(desc_json)
             deployed_models = desc.get("deployedModels", [])
             
@@ -108,7 +110,7 @@ def main() -> int:
                 model_id = dm.get("id")
                 print(f"    → Undeploying deployed model id={model_id}...")
                 
-                if APPLY:
+                if apply_mode:
                     run([
                         "gcloud",
                         "ai",
@@ -116,7 +118,7 @@ def main() -> int:
                         "undeploy-model",
                         endpoint_name,
                         f"--deployed-model-id={model_id}",
-                        f"--location={VERTEX_LOCATION}",
+                        f"--location={vertex_location}",
                         f"--project={project_id}",
                         "--quiet",
                     ])
@@ -127,17 +129,17 @@ def main() -> int:
             print(f"    ⚠ Error parsing endpoint: {e}. Skipping.")
 
     # Step 2: Wipe GCS model artifacts
-    _step(2, f"wipe {MODELS_BUCKET}/**")
+    _step(2, f"wipe {models_bucket}/**")
 
-    rc, stat_output = _gcloud_capture(["storage", "stat", MODELS_BUCKET])
+    rc, stat_output = _gcloud_capture(["storage", "stat", models_bucket])
     if rc == 0:
         print(f"  → Bucket exists. Listing objects...")
-        rc, ls_output = _gcloud_capture(["storage", "ls", "-r", f"{MODELS_BUCKET}/"])
+        rc, ls_output = _gcloud_capture(["storage", "ls", "-r", f"{models_bucket}/"])
         if rc == 0 and ls_output.strip():
             obj_count = len(ls_output.strip().split("\n"))
             print(f"    Found {obj_count} objects.")
             
-            if APPLY:
+            if apply_mode:
                 print(f"    Deleting...")
                 run([
                     "gcloud",
@@ -145,7 +147,7 @@ def main() -> int:
                     "rm",
                     "--recursive",
                     "--quiet",
-                    f"{MODELS_BUCKET}/**",
+                    f"{models_bucket}/**",
                 ], check=False)
                 print(f"    ✓ Deleted.")
             else:
@@ -156,17 +158,17 @@ def main() -> int:
         print(f"  ⚠ Bucket not found (benign). Skipping.")
 
     # Step 3: Wipe GCS encoder assets
-    _step(3, f"wipe {ARTIFACTS_BUCKET}/**")
+    _step(3, f"wipe {artifacts_bucket}/**")
 
-    rc, stat_output = _gcloud_capture(["storage", "stat", ARTIFACTS_BUCKET])
+    rc, stat_output = _gcloud_capture(["storage", "stat", artifacts_bucket])
     if rc == 0:
         print(f"  → Bucket exists. Listing objects...")
-        rc, ls_output = _gcloud_capture(["storage", "ls", "-r", f"{ARTIFACTS_BUCKET}/"])
+        rc, ls_output = _gcloud_capture(["storage", "ls", "-r", f"{artifacts_bucket}/"])
         if rc == 0 and ls_output.strip():
             obj_count = len(ls_output.strip().split("\n"))
             print(f"    Found {obj_count} objects.")
             
-            if APPLY:
+            if apply_mode:
                 print(f"    Deleting...")
                 run([
                     "gcloud",
@@ -174,7 +176,7 @@ def main() -> int:
                     "rm",
                     "--recursive",
                     "--quiet",
-                    f"{ARTIFACTS_BUCKET}/**",
+                    f"{artifacts_bucket}/**",
                 ], check=False)
                 print(f"    ✓ Deleted.")
             else:
@@ -185,14 +187,14 @@ def main() -> int:
         print(f"  ⚠ Bucket not found (benign). Skipping.")
 
     print()
-    if not APPLY:
+    if not apply_mode:
         print("✓ Dry-run complete. To actually destroy, run:")
         print("  APPLY=1 make destroy-phase6-learning")
     else:
         print("✓ destroy-phase6-learning complete.")
         print("  To verify endpoints are empty:")
-        print(f"    gcloud ai endpoints describe {ENCODER_ENDPOINT_ID} --location={VERTEX_LOCATION}")
-        print(f"    gcloud ai endpoints describe {RERANKER_ENDPOINT_ID} --location={VERTEX_LOCATION}")
+        print(f"    gcloud ai endpoints describe {encoder_endpoint_id} --location={vertex_location}")
+        print(f"    gcloud ai endpoints describe {reranker_endpoint_id} --location={vertex_location}")
         print()
         print("  To re-provision (without Terraform re-apply):")
         print("    make setup-encoder-endpoint APPLY=1")
