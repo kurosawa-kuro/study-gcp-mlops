@@ -1,5 +1,7 @@
 """API settings."""
 
+from typing import Literal
+
 from ml.common.config import BaseAppSettings
 
 
@@ -27,3 +29,40 @@ class ApiSettings(BaseAppSettings):
     vertex_reranker_endpoint_id: str = ""
     search_cache_ttl_seconds: int = 120
     search_cache_maxsize: int = 2048
+
+    # --- Phase 6 T3 — semantic backend (BQ VECTOR_SEARCH vs Vertex ME) ------
+    # Default ``"bq"`` preserves Phase 5 behavior. Set to ``"vertex"`` and
+    # supply vertex_vector_search_* to route semantic retrieval through a
+    # Matching Engine IndexEndpoint instead of BigQuery.
+    semantic_backend: Literal["bq", "vertex"] = "bq"
+    vertex_vector_search_index_endpoint_id: str = ""
+    vertex_vector_search_deployed_index_id: str = ""
+
+    # --- Phase 6 T6 — RAG via Gemini ----------------------------------------
+    # ``enable_rag=False`` keeps the /rag endpoint unwired (returns 503).
+    # When True and the Generator adapter successfully constructs, /rag
+    # internally invokes hybrid search then asks Gemini to summarize the
+    # top-N candidates. Does not alter the /search path.
+    enable_rag: bool = False
+    gemini_model_name: str = "gemini-1.5-flash"
+    gemini_temperature: float = 0.2
+
+    # --- Phase 6 T1 — BQML popularity scorer --------------------------------
+    # ``bqml_popularity_enabled=False`` (default) keeps /search payloads
+    # unchanged. When True, each SearchResultItem carries an auxiliary
+    # popularity_score predicted by the BQML BOOSTED_TREE_REGRESSOR model
+    # trained via ``scripts/bqml/train_popularity.sql``. Not added to
+    # FEATURE_COLS_RANKER (parity-avoided).
+    bqml_popularity_enabled: bool = False
+    bqml_popularity_model_fqn: str = ""
+
+    # --- Phase 6 T7 — alternative lexical backend ----------------------------
+    # ``lexical_backend="meili"`` preserves Phase 5 non-negotiable. Set to
+    # ``"agent_builder"`` (+ populate vertex_agent_builder_*) to route the
+    # lexical leg through Discovery Engine instead. Only read when
+    # ``?lexical=agent_builder`` is also set on /search (opt-in per-request).
+    lexical_backend: Literal["meili", "agent_builder"] = "meili"
+    vertex_agent_builder_location: str = "global"
+    vertex_agent_builder_engine_id: str = ""
+    vertex_agent_builder_collection_id: str = "default_collection"
+    vertex_agent_builder_serving_config_id: str = "default_search"

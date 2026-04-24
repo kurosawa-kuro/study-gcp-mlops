@@ -127,14 +127,54 @@ class VertexEndpointReranker:
         )
 
     def predict(self, instances: list[list[float]]) -> list[float]:
+        scores, _ = self._predict(instances, parameters=None)
+        return scores
+
+    def predict_with_explain(
+        self,
+        instances: list[list[float]],
+        feature_names: list[str],
+    ) -> tuple[list[float], list[dict[str, float]]]:
+        """Phase 6 T4 — scores + TreeSHAP attributions in one round-trip.
+
+        Forwards ``parameters.explain=true`` + ``feature_names`` through the
+        Vertex ``Endpoint.predict`` body. The server (ml/serving/reranker.py)
+        inspects ``parameters`` and, when ``explain`` is truthy, appends a
+        parallel ``attributions`` array to the response.
+        """
+        scores, attributions = self._predict(
+            instances,
+            parameters={"explain": True, "feature_names": feature_names},
+        )
+        if attributions is None:
+            # Server returned predictions but no attributions — treat as an
+            # integration bug rather than silently degrading to empty dicts.
+            raise RuntimeError(
+                "reranker.predict_with_explain: server did not return attributions; "
+                "check that ml/serving/reranker.py is deployed with the Phase 6 T4 build"
+            )
+        return scores, attributions
+
+    def _predict(
+        self,
+        instances: list[list[float]],
+        parameters: dict[str, Any] | None,
+    ) -> tuple[list[float], list[dict[str, float]] | None]:
         logger.info(
-            "reranker.predict endpoint=%s batch=%d dims=%d",
+            "reranker.predict endpoint=%s batch=%d dims=%d explain=%s",
             self.endpoint_name,
             len(instances),
             len(instances[0]) if instances else -1,
+            bool(parameters and parameters.get("explain")),
         )
         try:
-            response = self._endpoint.predict(instances=instances)
+            if parameters is None:
+                response = self._endpoint.predict(instances=instances)
+            else:
+                response = self._endpoint.predict(
+                    instances=instances,
+                    parameters=parameters,
+                )
         except Exception:
             logger.exception(
                 "reranker.predict FAILED endpoint=%s batch=%d head=%s",
@@ -149,22 +189,61 @@ class VertexEndpointReranker:
             self.endpoint_name,
             len(predictions),
         )
-        scores: list[float] = []
-        for prediction in predictions:
-            if isinstance(prediction, dict):
-                for key in ("score", "prediction", "value"):
-                    if key in prediction:
-                        scores.append(float(prediction[key]))
-                        break
-                else:
-                    logger.error(
-                        "reranker response dict missing score payload keys=%s",
-                        list(prediction.keys()),
-                    )
-                    raise KeyError("Vertex reranker response dict missing score payload")
+        scores = _extract_scores(predictions)
+        attributions = _extract_attributions(response, len(scores))
+        return scores, attributions
+
+
+def _extract_scores(predictions: list[Any]) -> list[float]:
+    scores: list[float] = []
+    for prediction in predictions:
+        if isinstance(prediction, dict):
+            for key in ("score", "prediction", "value"):
+                if key in prediction:
+                    scores.append(float(prediction[key]))
+                    break
             else:
-                scores.append(float(prediction))
-        return scores
+                logger.error(
+                    "reranker response dict missing score payload keys=%s",
+                    list(prediction.keys()),
+                )
+                raise KeyError("Vertex reranker response dict missing score payload")
+        else:
+            scores.append(float(prediction))
+    return scores
+
+
+def _extract_attributions(response: Any, expected_len: int) -> list[dict[str, float]] | None:
+    """Pull ``attributions`` from the Vertex ``Prediction`` response if present.
+
+    The Vertex SDK forwards unknown top-level response keys verbatim (the
+    ``attributions`` field is added by our ml/serving/reranker.py when
+    ``parameters.explain=true``). Returns ``None`` if the response does not
+    carry an attributions payload.
+    """
+    raw = getattr(response, "attributions", None)
+    # Recent SDK versions bury non-standard fields under ``_prediction_response``
+    # instead of surfacing them as attributes; cover both.
+    if raw is None:
+        doc = getattr(response, "_prediction_response", None)
+        if isinstance(doc, dict):
+            raw = doc.get("attributions")
+    if raw is None:
+        return None
+    attributions: list[dict[str, float]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise TypeError(
+                f"Vertex reranker attributions entry is not a dict: {type(entry).__name__}"
+            )
+        attributions.append({str(k): float(v) for k, v in entry.items()})
+    if attributions and len(attributions) != expected_len:
+        logger.warning(
+            "reranker attributions length mismatch scores=%d attributions=%d",
+            expected_len,
+            len(attributions),
+        )
+    return attributions
 
 
 # expose for upstream log filter configuration

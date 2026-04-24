@@ -10,8 +10,9 @@ from .candidate_retriever import (
 from .encoder_client import EncoderClient
 from .lexical_search import LexicalSearchPort
 from .publisher import NoopPublisher, PredictionPublisher
-from .reranker_client import RerankerClient
+from .reranker_client import RerankerClient, RerankerExplainer
 from .retrain_queries import RetrainQueries
+from .semantic_search import SemanticSearchPort
 
 __all__ = [
     "CacheStore",
@@ -24,5 +25,7 @@ __all__ = [
     "PredictionPublisher",
     "RankingLogPublisher",
     "RerankerClient",
+    "RerankerExplainer",
     "RetrainQueries",
+    "SemanticSearchPort",
 ]

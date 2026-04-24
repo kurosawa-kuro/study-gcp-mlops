@@ -31,6 +31,15 @@ class SearchResultItem(BaseModel):
     semantic_rank: int
     me5_score: float
     score: float | None = None  # None while rerank is disabled (Phase 4 MVP)
+    # Phase 6 T4 — TreeSHAP attributions per ranker feature, populated only
+    # when the caller sets ``/search?explain=true`` AND a reranker is wired
+    # up. The ``_baseline`` key carries LightGBM's expected-value offset.
+    attributions: dict[str, float] | None = None
+    # Phase 6 T1 — auxiliary BQML popularity score. Populated only when
+    # ``bqml_popularity_enabled=True`` AND the scorer returns a value for
+    # this property. Separate from rerank ``score`` so the 10-column parity
+    # invariant remains untouched.
+    popularity_score: float | None = None
 
 
 class SearchResponse(BaseModel):

@@ -215,6 +215,15 @@ ops-enable-search: ## Flip search-api to Vertex endpoint mode
 ops-livez: ## Hit /livez on the deployed search-api (IAM-gated)
 	uv run python -m scripts.local.ops.livez_check
 
+ops-slo-status: ## Phase 6 T5: print current compliance + burn-rate (1h/3d) for availability + latency SLOs
+	uv run python -m scripts.local.ops.slo_status
+
+bqml-train-popularity: ## Phase 6 T1: train BQML property-popularity model (BOOSTED_TREE_REGRESSOR)
+	uv run python -m scripts.local.bqml.train_popularity
+
+enrich-properties: ## Phase 6 T8: run Gemini description enrichment (LIMIT=50 BATCH=10)
+	uv run python -m scripts.local.enrichment.run_enrichment --limit=$${LIMIT:-50} --batch-size=$${BATCH:-10}
+
 ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
 	uv run python -m scripts.local.ops.search_check
 

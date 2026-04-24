@@ -280,6 +280,49 @@ resource "google_bigquery_table" "model_monitoring_alerts" {
   ])
 }
 
+# Phase 6 T8 — Gemini enrichment sink. Populated by
+# scripts/local/enrichment/run_enrichment.py (optionally as a KFP
+# pre-process component in embed_pipeline). Kept beside raw.properties
+# in the feature_mart dataset so downstream consumers can JOIN by
+# property_id without dataset hops.
+resource "google_bigquery_table" "properties_enriched" {
+  dataset_id          = google_bigquery_dataset.feature_mart.dataset_id
+  table_id            = "properties_enriched"
+  deletion_protection = var.enable_deletion_protection
+
+  schema = jsonencode([
+    { name = "property_id", type = "STRING", mode = "REQUIRED" },
+    { name = "tags", type = "STRING", mode = "REPEATED", description = "LLM-generated tags (例: 家族向け, 駅近, ペット可)" },
+    { name = "target_audience", type = "STRING", mode = "NULLABLE", description = "家族 / 単身者 / 学生 / シニア / 不明" },
+    { name = "summary_ja", type = "STRING", mode = "NULLABLE", description = "80 字以内の日本語紹介" },
+    { name = "enriched_at", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "model_name", type = "STRING", mode = "REQUIRED", description = "生成モデル識別子 (例: gemini-1.5-flash)" },
+  ])
+}
+
+# Phase 6 T2 — Dataflow streaming sink. ranking-log events are aggregated
+# in 1-hour tumbling windows into this table; runs alongside the existing
+# BQ Subscription-based mlops.ranking_log raw writes.
+resource "google_bigquery_table" "ranking_log_hourly_ctr" {
+  dataset_id          = google_bigquery_dataset.mlops.dataset_id
+  table_id            = "ranking_log_hourly_ctr"
+  deletion_protection = var.enable_deletion_protection
+
+  time_partitioning {
+    type  = "DAY"
+    field = "window_start"
+  }
+
+  schema = jsonencode([
+    { name = "window_start", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "window_end", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "property_id", type = "STRING", mode = "REQUIRED" },
+    { name = "impressions", type = "INT64", mode = "REQUIRED" },
+    { name = "clicks", type = "INT64", mode = "REQUIRED" },
+    { name = "ctr", type = "FLOAT64", mode = "NULLABLE", description = "SAFE_DIVIDE(clicks, impressions)" },
+  ])
+}
+
 # =========================================================================
 # GCS — model artifacts + general-purpose artifacts
 # =========================================================================
