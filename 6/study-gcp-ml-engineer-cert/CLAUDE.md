@@ -1,8 +1,6 @@
 # CLAUDE.md
 
-> 注記: 旧構成の履歴説明が一部残るが、実装の正は現行ツリー (`app/`, `ml/{common,data,training,serving}`, `pipeline/`, `scripts/local/`)。
-
-本リポジトリで作業する Claude Code 向けのガイド。**非負制約 / 参照リポジトリ / feature-parity invariant** を最優先で載せる (`docs/README.md` §1 の CLAUDE.md 仕様に従う)。
+本リポジトリ (`6/study-gcp-ml-engineer-cert`) で作業する Claude Code 向けのガイド。**Phase 6 は Phase 5 (`5/study-hybrid-search-vertex/`) 完成系に PMLE 試験範囲の 8 技術を adapter / 新規コンポーネントとして統合するフェーズ**。Phase 3-5 の Port/Adapter 思想そのものを新技術導入の形で実践する。
 
 ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md)。本 CLAUDE.md はそれらに従属する。
 
@@ -10,55 +8,112 @@
 
 ## 最初に読むもの (順番)
 
-1. [`docs/README.md`](docs/README.md) — ドキュメント運用ルール (権威順位 / 更新規約 / 書き方)
-2. [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) — **決定的仕様** (Meilisearch + BigQuery VECTOR_SEARCH + RRF + LambdaRank、Redis サーバ非採用)
-3. [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) — ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform の逐一掲載
-4. [`docs/04_運用.md §1`](docs/04_運用.md) — 環境構築 STEP 1–17 (上から順に叩けば完走)
-
----
-
-## hybrid-search-vertex の設計テーゼ (題材: 不動産ハイブリッド検索)
-
-- **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1a) Meilisearch BM25、(1b) BigQuery VECTOR_SEARCH、(2) RRF 融合、(3) LightGBM `lambdarank` 再ランク
-- **BigQuery + Cloud Run + Vertex AI 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`) と Vertex Model Registry、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI 採用 / BQML 非採用**
-- **Training-Serving Skew 対策が load-bearing**。Dataform SQL (`feature_mart.property_features_daily`) と `common.feature_engineering.build_ranker_features` を同一式で lockstep 維持 (`ctr = SAFE_DIVIDE(click_count, impression_count)` など、分子分母の順序が訓練側と推論側で 1:1)
-- **学習 = Vertex AI Pipelines (`embed_pipeline` + `train_pipeline`) / 推論 = Cloud Run Service (`search-api`) + Vertex AI Endpoints**。モデルは API コンテナへ同梱せず、`search-api` は `VertexEndpointEncoder` / `VertexEndpointReranker` を通して推論を委譲する
-- **Phase 5 rerank-free MVP** — Booster ロード前でも `/search` は候補抽出結果 (`final_rank = lexical_rank`) を返せる。ステージング疎通条件は `docs/04_運用.md §1 STEP 17`
-- **スコープ固定**: 不動産ハイブリッド検索のみ。旧 California Housing 回帰は Phase 10b/10c で完全削除済
+1. [`docs/02_移行ロードマップ.md §0`](docs/02_移行ロードマップ.md) — **不変は「ハイブリッド検索というテーマと中核コード」のみ**
+2. [`docs/02_移行ロードマップ.md §3`](docs/02_移行ロードマップ.md) — 8 統合トピックのサマリ
+3. [`docs/01_仕様と設計.md §3`](docs/01_仕様と設計.md) — 各トピックの **ファイル配置 / Port / Adapter / feature flag** 詳細
+4. [`docs/01_仕様と設計.md §5`](docs/01_仕様と設計.md) — 実装順序 (T5 → T4 → T3 → T6 → T1 → T8 → T2 → T7)
+5. [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) + [`docs/04_運用.md`](docs/04_運用.md) — Phase 5 継承の実装 / 運用詳細
 
 ---
 
 ## 非負制約 (User 確認無しに変えない)
 
-| 項目 | 値 | 理由 |
-|---|---|---|
-| GCP プロジェクト | `mlops-dev-a` | 固定 |
-| リージョン | `asia-northeast1` | 固定 |
-| Python | 3.12 | `pyproject.toml` |
-| パッケージ管理 | `uv` (pip / poetry 不可) | workspace 採用 |
-| IaC | Terraform 1.9+ | |
-| Cloud Run Service | `--cpu 2 --memory 2Gi --concurrency 80 --min-instances 1 --max-instances 10 --cpu-boost --execution-environment gen2 --no-allow-unauthenticated` | コールドスタート回避、IAM-gated。Phase 5 で encoder / reranker を Vertex Endpoint へ外部化したため 4Gi → 2Gi に縮小 |
-| Service Account | 9 SA 分離 (`sa-api` / `sa-pipeline` / `sa-job-train` / `sa-job-embed` / `sa-endpoint-encoder` / `sa-endpoint-reranker` / `sa-pipeline-trigger` / `sa-dataform` / `sa-scheduler`) + WIF 専用 `sa-github-deployer` = 計 10 SA | 最小権限の境界、統合しない。Endpoint ランタイム SA (`sa-endpoint-*`) と Pipeline 起動 SA (`sa-pipeline` / `sa-pipeline-trigger`) を分けて blast radius を小さく保つ。`sa-job-train` / `sa-job-embed` は Cloud Run Jobs 時代からの継続 SA で、`embed_pipeline` 完走後に段階削除予定 |
-| 設定値 single source | `env/config/setting.yaml` (project_id / region / api_service / training_job / artifact_repo / github_repo / oncall_email / dataform_*) | flat key:value のみ。Python は `scripts/_common.py::DEFAULTS` で読み、Make は awk で読む。`github_repo` / `oncall_email` も yaml が既定値で、env で都度上書き可。`definitions/workflow_settings.yaml` は **auto-generated** (gitignore + `make sync-dataform-config` で再生成、parity test で drift 検知) |
-| 認証 | GitHub Actions → Workload Identity Federation (SA Key 禁止) | 監査要件 |
-| 再学習条件 (`app/src/app/services/retrain_policy.py`) | `NEW_FEEDBACK_ROWS_THRESHOLD = 10_000` / `NDCG_DEGRADATION = 0.03` / `STALE_DAYS = 7` | コード定数。変更時は `app/tests/test_retrain.py` にケース追加 |
+### 不変 — 絶対に変えない
 
-`--min-instances 1 → 0` に落とすとコスト削減するが ME5 エンコーダロードで数秒〜数十秒のコールドスタートが発生する。下げる際は必ず User に flag。
+| 項目 | 値 |
+|---|---|
+| **題材 / ドメイン** | 不動産ハイブリッド検索 (クエリ + フィルタ → 物件ランキング上位 20 件) |
+| **ハイブリッド検索中核** | Meilisearch BM25 (lexical) + BQ `VECTOR_SEARCH` + multilingual-e5 (semantic) + RRF 融合 + LightGBM LambdaRank (rerank) の挙動 / データフロー / デフォルト `/search` レスポンス |
+| **親リポ非負制約** | GCP プロジェクト `mlops-dev-a` / リージョン `asia-northeast1` / Python 3.12 / uv workspace / Terraform 1.9+ / WIF (SA Key 禁止) / 10 SA 最小権限分離 |
+| **default feature flag 値** | Phase 6 で追加する flag (`SEMANTIC_BACKEND` / `LEXICAL_BACKEND` / `BQML_POPULARITY_ENABLED` 等) は default で Phase 5 挙動を維持する値にする (`bq` / `meili` / `false`) |
+
+中核を **置換 / 削除 / 無効化する変更はしない**。親 CLAUDE.md の「ハイブリッド検索の基本構成は LightGBM + multilingual-e5 + Meilisearch + RRF + LambdaRank を必須」をそのまま継承する。
+
+### 自由 — PMLE 学習のため積極的に変えてよい
+
+中核 (上表) 以外はすべて積極的に変えてよい:
+
+- 新 Port / Adapter / Service / Entrypoint の追加 (`app/src/app/**`)
+- 新エンドポイント追加 (`/rag` / `/search?explain=true` 等)
+- 既存 adapter への機能追加 (例: reranker に `explanation_spec`)
+- 新 KFP component 追加 (`ml/embed/.../components/` / `ml/streaming/` 新ワークスペース)
+- 新 Terraform モジュール追加 (`infra/modules/{slo,vector_search,streaming,agent_builder}/`)
+- 新 feature 列追加 (parity 6 ファイルを同 PR で揃える前提)
+- 既存 `pyproject.toml` への依存追加 (`google-genai` / `apache-beam` / `google-cloud-discoveryengine` 等)
+- 新 SA 追加 (例: `sa-dataflow`)、既存 SA への IAM 追加 (例: `sa-api` に Vertex Vector Search 読み取り権限)
+- 新 make target 追加 (`make bqml-train-popularity` / `make deploy-streaming` / `make ops-slo-status` 等)
+- 新 CI workflow 追加 (`.github/workflows/deploy-streaming.yml` 等)
+
+### NG (やり方として誤り、User が明確に拒否した)
+
+- ❌ `labs/<topic>/` のように **既存コードから隔離された手順書 / GUI ノート** を書いて「学習した」ことにする
+- ❌ **問題集 / Q&A** をドキュメントに書き連ねる (学習は動くコードで行う)
+- ❌ 「Phase 5 コード全体をなるべく変えない」を非負制約に置く (中核以外の改変は Phase 6 の主目的)
+- ❌ Terraform を通さずに `gcloud` / `bq` を手で叩いてリソースを作る (`labs/` の時の誘惑)
 
 ---
 
-## Feature parity invariant (6 ファイル同一 PR 原則)
+## Phase 6 での作業スタイル
 
-特徴量を追加 / 変更するとき、以下 6 つを **必ず同じ PR で揃える** (片方だけだと Scheduled Query のスキュー検知 / Vertex Feature Group parity テストが FAIL する):
+Phase 3-5 の延長線上で **Port/Adapter を維持したまま新 adapter / 新コンポーネントを追加する** のが主な作業:
 
-1. `definitions/features/property_features_daily.sqlx` (訓練側 SQL — ctr / fav_rate / inquiry_rate の SAFE_DIVIDE 式)
-2. `common/src/common/feature_engineering.py::build_ranker_features` (推論側 Python、10 列の組み立て)
-3. `common/src/common/schema/feature_schema.py` の `FEATURE_COLS_RANKER` (10 列の順序と名前)
-4. `infra/terraform/modules/data/main.tf` の `ranking_log.features` RECORD スキーマ (API publish のキー名と 1:1、FLOAT64 NULLABLE)
-5. `monitoring/validate_feature_skew.sql` の UNPIVOT (訓練側・推論側とも property-side 7 列を列挙、`tests/parity/test_feature_parity_sql_ranker.py` で検証)
-6. `infra/modules/vertex/main.tf::google_vertex_ai_feature_group_feature` × 7 (Vertex Feature Group の property-side 7 列、`tests/parity/test_feature_parity_feature_group.py` で `FEATURE_COLS_RANKER` との 1:1 を検査)
+1. **1 PR = 1 統合トピック** (T1〜T8 のいずれか)。parity 波及がある場合は 6 ファイル同 PR で揃える
+2. **Port を増やす** (新 Protocol を `ports/<name>.py` に)、または既存 Port の alternative adapter を追加する
+3. **Adapter の外部 SDK import は adapter 層限定** (`google.cloud.*` / `google.genai` / `apache_beam` / `google.cloud.discoveryengine` は `adapters/` でのみ import)
+4. **composition root で feature flag による切り替え** を実装 (`app/src/app/entrypoints/api.py::lifespan`)
+5. **`make check` を PASS** (ruff / ruff format / mypy strict / pytest)、**`make check-layers` を PASS** (境界違反なし)、**parity test を PASS** (6 ファイル)
+6. **Terraform で宣言**、`make tf-plan` で差分確認 → `make tf-apply` で反映
+7. **新 make target / 新 ops-* コマンド** は `docs/04_運用.md` に同 PR で追記
+8. **学習終了後の coast-down 手順** (常時課金リソースの destroy) を `make destroy-*` に追加
 
-10 列中 7 列 (`rent` / `walk_min` / `age_years` / `area_m2` / `ctr` / `fav_rate` / `inquiry_rate`) が property-side で訓練 / 推論で共通。残り 3 列 (`me5_score` / `lexical_rank` / `semantic_rank`) はクエリ時に計算されるので監視 SQL からは除外し、サービング側で別のサニティチェックを回す。
+### 実装順序 (`docs/01_仕様と設計.md §5`)
+
+1. **T5 Monitoring SLO** (Terraform のみ、parity 影響ゼロ、最小リスク) — 最初に着手
+2. **T4 Explainable AI** (reranker endpoint 拡張 + `/search?explain=true`)
+3. **T3 Vertex Vector Search** (alternative semantic adapter + Terraform)
+4. **T6 RAG (Gemini)** (新エンドポイント `/rag`、既存 /search 不変)
+5. **T1 BQML** (parity 6 ファイル全更新、影響大)
+6. **T8 Model Garden enrichment** (KFP pipeline に optional component)
+7. **T2 Dataflow** (新ワークスペース + 新 SA + Flex Template、規模最大)
+8. **T7 Agent Builder** (Meilisearch adapter 抽出リファクタ前提、最後)
+
+学習上の優先度で順番を入れ替える判断は User が行う。
+
+---
+
+## Port / Adapter 境界と make check
+
+Phase 6 追加コードも Phase 5 と同じ境界ルールに従う:
+
+- **Port**: `<workspace>/src/<pkg>/ports/<name>.py` の Protocol。`ports/__init__.py` で re-export
+- **Adapter**: `<workspace>/src/<pkg>/adapters/<name>.py`。外部 SDK 依存はここでのみ
+- **Service**: `<workspace>/src/<pkg>/services/<name>.py`。Port だけ import、adapter import 禁止
+- **境界検知**: `scripts/checks/layers.py::RULES` に新 Port / service を追加。`make check-layers` で CLI、`tests/arch/test_import_boundaries.py` で CI
+
+Phase 6 で追加される主な外部 SDK 依存:
+
+| SDK | import OK なファイル |
+|---|---|
+| `google.cloud.bigquery` | `adapters/bqml_popularity_scorer.py` / 既存 adapters |
+| `google.cloud.aiplatform` | `adapters/vertex_vector_search_retriever.py` / 既存 adapters |
+| `google.genai` (または `vertexai.generative_models`) | `adapters/gemini_generator.py` |
+| `apache_beam` | `ml/streaming/src/streaming/**` (adapter 相当) |
+| `google.cloud.discoveryengine` | `adapters/agent_builder_lexical.py` |
+
+---
+
+## Feature parity invariant (6 ファイル同 PR 原則、継承)
+
+Phase 5 から継承。特徴量を追加 / 変更するとき、以下 6 つを必ず同じ PR で揃える:
+
+1. `definitions/features/property_features_daily.sqlx`
+2. `common/src/common/feature_engineering.py::build_ranker_features`
+3. `common/src/common/schema/feature_schema.py::FEATURE_COLS_RANKER`
+4. `infra/terraform/modules/data/main.tf` の `ranking_log.features` RECORD
+5. `monitoring/validate_feature_skew.sql` の UNPIVOT
+6. `infra/modules/vertex/main.tf::google_vertex_ai_feature_group_feature` × N
+
+Phase 6 で **T1 BQML 補助スコアを rerank feature に加算する** ケース、**T8 enrichment で新列を追加する** ケースは上記すべての更新が必要。parity test (`tests/parity/test_feature_parity_*.py`) が FAIL するので CI で検知される。
 
 ---
 
@@ -70,138 +125,29 @@
 02_移行ロードマップ.md > 01_仕様と設計.md > README.md
 ```
 
-`CLAUDE.md` と `03_実装カタログ.md` は上位 3 者から派生する従属ドキュメント。3 者が互いに矛盾したら `02_移行ロードマップ.md` を正として他を合わせ、User に flag する。
+`CLAUDE.md` と `03_実装カタログ.md` / `04_運用.md` は上位から派生する従属ドキュメント。矛盾したら `02_移行ロードマップ.md` を正として他を合わせ、User に flag する。
 
-過去に Vertex AI / Meilisearch / Redis など「採否決定が drift した」事例があるので、連動するドキュメントは **同一 PR で直す** (`docs/README.md §3`)。
+Phase 6 で特に drift しやすいのは:
 
----
-
-## 開発コマンド
-
-生コマンドは `docs/04_運用.md §1` の STEP 1–17、全ターゲットは `make help`。`make check` でローカル CI 同等 (ruff / ruff format / mypy strict / pytest) を走らせる。
-
-| target | 用途 |
-|---|---|
-| `make doctor` | 前提ツール到達確認 (uv / terraform / gcloud / make / jq + VIRTUAL_ENV mismatch 警告) |
-| `make sync` | uv workspace + dev group 同期 |
-| `make check` | ruff + fmt-check + mypy + pytest (CI 同等、現行 194 tests) |
-| `make check-layers` | AST で Port/Adapter 境界違反を検出 (`scripts/checks/layers.py::RULES` 経由、31 ファイル) |
-| `make sync-dataform-config` | `env/config/setting.yaml` → `definitions/workflow_settings.yaml` を生成 (gitignored、CI で自動再生成) |
-| `make train-smoke` / `make train-smoke-persist` | 合成データで LightGBM LambdaRank 学習 (GCP 認証不要) |
-| `make api-dev` | ローカル uvicorn (`ENABLE_SEARCH=false` 既定 / `/search` を動かす場合は env に ENABLE_SEARCH=true + BQ creds) |
-| `make tf-validate` | オフライン terraform validate |
-| `make tf-bootstrap` | Phase 0 (API 有効化 + tfstate バケット作成、冪等) |
-| `make tf-plan` | Terraform plan。`GITHUB_REPO` / `ONCALL_EMAIL` は `env/config/setting.yaml` から既定値、env で都度上書き可。1 行で叩く / backslash 改行禁止。infra/tfplan に保存 |
-| `make deploy-api-local` | CI を経由せず Cloud Build (`cloudbuild.api.yaml`) → `gcloud run deploy` で local から rollout。embed / train / serve の image は `cloudbuild.embed.yaml` / `cloudbuild.train.yaml` / (serve は個別 docker build) 経由 |
-| `make ops-*` | 本番 GCP 操作 (`docs/04_運用.md §2`)。`ops-livez` (Cloud Run /livez 疎通) / `ops-search` / `ops-ranking` / `ops-feedback` / `ops-label-seed` / `ops-search-volume` / `ops-runs-recent` / `ops-skew-latest` 等 |
-
-CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `definitions/**` / `infra/**`) は top-level ディレクトリと 1:1。`common/**` は api / ml の両方に依存するため `deploy-api.yml` / `deploy-encoder-image.yml` / `deploy-trainer-image.yml` / `deploy-reranker-image.yml` / `deploy-pipeline.yml` に含める。
+- 「不変の範囲」の表現 (「Phase 5 コード全体」と書かれていたら誤り、「ハイブリッド検索中核」が正)
+- 「統合トピックのファイル配置」(01 §3 と 02 §3 の表が食い違っていないか)
 
 ---
 
-## 参照リポジトリ (コピー元)
+## 学習リポとしての最小スペック選定 (継承)
 
-参考にした 3 つのリポジトリ。既存パターンがあるものを新規作成する前にこれらを参照する:
+Vertex Endpoint / Vector Search endpoint / Dataflow job / Agent Builder Engine はすべて **min=1 / max=1 / 小型マシン** を default にする。Phase 5 からの非負制約を継承。
 
-| 役割 | パス | 引用ポイント |
-|---|---|---|
-| 不動産ハイブリッド検索の設計 | `/home/ubuntu/repos/study-gcp-mlops/study-llm-reranking-mlops` | LambdaRank ハイパラ / NDCG 評価 / ラベル Gain / ME5 プロンプト規約 (`query:` / `passage:`)。I/O 層は本リポの Port/Adapter に吸収 |
-| GCP I/O 層 | `/home/ubuntu/repos/starter-kit/mlops/` | GCS upload + BQ insert / Cloud Logging JSON formatter + request middleware / argparse entrypoint |
-| Terraform + CI/CD | `/home/ubuntu/repos/study-gcp/study-gcp-mlops/` | `terraform/*.tf` と `.github/workflows/{terraform,api-deploy,batch-deploy}.yml` の雛形 |
-
-本リポジトリで新規作成したもの:
-
-- **機能**: Dataform 定義 (`property_features_daily`) / `BigQueryCandidateRetriever` (BQ VECTOR_SEARCH) / `E5Encoder` (sentence-transformers ラッパ) / `/search` `/feedback` `/jobs/check-retrain` `/events/retrain` エンドポイント / Pub/Sub → BQ Subscription (`ranking-log` / `search-feedback`) / NDCG ベース mean-drift SQL / 10 SA 最小権限分離 / uv ワークスペース化 / Workload Identity Federation
-- **Port / Adapter 分離** (6 workspace すべて layer-based subpackage、`ml/` 配下に pipeline 系を集約):
-  - `common/src/common/`: `ports/` (embedding_store) / `adapters/` (bigquery_embedding_store) / `storage/` (gcs_artifact_store) / `schema/` (feature_schema) / `logging/` (structured_logging) / `ranking/` (metrics, label_gain) + top-level `config.py` / `feature_engineering.py` / `run_id.py`
-  - `app/src/app/`: `entrypoints/` (api) / `services/` (ranking, retrain_policy) / `ports/` (candidate_retriever, publisher, retrain_queries, training_job_runner) / `adapters/` (candidate_retriever, publisher, retrain, training_job) / `middleware/` (request_logging) / `schemas/` (search) + top-level `config.py`
-  - `ml/embed/src/embed/`: `cli` / `runner` / `e5_encoder` / `config` (EmbedSettings) / `adapters/` (embedding_writer) + `pipeline/` (KFP embed pipeline + 3 components) + `server/encoder_server.py` (Vertex CPR) + `container/Dockerfile`
-  - `ml/train/src/train/`: `cli` / `trainer` / `metrics` / `config` (TrainSettings) / `ports/` (ranker_repository, artifact_uploader, experiment_tracker) / `adapters/` (bigquery_ranker_repository, artifact_store, experiment_tracker, repository) + `pipeline/` (KFP train pipeline + 5 components) + `container/Dockerfile`
-  - `ml/serve/src/serve/reranker_server.py` + `container/Dockerfile` (Vertex CPR reranker)
-  - `ml/sync/src/sync/meili_sync.py` (Meilisearch index sync CLI)
-  - `ml/trigger/main.py` (Gen2 Cloud Function — Pipeline submit)
-  - `ml/pipeline_utils/compile.py` (embed + train KFP template compile CLI)
-- **自動検知** (`tests/` は責務別 3 サブフォルダに分割):
-  - `tests/arch/test_import_boundaries.py` — AST 境界 (canonical な `RULES` は `scripts/checks/layers.py`、`make check-layers` でも CLI 単独実行可)
-  - `tests/parity/test_feature_parity_ranking.py` + `tests/parity/test_feature_parity_sql_ranker.py` + `tests/parity/test_feature_parity_feature_group.py` — 6 ファイル parity invariant
-  - `tests/parity/test_dataform_workflow_settings.py` — setting.yaml ↔ Dataform 生成 yaml の drift
-  - `tests/infra/test_terraform_module_structure.py` / `tests/infra/test_infra_ranker_tables.py` / `tests/infra/test_workflows_structure.py`
-- **CI composite actions**: `.github/actions/{setup-python-env,setup-gcp,build-and-push}/` (5 workflow で共有)
-- **scripts/ の責務分割** (lifecycle 別、`scripts/README.md` に Python-default ルール明記):
-  - `scripts/setup/` (doctor / tf_bootstrap / tf_init / tf_plan)、`scripts/deploy/` (api_local / training_job_local)、`scripts/config/` (sync_dataform)、`scripts/checks/` (layers)、`scripts/ops/` (livez_check / search_check / ranking_check / feedback_check / training_label_seed / check_retrain)、`scripts/sql/` (BQ クエリ)
-  - 共通 helper は `scripts/_common.py` (env / gcloud / cloud_run_url / identity_token / http_json、stdlib のみ)
-
----
-
-## リポジトリ状態
-
-- Phase 1–10d の実装 + scripts/tests 再編 + setting.yaml 集約が完了。California Housing 関連コード / Dataform / Python / Terraform / Scheduled Query は 10b/10c で完全削除済
-- `make check` 現行 231 tests (`tests/{arch,parity,infra}/` + workspace 別 `{app,common,ml/embed,ml/train}/tests/`)。全通過。
-- Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
-- feature parity invariant (6 ファイル) は自動検知:
-  - `tests/parity/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
-  - `tests/parity/test_feature_parity_ranking.py` — Python `build_ranker_features` ↔ `schema.py` ↔ infra `ranking_log.features` RECORD + Dataform SQLX のビヘイビア列チェック
-  - `tests/parity/test_feature_parity_feature_group.py` — Vertex Feature Group (`google_vertex_ai_feature_group_feature` × 7) ↔ `FEATURE_COLS_RANKER` (property-side 7 列) の 1:1 対応
-  - `tests/parity/test_dataform_workflow_settings.py` — `env/config/setting.yaml` ↔ `scripts.config.sync_dataform.render()` (生成器) drift 検知
-- Terraform モジュール構造 (`main.tf` / `variables.tf` / `outputs.tf` / `versions.tf` + 全 variable に description) は `tests/infra/test_terraform_module_structure.py` で検証
-- 初回 apply 時に踏みやすい 4 つのハマりは `infra/modules/` 側で全て修正済 (`time_sleep` / DTS の `location` / DTS の `service_account_name` / Cloud Run image placeholder)。詳細表は `docs/04_運用.md §1 STEP 9`
-- `make tf-validate` PASS (offline)、`make tf-bootstrap` で Phase 0 半自動化済
-- **残タスク**:
-  - **trainer fixture の `semantic_rank` 欠落解消済** — Phase 10e リファクタで `ml/train/tests/test_trainer.py` / `test_cli_run.py` は `FEATURE_COLS_RANKER` (`semantic_rank` 含む) を揃えた synthetic frame を生成済み
-  - Doppler → Cloud Run 環境変数注入は **配線されていない** (Secret Manager 容器は作るが誰も読まない、`--set-secrets` 未使用)。STEP 10 を skip しても動く
-  - Monitoring 通知先差し替え (`oncall@example.com` placeholder)
-  - Looker Studio ダッシュボード (IaC 対象外)
-  - VECTOR INDEX の IaC 化 (`google_bigquery_vector_index` provider 対応待ち、`docs/02_移行ロードマップ.md §14 R3`)
-  - Phase 6 以降の LambdaRank booster 本番連携 (`/search` から `score` を出す rerank 組み込み)
-
----
-
-## 紛らわしい点
-
-- **`.dockerignore` の包括パターンは container の起動直後クラッシュの温床** — 過去に `**/data/` が `ml/data/` (Python package) を巻き込み、`infra/` が `infra/run/jobs/*/sync_meili_job.py` を巻き込んで COPY 失敗 → `ModuleNotFoundError` / `stat: file does not exist` を発生。**方針: 新規イメージを通すフェーズでは `.dockerignore` を最小構成 (cache / tfstate / `.git` のみ) まで緩め、全段 PASS してから段階的に除外を追加する**。直感に反して「広く切り捨てる」が危険、「必要最小限の除外」を守る。`**/foo/` のように top-level wildcards を書くときは `ml/foo/` 等の Python package と衝突しないか事前にチェック
-- `monitoring/validate_feature_skew.sql` は BQML の `ML.VALIDATE_DATA_SKEW()` 関数**ではなく**、カスタム mean-drift 実装 (`mean_drift_sigma`)
-- `FORCE_RELOAD=<ts>` は特殊な env ではなく、任意の env 変更で Cloud Run revision が再生成され lifespan が再ロードされる性質を利用した慣用。`make ops-reload-api` がラッパー
-- Doppler 連携は仕様 (Secret Manager → Cloud Run env) としては記述済みだが、deploy workflow は GitHub Secret 経由 (`secrets.DOPPLER_TOKEN_*`) で Doppler CLI を呼び、Secret Manager 容器は誰も読んでいない。当面は `--set-env-vars` 直書き運用
-- BigQuery `VECTOR_SEARCH` + `VECTOR INDEX` は Terraform google provider 未対応 (2026-04 時点)。INDEX は `docs/04_運用.md STEP 16` で手動 DDL
-- `/healthz` は Cloud Run の Knative frontend が予約 (HTML 404 を返して container に到達しない) ため、deploy 後の liveness 検査には **`/livez`** (alias) を使う。local の `make api-dev` 時は `/healthz` でも届く
-- Cloud Run image は初回 apply 時 `gcr.io/cloudrun/hello` placeholder で起動 (Artifact Registry が空のため)。real image は CI もしくは `make deploy-api-local` で push する。`lifecycle.ignore_changes = [... image ...]` により Terraform は real image を差し戻さない
-
----
-
-## 境界維持の長期方針
-
-現アーキテクチャは Port/Adapter + composition root + AST/parity テストで固めてあるが、**成長時に崩れやすい 2 箇所**を運用ルールとして明記する。
-
-### layer サブパッケージの拡張方針
-
-3 workspace とも layer-based subpackage (`entrypoints` / `services` / `ports` / `adapters` + 周辺) に整備済み。新しいコードを追加するときの基準:
-
-- **Port**（新しい Protocol） → `ports/<name>.py` を追加し `ports/__init__.py` で re-export
-- **Service**（新しい純粋ロジック） → `services/<name>.py`。Port だけを import、adapter は import しない
-- **Adapter**（新しい外部依存） → `adapters/<name>.py`。`__init__.py` で re-export
-- **新しい Port / 外部システム種別が増えた** → サブモジュールを増やす（既存ファイルを膨らませない）
-- **単一サブモジュールで 8 クラス以上 / 300 行超** → さらに細分化を検討
-- **レイヤ境界違反** → `scripts/checks/layers.py::RULES` を canonical として `tests/arch/test_import_boundaries.py` が CI で捕まえる。CLI でも `make check-layers`
-
-Port 定義は consumer と同居のまま動かさない (`app.candidate_retriever` の Port を `app.adapters.candidate_retriever` に移さない)。
-
-### `common/` 肥大化抑制
-
-`common/` には **「app と jobs の両方が使うもの」だけ** 置く。以下は common に入れない:
-
-- app だけが使う (例: FastAPI middleware、API schema) → `app/src/app/` に残す
-- ml/ だけが使う (例: LightGBM 直結 / KFP component / Vertex CPR) → 該当する `ml/{embed,train,serve,sync}/` に残す
-- 片側だけで使用中のファイルを `common/` に移すときは「なぜ共有が必要か」をコミットに書く
-
-判断に迷ったら「**jobs の Dockerfile でこのモジュールが読まれても意味があるか**」を問う。無ければ common から外す。`tests/arch/test_import_boundaries.py` で port/pure-logic files の境界は自動検知されるが、common 配置の妥当性は人間判断 — レビュー時にここを見る。
+常時課金されるサービス (Vector Search endpoint / Dataflow streaming job / Agent Builder Engine) は `make destroy-*` でいつでも消せる形にして、学習セッションが終わったら destroy する運用。
 
 ---
 
 ## 書き方
 
 `docs/README.md §4` 書き方ルールに従う:
-- 日本語で書く。英単語は技術用語としてそのまま (例: `lifespan`, `Booster`, `Pub/Sub`, `LambdaRank`)
+
+- 日本語で書く。英単語は技術用語としてそのまま (`lifespan`, `Booster`, `explanation_spec`, `burn rate`, `Flex Template` 等)
 - コマンドは `make` ターゲット優先。生 `gcloud` / `bq` / `terraform` は動的引数が必要な場合のみ
-- 識別子は固有名を使う (`<foo>` でぼかさない)。プロジェクト ID / テーブル / トピック名など
+- 識別子は固有名を使う (`<foo>` でぼかさない)
 - STEP / 番号付きリストは上から叩けば成立する順序で書く
-- 推測で書かない。コマンドを書いたら実際に叩いて確認する
+- 推測で書かない。コマンドを書いたら実際に叩いて確認する (Terraform は `make tf-plan` で差分を見てから apply)
