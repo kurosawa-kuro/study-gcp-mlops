@@ -376,6 +376,42 @@ def create_app() -> FastAPI:
         encoder_client = getattr(request.app.state, "encoder_client", None)
         if retriever is None or encoder_client is None:
             return JSONResponse({"status": "loading"}, status_code=503)
+        
+        # Pre-flight publisher topic checks (best-effort; failures are warnings, not 503s)
+        settings: ApiSettings = request.app.state.settings
+        publisher_checks = {}
+        logger = get_logger("app")
+        
+        try:
+            from google.cloud import pubsub_v1
+            from google.api_core.exceptions import NotFound, PermissionDenied
+            
+            subscriber = pubsub_v1.SubscriberClient()
+            
+            for topic_name_attr in ["ranking_log_topic", "retrain_topic", "feedback_topic"]:
+                topic = getattr(settings, topic_name_attr, None)
+                if not topic:
+                    publisher_checks[topic_name_attr] = "not_configured"
+                    continue
+                
+                try:
+                    topic_path = subscriber.topic_path(settings.project_id, topic)
+                    # Try to describe the topic to verify it exists and we have access
+                    subscriber.get_topic(request={"topic": topic_path}, timeout=5)
+                    publisher_checks[topic_name_attr] = "ok"
+                except NotFound:
+                    publisher_checks[topic_name_attr] = "not_found"
+                    logger.warning(f"Publisher pre-flight: topic {topic} not found (NotFound 404)")
+                except PermissionDenied:
+                    publisher_checks[topic_name_attr] = "permission_denied"
+                    logger.warning(f"Publisher pre-flight: IAM deny for topic {topic} (PermissionDenied 403)")
+                except Exception as e:
+                    publisher_checks[topic_name_attr] = f"error: {type(e).__name__}"
+                    logger.warning(f"Publisher pre-flight: {topic_name_attr} check failed: {e}")
+        except Exception as e:
+            logger.warning(f"Publisher pre-flight check failed (import or initialization): {e}")
+            publisher_checks["_error"] = str(e)
+        
         reranker = getattr(request.app.state, "reranker_client", None)
         return JSONResponse(
             {
@@ -383,6 +419,7 @@ def create_app() -> FastAPI:
                 "search_enabled": True,
                 "rerank_enabled": reranker is not None,
                 "model_path": getattr(reranker, "model_path", None),
+                "publisher_checks": publisher_checks,  # Visibility into topic pre-flight state
             }
         )
 

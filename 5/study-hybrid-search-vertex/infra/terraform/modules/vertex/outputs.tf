@@ -14,8 +14,8 @@ output "pipeline_root_bucket_name" {
 }
 
 output "feature_group_property_features" {
-  description = "Canonical property-side feature declarations for the Vertex Feature Group scaffold"
-  value       = local.feature_group_property_features
+  description = "REMOVED — Feature Group deleted in Phase 5 scope reduction"
+  value       = null
 }
 
 output "model_monitoring_alerts_topic" {
@@ -44,12 +44,8 @@ output "monitoring_trigger_eventarc_name" {
 }
 
 output "property_features_feature_group" {
-  description = "Vertex AI Feature Group wrapping property_features_daily (null when disabled)"
-  value = (
-    length(google_vertex_ai_feature_group.property_features) > 0
-    ? google_vertex_ai_feature_group.property_features[0]
-    : null
-  )
+  description = "REMOVED — Feature Group deleted in Phase 5 scope reduction"
+  value       = null
 }
 
 output "encoder_endpoint" {
