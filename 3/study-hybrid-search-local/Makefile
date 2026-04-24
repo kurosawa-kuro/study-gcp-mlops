@@ -3,6 +3,16 @@
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,$(if $(wildcard ../.venv/bin/python),../.venv/bin/python,python3))
 MONITOR_LOG_DIR ?= logs/run-all-monitor
 
+PHASE_NAME := phase-3-local
+NA_TARGETS := doctor lint fmt fmt-check typecheck check \
+	tf-% deploy-all deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
+	setup-% ops-monitor ops-monitor-lro \
+	seed-test seed-test-clean train-smoke train-smoke-persist api-dev api-dev-search-rerank serve \
+	ops-api-url ops-skew-% ops-search-volume ops-runs-recent ops-bq-scan-top ops-train-now ops-pipeline-run ops-reload-api ops-enable-search ops-promote-reranker ops-check-retrain ops-slo-status \
+	bqml-train-popularity enrich-properties destroy-phase6-learning kube-creds local-accuracy-report
+
+include ../../mk/base.mk
+
 # docker compose を直接呼ばず、env/secret/credential.yaml を読み込むラッパー経由で起動する
 DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 
@@ -28,6 +38,9 @@ up: ## Start docker compose services (detached)
 
 ports-free: ## Free host ports 8000/5432/5050/7700/6379 (stop foreign containers)
 	./scripts/local/setup/free_ports.sh
+
+free-ports: ## Canonical alias of ports-free
+	$(MAKE) ports-free
 
 up-clean: ports-free up ## Free ports then start docker compose (safe bring-up)
 
@@ -194,3 +207,7 @@ ops-run-all-monitor: ## Monitor run-all progress and save logs
 	$(PYTHON) scripts/local/run_all_monitor.py --log-file "$$log_file" -- $(MAKE) run-all-core
 
 run-all: ops-run-all-monitor ## End-to-end local validation flow via monitor
+	$(MAKE) ops-run-all-monitor
+
+verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
+	$(MAKE) run-all-core

@@ -19,6 +19,15 @@ TRAINING_JOB  ?= $(call _yaml_get,training_job)
 ARTIFACT_REPO ?= $(call _yaml_get,artifact_repo)
 MONITOR_LOG_DIR ?= $(ROOT)/logs/deploy-monitor
 
+PHASE_NAME := phase-4-gcp
+NA_TARGETS := up wait-db free-ports serve test-e2e install-browsers \
+	db-migrate-% db-seed-% ops-bootstrap \
+	ops-sync ops-embed ops-train-build ops-train-fit ops-ranking-verbose \
+	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
+	kube-creds deploy-api deploy-kserve-models
+
+include ../../mk/base.mk
+
 # Override-able via CLI: `make tf-plan GITHUB_REPO=other/repo ONCALL_EMAIL=...`
 GITHUB_REPO   ?= $(call _yaml_get,github_repo)
 ONCALL_EMAIL  ?= $(call _yaml_get,oncall_email)
@@ -110,6 +119,9 @@ deploy-all-direct: ## End-to-end provisioning + rollout WITHOUT monitor (debug o
 	uv run python -m scripts.dev.deploy_all
 
 run-all: ## End-to-end validation flow after deploy (layer check → smoke APIs → feedback/train hooks → daily ops)
+	$(MAKE) ops-run-all-monitor
+
+run-all-core: ## Core validation flow after deploy (no monitor wrapper)
 	$(MAKE) check-layers
 	$(MAKE) seed-test
 	$(MAKE) ops-livez
@@ -121,6 +133,15 @@ run-all: ## End-to-end validation flow after deploy (layer check → smoke APIs 
 	$(MAKE) ops-check-retrain
 	$(MAKE) ops-accuracy-report
 	$(MAKE) ops-daily
+
+ops-run-all-monitor: ## Real-time monitor for run-all-core
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all-monitor.log"; \
+	echo "monitor-log: $$log_file"; \
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --label run-all -- $(MAKE) run-all-core 2>&1 | tee "$$0"' "$$log_file"
+
+verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
+	$(MAKE) run-all-core
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.dev.destroy_all

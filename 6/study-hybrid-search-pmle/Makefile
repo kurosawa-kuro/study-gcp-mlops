@@ -31,6 +31,14 @@ MODEL_PATH_OVERRIDE ?= /tmp/hybrid-search-cloud-smoke-model.txt
 # deploy-monitor 出力先 (ops-deploy-monitor が tee する log を保存)
 MONITOR_LOG_DIR ?= $(ROOT)/logs/deploy-monitor
 
+PHASE_NAME := phase-6-pmle
+NA_TARGETS := up wait-db free-ports serve test-e2e install-browsers \
+	db-migrate-% db-seed-% ops-bootstrap \
+	ops-sync ops-embed ops-train-build ops-train-fit ops-ranking-verbose \
+	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report
+
+include ../../mk/base.mk
+
 export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
@@ -148,6 +156,9 @@ ops-monitor-lro: ## LRO (Long-Running Op) monitor: CMD="<command>" (Vertex Endpo
 	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --stall-warn-sec 1200 --label "$$0" -- $$1 2>&1 | tee "$$2"' "$$label" "$(CMD)" "$$log_file"
 
 run-all: ## End-to-end validation flow after deploy (layer check → seed → train pipeline submit → smoke APIs → daily ops)
+	$(MAKE) ops-run-all-monitor
+
+run-all-core: ## Core validation flow after deploy (no monitor wrapper)
 	$(MAKE) check-layers
 	$(MAKE) seed-test
 	$(MAKE) ops-train-now
@@ -159,6 +170,15 @@ run-all: ## End-to-end validation flow after deploy (layer check → seed → tr
 	$(MAKE) ops-label-seed
 	$(MAKE) ops-daily
 	$(MAKE) ops-accuracy-report
+
+ops-run-all-monitor: ## Real-time monitor for run-all-core
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all-monitor.log"; \
+	echo "monitor-log: $$log_file"; \
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --label run-all -- $(MAKE) run-all-core 2>&1 | tee "$$0"' "$$log_file"
+
+verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
+	$(MAKE) run-all-core
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.local.setup.destroy_all

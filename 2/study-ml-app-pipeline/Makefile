@@ -3,6 +3,19 @@
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 MONITOR_LOG_DIR ?= logs/run-all-monitor
 
+PHASE_NAME := phase-2-app-pipeline
+NA_TARGETS := up wait-db doctor sync logs api-refresh \
+	lint fmt fmt-check typecheck check check-layers \
+	db-migrate-% db-seed-% ops-bootstrap \
+	tf-% deploy-all deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
+	setup-% ops-monitor ops-monitor-lro \
+	seed-test seed-test-clean train-smoke train-smoke-persist api-dev api-dev-search-rerank \
+	ops-api-url ops-skew-% ops-search-volume ops-runs-recent ops-bq-scan-top ops-train-now ops-pipeline-run ops-reload-api ops-enable-search ops-promote-reranker ops-check-retrain ops-slo-status \
+	ops-sync ops-embed ops-train-build ops-train-fit ops-ranking-verbose eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
+	bqml-train-popularity enrich-properties destroy-phase6-learning kube-creds local-accuracy-report
+
+include ../../mk/base.mk
+
 .PHONY: help build seed train serve test test-e2e install-browsers run-all-core run-all ops-run-all-monitor down clean free-ports
 
 help: ## Show this help
@@ -32,6 +45,10 @@ install-browsers: ## Playwright 用の Chromium などブラウザをインス�
 	$(PYTHON) -m playwright install chromium
 
 run-all-core: build seed train test ## Core flow (build → seed → train → test)
+	$(MAKE) build
+	$(MAKE) seed
+	$(MAKE) train
+	$(MAKE) test
 
 ops-run-all-monitor: ## Monitor run-all progress and save logs
 	@mkdir -p "$(MONITOR_LOG_DIR)"
@@ -40,6 +57,10 @@ ops-run-all-monitor: ## Monitor run-all progress and save logs
 	$(PYTHON) scripts/local/run_all_monitor.py --log-file "$$log_file" -- $(MAKE) run-all-core
 
 run-all: ops-run-all-monitor ## End-to-end local flow via monitor (build → seed → train → test)
+	$(MAKE) ops-run-all-monitor
+
+verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
+	$(MAKE) run-all-core
 
 down: ## Stop and remove docker compose services
 	docker compose down --remove-orphans
