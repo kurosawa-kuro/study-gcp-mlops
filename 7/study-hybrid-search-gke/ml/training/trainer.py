@@ -46,7 +46,7 @@ from ml.data.loaders.ranker_repository import (
 )
 from ml.evaluation.metrics import evaluate
 from ml.registry.artifact_store import ArtifactUploader, GcsArtifactUploader
-from ml.training.experiments import ExperimentTracker, NoopExperimentTracker
+from ml.training.experiments import ExperimentTracker, NullExperimentTracker
 from ml.training.model_builder import split_by_request_id, synthetic_ranking_frames
 
 logger = get_logger(__name__)
@@ -191,9 +191,9 @@ def _copy_if_requested(source: Path, destination: str | None) -> None:
     shutil.copy(source, target)
 
 
-def _default_tracker_factory(_settings: TrainSettings) -> TrackerFactory:
-    def _build(_run_id: str, _workdir: Path) -> ExperimentTracker:
-        return NoopExperimentTracker()
+def _default_tracker_factory(settings: TrainSettings) -> TrackerFactory:
+    def _build(run_id: str, workdir: Path) -> ExperimentTracker:
+        return NullExperimentTracker()
 
     return _build
 
@@ -255,7 +255,7 @@ def run(
     with tempfile.TemporaryDirectory() as td:
         workdir = Path(td)
         output_dir = workdir / "artifacts"
-        with build_tracker(run_id, workdir / "tracker") as tracker:
+        with build_tracker(run_id, workdir) as tracker:
             result = train(
                 train_df=train_df,
                 test_df=test_df,

@@ -42,7 +42,8 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
 	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
-        ops-check-retrain ops-bq-scan-top ops-label-seed
+        ops-check-retrain ops-bq-scan-top ops-label-seed \
+        ops-slo-status bqml-train-popularity enrich-properties
 
 help: ## Show this help
 	@echo "First-time setup:  see README.md §セットアップ (run 'make doctor' to verify tools)"
@@ -230,3 +231,14 @@ ops-accuracy-report: ## Simple ranking accuracy report on deployed Cloud Run (/s
 
 local-accuracy-report: ## Simple ranking accuracy report against local API (/search, TARGET=local)
 	TARGET=local uv run python -m scripts.local.ops.accuracy_report
+
+# ----- Phase 6 PMLE ops targets -----
+
+ops-slo-status: ## Phase 6 T5: print current compliance + burn-rate (1h/3d) for availability + latency SLOs
+	uv run python -m scripts.local.ops.slo_status
+
+bqml-train-popularity: ## Phase 6 T1: train BQML property-popularity model (BOOSTED_TREE_REGRESSOR)
+	uv run python -m scripts.local.bqml.train_popularity
+
+enrich-properties: ## Phase 6 T8: run Gemini description enrichment (LIMIT=50 BATCH=10)
+	uv run python -m scripts.local.enrichment.run_enrichment --limit=$${LIMIT:-50} --batch-size=$${BATCH:-10}

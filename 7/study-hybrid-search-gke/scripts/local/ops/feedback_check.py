@@ -7,14 +7,14 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import api_external_url, fail, http_json, identity_token, print_pretty
+from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
 
 
 def main() -> int:
     query = os.environ.get("QUERY", "品川駅")
     action = os.environ.get("ACTION", "click")
 
-    url = api_external_url()
+    url = cloud_run_url()
     token = identity_token()
 
     status, body = http_json(

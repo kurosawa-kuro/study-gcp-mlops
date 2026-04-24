@@ -23,7 +23,7 @@ from app.services.protocols.candidate_retriever import (
     CandidateRetriever,
     RankingLogPublisher,
 )
-from app.services.protocols.reranker_client import RerankerClient
+from app.services.protocols.reranker_client import RerankerClient, RerankerExplainer
 from ml.data.feature_engineering import FEATURE_COLS_RANKER, build_ranker_features
 
 RRF_K: int = 60
@@ -35,10 +35,15 @@ class RankedCandidate:
     candidate: Candidate
     final_rank: int
     score: float | None
+    # Phase 6 T4 — per-feature TreeSHAP contributions. Populated only when
+    # ``run_search(..., want_explanations=True)`` AND the reranker implements
+    # ``RerankerExplainer``. ``None`` otherwise, leaving SearchResultItem
+    # attributions null for non-explain responses.
+    attributions: dict[str, float] | None = None
 
 
-def _score_candidates(candidates: list[Candidate], reranker: RerankerClient) -> list[float]:
-    """Build the feature matrix in FEATURE_COLS_RANKER order and call predict."""
+def _build_feature_matrix(candidates: list[Candidate]) -> list[list[float]]:
+    """Build the feature matrix in FEATURE_COLS_RANKER order."""
     rows = [
         build_ranker_features(
             property_features=cand.property_features,
@@ -48,8 +53,20 @@ def _score_candidates(candidates: list[Candidate], reranker: RerankerClient) -> 
         )
         for cand in candidates
     ]
-    matrix = [[float(row[col]) for col in FEATURE_COLS_RANKER] for row in rows]
+    return [[float(row[col]) for col in FEATURE_COLS_RANKER] for row in rows]
+
+
+def _score_candidates(candidates: list[Candidate], reranker: RerankerClient) -> list[float]:
+    matrix = _build_feature_matrix(candidates)
     return reranker.predict(matrix)
+
+
+def _score_with_explain(
+    candidates: list[Candidate],
+    reranker: RerankerExplainer,
+) -> tuple[list[float], list[dict[str, float]]]:
+    matrix = _build_feature_matrix(candidates)
+    return reranker.predict_with_explain(matrix, FEATURE_COLS_RANKER)
 
 
 def run_search(
@@ -63,12 +80,19 @@ def run_search(
     top_k: int,
     reranker: RerankerClient | None = None,
     model_path: str | None = None,
+    want_explanations: bool = False,
 ) -> list[RankedCandidate]:
     """Execute one search and return ranked candidates truncated to top_k.
 
     If ``reranker`` is ``None`` the fallback path kicks in.
     Either way, ranking_log receives one row per retrieved candidate (not just
     the top_k) so offline eval keeps the full pool.
+
+    ``want_explanations=True`` plus a reranker that satisfies
+    ``RerankerExplainer`` (has ``predict_with_explain``) attaches per-instance
+    TreeSHAP attributions to each returned ``RankedCandidate``. A reranker
+    that only implements plain ``predict`` silently falls back to no
+    attributions so existing Phase 5 deployments keep working.
     """
     candidates = retriever.retrieve(
         query_text=query_text,
@@ -87,7 +111,14 @@ def run_search(
         return []
 
     if reranker is not None:
-        scores = _score_candidates(candidates, reranker)
+        attributions: list[dict[str, float]] | None = None
+        if want_explanations and hasattr(reranker, "predict_with_explain"):
+            scores, attributions = _score_with_explain(
+                candidates,
+                reranker,  # type: ignore[arg-type]
+            )
+        else:
+            scores = _score_candidates(candidates, reranker)
         # Stable descending sort; higher score wins. Ties preserve lexical order
         # because ``sorted`` is stable and candidates are already lexically ordered.
         order = sorted(range(len(candidates)), key=lambda i: -scores[i])
@@ -107,6 +138,7 @@ def run_search(
                 candidate=candidates[i],
                 final_rank=final_rank_by_index[i],
                 score=scores[i],
+                attributions=(attributions[i] if attributions is not None else None),
             )
             for i in order
         ]

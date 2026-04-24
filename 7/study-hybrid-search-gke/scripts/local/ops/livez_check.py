@@ -5,11 +5,11 @@ so we use the /livez alias registered in app/src/app/entrypoints/api.py.
 
 from __future__ import annotations
 
-from scripts._common import api_external_url, fail, http_json, identity_token
+from scripts._common import cloud_run_url, fail, http_json, identity_token
 
 
 def main() -> int:
-    url = api_external_url()
+    url = cloud_run_url()
     token = identity_token()
     status, body = http_json("GET", f"{url}/livez", token=token)
     if status != 200:

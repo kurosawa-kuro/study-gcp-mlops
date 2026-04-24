@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts._common import api_external_url, fail, http_json, identity_token
+from scripts._common import cloud_run_url, fail, http_json, identity_token
 
 
 @dataclass(frozen=True)
@@ -113,7 +113,7 @@ def _resolve_target() -> tuple[str, str, str | None]:
         api_url = os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/")
         return target, api_url, None
     if target == "gcp":
-        return target, api_external_url(), identity_token()
+        return target, cloud_run_url(), identity_token()
     raise ValueError("TARGET must be either 'local' or 'gcp'")
 
 

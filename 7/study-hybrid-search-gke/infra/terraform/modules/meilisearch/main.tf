@@ -39,6 +39,12 @@ resource "google_cloud_run_v2_service" "meili_search" {
 
     containers {
       image = var.meili_image
+      # Meilisearch 公式 image の default port は 7700、Cloud Run は 8080 を
+      # listen 要求。env `MEILI_HTTP_ADDR=0.0.0.0:8080` + `ports.container_port=8080`
+      # で整合させる (2026-04-23 Phase 5 実運用で確定)。
+      ports {
+        container_port = 8080
+      }
       resources {
         limits = {
           cpu    = "1"
@@ -49,6 +55,11 @@ resource "google_cloud_run_v2_service" "meili_search" {
       env {
         name  = "MEILI_DB_PATH"
         value = "/meili_data"
+      }
+
+      env {
+        name  = "MEILI_HTTP_ADDR"
+        value = "0.0.0.0:8080"
       }
 
       env {
@@ -86,7 +97,9 @@ resource "google_cloud_run_v2_service_iam_member" "api_invoker" {
   member   = "serviceAccount:${var.service_accounts.api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "meili_key_access" {
+# Secret Accessor: meili SA が Cloud Run 起動時に MEILI_MASTER_KEY を読み込めるよう
+# secretmanager.secretAccessor を付与する。
+resource "google_secret_manager_secret_iam_member" "meili_sa_master_key_access" {
   secret_id = var.meili_master_key_secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.meili.email}"

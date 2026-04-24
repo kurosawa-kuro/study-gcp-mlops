@@ -1,17 +1,7 @@
-"""KFP component: MINIMAL stub for reranker registration.
+"""KFP component: upload and optionally deploy a reranker model.
 
-Phase 5 Run 4 で `@dsl.component(packages_to_install=["google-cloud-aiplatform"])`
-付きの register-reranker が **pipeline 末尾** で走ると worker が 0 ログで exit 1
-する事故 (5 連続失敗) が発生した。`resolve_hyperparameters` (pipeline 冒頭) は
-同 packages でも成功するため、末尾 pip install のタイミング問題と判断。
-
-決着: pipeline 内の register-reranker は **MINIMAL stub (print + return のみ)**
-に縮退させて pipeline を SUCCEED させ、実 Model.upload は pipeline 外の
-`scripts/local/ops/register_model.py` (Phase 5 で新設、Phase 6 でも継承) から
-ローカル Python で叩く。Phase 6 の KServe 切替では、さらに
-`scripts/local/deploy/kserve_models.py` が Model Registry から artifact URI を
-引いて KServe InferenceService の storageUri を patch するため、pipeline →
-Registry → KServe の流れが 3 点の独立スクリプトで完結する構成を維持する。
+Phase 5 debug: minimized to echo-only to isolate whether the crash is in
+pip install / base image / kfp executor, or in the actual Model.upload code.
 """
 
 from kfp import dsl

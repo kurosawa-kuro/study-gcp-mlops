@@ -33,14 +33,12 @@ class MeilisearchLexical(LexicalSearchPort):
         index_name: str = "properties",
         timeout_seconds: float = 3.0,
         api_key: str = "",
-        master_key: str = "",
         require_identity_token: bool = True,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._index_name = index_name
         self._timeout_seconds = timeout_seconds
         self._api_key = api_key
-        self._master_key = master_key
         self._require_identity_token = require_identity_token
         self._logger = get_logger("app")
 
@@ -52,12 +50,8 @@ class MeilisearchLexical(LexicalSearchPort):
         top_k: int,
     ) -> list[tuple[str, int]]:
         headers: dict[str, str] = {"content-type": "application/json"}
-        # Meilisearch API key auth: master_key takes priority over api_key.
-        # Uses X-Meili-Api-Key so it does not conflict with Cloud Run ID-token
-        # Authorization header injected below when require_identity_token=True.
-        effective_key = self._master_key or self._api_key
-        if effective_key:
-            headers["x-meili-api-key"] = effective_key
+        if self._api_key:
+            headers["authorization"] = f"Bearer {self._api_key}"
         if self._require_identity_token:
             try:
                 token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]

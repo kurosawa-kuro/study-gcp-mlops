@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import api_external_url, fail, http_json, identity_token, print_pretty
+from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
 
 
 def _diagnose_semantic_zero(results: list[dict], *, readyz_payload: dict | None) -> str:
@@ -46,7 +46,7 @@ def main() -> int:
         url = os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/")
         token = None
     elif target == "gcp":
-        url = api_external_url()
+        url = cloud_run_url()
         token = identity_token()
     else:
         return fail("component-check config error: TARGET must be either 'local' or 'gcp'")
@@ -82,13 +82,29 @@ def main() -> int:
     )
     rerank_hits = sum(1 for r in typed_results if r.get("score") is not None)
 
+    print(
+        f"[component-check] hits lexical={lexical_hits} semantic={semantic_hits} rerank={rerank_hits} "
+        f"readyz_rerank_enabled={None if readyz_payload is None else readyz_payload.get('rerank_enabled')}",
+        flush=True,
+    )
+    print(
+        f"[component-check] result sample: "
+        f"{[{k: r.get(k) for k in ('property_id', 'lexical_rank', 'semantic_rank', 'me5_score', 'score')} for r in typed_results[:3]]}",
+        flush=True,
+    )
     if lexical_hits <= 0:
-        return fail("component-check failed: lexical contribution is zero")
+        return fail(
+            "component-check failed: lexical contribution is zero "
+            "(hint: Meilisearch index may be empty — run the meili sync step and retry)"
+        )
     if semantic_hits <= 0:
         reason = _diagnose_semantic_zero(typed_results, readyz_payload=readyz_payload)
         return fail(f"component-check failed: {reason}")
     if rerank_hits <= 0:
-        return fail("component-check failed: rerank contribution is zero")
+        return fail(
+            "component-check failed: rerank contribution is zero "
+            "(hint: reranker endpoint may be not DEPLOYED or serving a non-LightGBM artifact)"
+        )
 
     print_pretty(body)
     print(

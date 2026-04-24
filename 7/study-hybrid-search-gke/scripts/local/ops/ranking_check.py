@@ -8,14 +8,14 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import api_external_url, fail, http_json, identity_token
+from scripts._common import cloud_run_url, fail, http_json, identity_token
 
 
 def main() -> int:
     query = os.environ.get("QUERY", "新宿駅 1LDK")
     top_k = int(os.environ.get("TOP_K", "5"))
 
-    url = api_external_url()
+    url = cloud_run_url()
     token = identity_token()
     payload = {"query": query, "top_k": top_k}
     status, body = http_json("POST", f"{url}/search", token=token, payload=payload)

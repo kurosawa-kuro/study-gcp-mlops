@@ -20,13 +20,13 @@ variable "meili_data_bucket_name" {
 }
 
 variable "meili_image" {
-  description = "Container image for meilisearch service"
+  description = "Container image for meilisearch service. Default uses the official Meilisearch image from Docker Hub (Cloud Run supports public Docker Hub images)."
   type        = string
-  default     = "gcr.io/cloudrun/hello"
+  default     = "docker.io/getmeili/meilisearch:v1.11"
 }
 
 variable "meili_master_key_secret_id" {
-  description = "Secret Manager secret ID for MEILI_MASTER_KEY (e.g. 'meili-master-key'). Injected into the Cloud Run container via value_source.secret_key_ref."
+  description = "Secret Manager secret ID for the Meilisearch master key (e.g. 'meili-master-key'). Injected as MEILI_MASTER_KEY via --set-secrets."
   type        = string
   default     = "meili-master-key"
 }

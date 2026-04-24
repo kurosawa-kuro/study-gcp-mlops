@@ -76,19 +76,19 @@ variable "vertex_location" {
 }
 
 variable "vertex_encoder_endpoint_id" {
-  description = "Vertex AI encoder endpoint ID (legacy — retained for Phase 5 compatibility; Phase 6 uses KServe)"
+  description = "Vertex AI encoder endpoint ID (legacy — retained for Phase 5 compatibility; Phase 7 uses KServe)"
   type        = string
   default     = ""
 }
 
 variable "vertex_reranker_endpoint_id" {
-  description = "Vertex AI reranker endpoint ID (legacy — retained for Phase 5 compatibility; Phase 6 uses KServe)"
+  description = "Vertex AI reranker endpoint ID (legacy — retained for Phase 5 compatibility; Phase 7 uses KServe)"
   type        = string
   default     = ""
 }
 
 variable "gke_cluster_name" {
-  description = "GKE Autopilot cluster name for Phase 6 serving"
+  description = "GKE Autopilot cluster name for Phase 7 serving"
   type        = string
   default     = "hybrid-search"
 }
@@ -97,4 +97,116 @@ variable "api_external_url" {
   description = "Public HTTPS URL of search-api GKE Gateway. Leave empty on initial apply; fill after Gateway has provisioned and re-apply to materialize Cloud Scheduler."
   type        = string
   default     = ""
+}
+
+# =========================================================================
+# Phase 6 T5 — SLO tunables forwarded to module.slo.
+# =========================================================================
+
+variable "slo_availability_goal" {
+  description = "Availability SLO target for search-api (fraction 0-1). Default 0.99; raise after burn-rate data justifies it."
+  type        = number
+  default     = 0.99
+}
+
+variable "slo_latency_threshold_ms" {
+  description = "Latency SLO threshold (milliseconds). Requests completing under this count as 'good'. Default 500ms mirrors the existing p95 alert."
+  type        = number
+  default     = 500
+}
+
+variable "slo_latency_goal" {
+  description = "Fraction of requests that must complete under slo_latency_threshold_ms. Default 0.95 (p95 target)."
+  type        = number
+  default     = 0.95
+}
+
+variable "slo_rolling_period_days" {
+  description = "Rolling window for both SLOs. Default 28 days (avoids month-boundary edge cases vs 30)."
+  type        = number
+  default     = 28
+}
+
+# =========================================================================
+# Phase 6 T3 — Vertex AI Vector Search scaffold toggles.
+# =========================================================================
+
+variable "enable_vector_search" {
+  description = "Provision the Matching Engine index + endpoint module (Phase 6 T3). Default false because a deployed index endpoint incurs constant replica cost; flip to true only while learning T3."
+  type        = bool
+  default     = false
+}
+
+variable "vector_search_index_display_name" {
+  description = "Matching Engine index display name (shown in Vertex AI UI)."
+  type        = string
+  default     = "property-vector-search-index"
+}
+
+variable "vector_search_endpoint_display_name" {
+  description = "Matching Engine IndexEndpoint display name."
+  type        = string
+  default     = "property-vector-search-endpoint"
+}
+
+variable "vector_search_embedding_dimensions" {
+  description = "Embedding vector size. multilingual-e5-base = 768."
+  type        = number
+  default     = 768
+}
+
+variable "vector_search_contents_delta_uri" {
+  description = "Optional GCS URI (gs://...) for initial index build. Empty = create an empty index and ingest later via upsert-datapoints or the deploy script."
+  type        = string
+  default     = ""
+}
+
+# =========================================================================
+# Phase 6 T2 — Dataflow streaming toggles.
+# =========================================================================
+
+variable "enable_streaming" {
+  description = "Provision the Dataflow streaming module (sa-dataflow + IAM). Default false; flip to true after ranking-log has meaningful traffic."
+  type        = bool
+  default     = false
+}
+
+variable "enable_streaming_job" {
+  description = "Actually launch the Flex Template streaming job. Requires enable_streaming=true AND streaming_flex_template_gcs_path to be non-empty (= template already built)."
+  type        = bool
+  default     = false
+}
+
+variable "streaming_flex_template_gcs_path" {
+  description = "GCS path to the compiled Flex Template spec JSON (built out-of-band by scripts/local/setup/build_streaming_template.py). Empty suppresses the Dataflow job resource."
+  type        = string
+  default     = ""
+}
+
+# =========================================================================
+# Phase 6 T7 — Agent Builder scaffold toggle.
+# =========================================================================
+
+variable "enable_agent_builder" {
+  description = "Provision the Agent Builder (Discovery Engine) module: data store + engine for the副 (副-経路) lexical backend. Default false; flip on when exploring T7."
+  type        = bool
+  default     = false
+}
+
+variable "agent_builder_location" {
+  description = "Discovery Engine collection location. Most APIs are only available in ``global`` today."
+  type        = string
+  default     = "global"
+}
+
+variable "agent_builder_data_store_display_name" {
+  description = "Display name for the Discovery Engine DataStore hosting property documents."
+  type        = string
+  default     = "properties-datastore"
+}
+
+variable "agent_builder_engine_display_name" {
+  description = "Display name for the Search Engine wired to the DataStore."
+  type        = string
+  default     = "properties-search"
 }

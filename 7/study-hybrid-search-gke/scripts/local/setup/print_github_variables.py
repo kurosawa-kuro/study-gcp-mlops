@@ -26,12 +26,13 @@ VARIABLES: tuple[tuple[str, str, str], ...] = (
     ("WORKLOAD_IDENTITY_PROVIDER", "WIF provider resource name", "WORKLOAD_IDENTITY_PROVIDER"),
     ("DEPLOYER_SERVICE_ACCOUNT", "sa-github-deployer email", "DEPLOYER_SERVICE_ACCOUNT"),
     ("ONCALL_EMAIL", "alert notification email", "ONCALL_EMAIL"),
+    ("VERTEX_LOCATION", "Vertex AI region", "VERTEX_LOCATION"),
+    ("VERTEX_ENCODER_ENDPOINT_ID", "encoder Endpoint resource ID", "VERTEX_ENCODER_ENDPOINT_ID"),
     (
-        "VERTEX_LOCATION",
-        "Vertex AI region (Pipelines / Feature Group / Model Registry)",
-        "VERTEX_LOCATION",
+        "VERTEX_RERANKER_ENDPOINT_ID",
+        "reranker Endpoint resource ID",
+        "VERTEX_RERANKER_ENDPOINT_ID",
     ),
-    ("GKE_CLUSTER_NAME", "GKE Autopilot cluster hosting the serving layer", "GKE_CLUSTER_NAME"),
 )
 
 

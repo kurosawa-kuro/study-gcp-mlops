@@ -4,12 +4,27 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Region for Cloud Scheduler (GKE クラスタと同一想定)"
+  description = "Region for Cloud Run Service / Job / Scheduler / Eventarc"
+  type        = string
+}
+
+variable "artifact_repo_id" {
+  description = "Artifact Registry repository ID (for image path construction)"
+  type        = string
+}
+
+variable "models_bucket_name" {
+  description = "GCS bucket name for models + encoder checkpoints (injected as Cloud Run env var)"
   type        = string
 }
 
 variable "mlops_dataset_id" {
   description = "BQ dataset ID for mlops (training_runs, ranking_log, search_logs, feedback_events, validation_results)"
+  type        = string
+}
+
+variable "feature_mart_dataset_id" {
+  description = "BQ dataset ID for feature_mart (property_features_daily, property_embeddings)"
   type        = string
 }
 
@@ -30,8 +45,32 @@ variable "service_accounts" {
   type        = any
 }
 
-variable "api_external_url" {
-  description = "Public HTTPS URL of search-api (GKE Gateway hostname). Leave empty to skip Scheduler creation (bootstrap before cluster exists)."
+variable "meili_base_url" {
+  description = "Base URL of meili-search Cloud Run service"
+  type        = string
+  default     = ""
+}
+
+variable "search_cache_ttl_seconds" {
+  description = "Default /search cache TTL in seconds"
+  type        = number
+  default     = 120
+}
+
+variable "vertex_location" {
+  description = "Vertex AI location for endpoint calls"
+  type        = string
+  default     = "asia-northeast1"
+}
+
+variable "vertex_encoder_endpoint_id" {
+  description = "Vertex AI encoder endpoint ID or full resource name"
+  type        = string
+  default     = ""
+}
+
+variable "vertex_reranker_endpoint_id" {
+  description = "Vertex AI reranker endpoint ID or full resource name"
   type        = string
   default     = ""
 }

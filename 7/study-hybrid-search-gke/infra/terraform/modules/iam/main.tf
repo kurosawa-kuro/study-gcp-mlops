@@ -81,6 +81,25 @@ resource "google_service_account_iam_member" "github_wif_binding" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
 }
 
+# ---------------------------------------------------------------------------
+# Admin user → sa-api TokenCreator (local-ops impersonation).
+#
+# Meilisearch の初期 document sync は sa-api identity (audience = meili-search
+# Cloud Run URL) での OIDC token が必須。開発者 user account が
+# `gcloud auth print-identity-token --impersonate-service-account=sa-api
+# --audiences=...` を叩くには TokenCreator 権限が要る。Phase 5 の実運用で
+# ここが漏れて 2 時間ハマった教訓を Terraform 化して自動化する。
+#
+# admin_user_emails は `env/config/setting.yaml` 経由で渡す想定 (empty list
+# なら binding 無し)。
+# ---------------------------------------------------------------------------
+resource "google_service_account_iam_member" "api_token_creator_for_admins" {
+  for_each           = toset(var.admin_user_emails)
+  service_account_id = google_service_account.api.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "user:${each.value}"
+}
+
 # Deployer needs enough power to run terraform apply + gcloud deploys.
 # Keep it a single role for this PoC; tighten later.
 resource "google_project_iam_member" "github_deployer_editor" {

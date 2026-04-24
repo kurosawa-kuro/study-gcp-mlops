@@ -24,6 +24,10 @@ locals {
     "iap.googleapis.com",
     "networkservices.googleapis.com",
     "certificatemanager.googleapis.com",
+    # Phase 6 PMLE: Discovery Engine / Agent Builder
+    "discoveryengine.googleapis.com",
+    # Phase 6 PMLE: Dataflow streaming
+    "dataflow.googleapis.com",
   ]
 }
 

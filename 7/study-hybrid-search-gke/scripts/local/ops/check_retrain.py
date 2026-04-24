@@ -5,11 +5,11 @@ retrain-trigger Pub/Sub topic should fire (used by Cloud Scheduler daily).
 
 from __future__ import annotations
 
-from scripts._common import api_external_url, fail, http_json, identity_token, print_pretty
+from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
 
 
 def main() -> int:
-    url = api_external_url()
+    url = cloud_run_url()
     token = identity_token()
     status, body = http_json("POST", f"{url}/jobs/check-retrain", token=token)
     if status != 200:

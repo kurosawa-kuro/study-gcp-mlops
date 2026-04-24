@@ -56,6 +56,47 @@ def _load_settings() -> dict[str, str]:
     return settings
 
 
+def _load_list_setting(list_key: str) -> list[str]:
+    """Read a YAML block-style list from env/config/setting.yaml.
+
+    Supports the shape::
+
+        admin_user_emails:
+          - user1@example.com
+          - user2@example.com
+
+    Returns [] if the key is absent or has no list items. Quoted strings
+    (``"foo"`` / ``'foo'``) are unwrapped. Kept minimal; does not support
+    flow-style (`[a, b]`) or nesting.
+    """
+    if not _SETTINGS_PATH.exists():
+        return []
+    items: list[str] = []
+    in_block = False
+    for raw in _SETTINGS_PATH.read_text(encoding="utf-8").splitlines():
+        stripped = raw.split("#", 1)[0].rstrip()
+        if not stripped.strip():
+            continue
+        if not in_block:
+            if stripped.strip().startswith(f"{list_key}:"):
+                tail = stripped.split(":", 1)[1].strip()
+                if tail:
+                    # inline form not supported here — bail
+                    return []
+                in_block = True
+            continue
+        # in block: accept either `  - value` or break on first non-indented / non-dash line
+        if not raw.startswith((" ", "\t")):
+            break
+        item = stripped.strip()
+        if not item.startswith("-"):
+            break
+        item = item[1:].strip().strip('"').strip("'")
+        if item:
+            items.append(item)
+    return items
+
+
 DEFAULTS = _load_settings()
 
 
@@ -85,23 +126,13 @@ def gcloud(*args: str, capture: bool = False) -> str:
 
 
 def cloud_run_url(service: str | None = None) -> str:
-    """Resolve a Cloud Run Service URL via `gcloud run services describe`.
-
-    Phase 6 note: Meilisearch still runs on Cloud Run, so this helper remains
-    valid. For the search-api URL (now on GKE Gateway), use `api_external_url()`.
-    Calling without an explicit service is rejected to prevent accidental
-    Phase-5-style usage.
-    """
-    if service is None:
-        raise RuntimeError(
-            "cloud_run_url() requires an explicit service name in Phase 6. "
-            "Use api_external_url() for search-api."
-        )
+    """Resolve the Cloud Run Service URL via `gcloud run services describe`."""
+    svc = service or env("API_SERVICE")
     return gcloud(
         "run",
         "services",
         "describe",
-        service,
+        svc,
         f"--project={env('PROJECT_ID')}",
         f"--region={env('REGION')}",
         "--format=value(status.url)",
@@ -109,31 +140,8 @@ def cloud_run_url(service: str | None = None) -> str:
     )
 
 
-def api_external_url() -> str:
-    """Resolve the search-api GKE Gateway external URL via kubectl."""
-    url = run(
-        [
-            "kubectl",
-            "get",
-            "gateway",
-            "search-api-gateway",
-            "--namespace=search",
-            "-o",
-            "jsonpath={.status.addresses[0].value}",
-        ],
-        capture=True,
-        check=False,
-    ).stdout.strip()
-    if not url:
-        raise RuntimeError(
-            "search-api-gateway has no address yet. "
-            "Ensure `kubectl apply -k infra/manifests/` has been run and the Gateway is provisioned."
-        )
-    return url if url.startswith("http") else f"https://{url}"
-
-
 def identity_token() -> str:
-    """Mint an OIDC token for IAM-gated GKE Gateway / Cloud Run calls."""
+    """Mint an OIDC token for IAM-gated Cloud Run calls."""
     return gcloud("auth", "print-identity-token", capture=True)
 
 

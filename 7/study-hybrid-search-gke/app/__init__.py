@@ -1,1 +1,1 @@
-"""Hybrid-search FastAPI application (GKE Pod, Phase 6)."""
+"""Hybrid-search FastAPI application (Cloud Run Service)."""

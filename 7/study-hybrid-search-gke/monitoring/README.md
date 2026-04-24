@@ -11,14 +11,6 @@
   - `search-api p95 latency > 500ms over 10m`
 - 通知: `email` チャネル (placeholder, Terraform で差し替え)
 
-## 可視化
-
-BigQuery Studio / Vertex AI コンソールで参照。データソース:
-
-- `mlops.training_runs` — metrics 推移 (NDCG@10 / MAP / Recall@20 by `started_at`)
-- `mlops.validation_results` — skew 検出履歴 (`status = 'FAIL'` を BigQuery Studio でフィルタ)
-- `mlops.ranking_log` / `mlops.feedback_events` — 検索ログ・フィードバック集計
-
 ## 精度追跡
 
 遅延ラベル到着時に UPDATE で `predictions_log.label` を埋め、別 Scheduled Query で

@@ -12,7 +12,7 @@ import json
 import os
 import time
 
-from scripts._common import api_external_url, fail, http_json, identity_token
+from scripts._common import cloud_run_url, fail, http_json, identity_token
 
 ACTIONS = ("click", "favorite", "inquiry")
 
@@ -21,7 +21,7 @@ def main() -> int:
     query = os.environ.get("QUERY", "札幌 ペット可 2LDK")
     n_per_action = int(os.environ.get("N_PER_ACTION", "5"))
 
-    url = api_external_url()
+    url = cloud_run_url()
     token = identity_token()
     search_payload = {"query": query, "top_k": 5}
 

@@ -1,24 +1,19 @@
-"""End-to-end provisioning + rollout in one shot (Phase 6 / GKE). Calls (in order):
+"""End-to-end provisioning + rollout in one shot. Calls (in order):
 
 1. `tf_bootstrap` — enable APIs + create tfstate bucket (idempotent)
 2. `tf_init` — terraform init with bucket preflight
 3. `_recover_wif_state` — undelete + import WIF pool/provider if a previous
-   `make destroy-all` left them soft-deleted
+   `make destroy-all` left them soft-deleted (GCP keeps WIF resources for
+   30 days after delete; recreating with the same ID otherwise hits HTTP
+   409 "already exists")
 4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
-6. `terraform apply tfplan -auto-approve` — apply infra (cluster + IAM + KServe)
-7. `kubectl apply -k infra/manifests/` — apply search-api + InferenceService manifests
-8. `deploy/kserve_models` — patch InferenceService with latest Model Registry artifacts
-9. `deploy/api_gke` — Cloud Build + kubectl set image search-api
-
-Phase 6 縮退事項 (docs/02_移行ロードマップ.md §5.5 / §6): Vertex Model Monitoring v2
-は Vertex Endpoint 前提のため KServe 化で失う。`setup_model_monitoring` step は
-deploy_all から外した。Training-Serving Skew 監視は `monitoring/validate_feature_skew.sql`
-(BigQuery 側検知) で継続動作する。
+6. `terraform apply tfplan -auto-approve` — apply infra
+7. `deploy/api_local` — Cloud Build + gcloud run deploy search-api
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
-plan and rolls a fresh search-api image revision. Costs accrue from the moment
-infra is created (GKE Autopilot running charges, BQ storage, etc.).
+plan and rolls a fresh search-api image revision. Costs accrue from the moment infra is created (Cloud Run
+min-instances=1, BQ storage, etc.) — see CLAUDE.md non-negotiables.
 """
 
 from __future__ import annotations
@@ -28,8 +23,7 @@ from pathlib import Path
 
 from scripts._common import env, run
 from scripts.ci.sync_dataform import main as sync_dataform_main
-from scripts.local.deploy.api_gke import main as deploy_api_main
-from scripts.local.deploy.kserve_models import main as deploy_kserve_models_main
+from scripts.local.deploy.api_local import main as deploy_api_main
 from scripts.local.setup.tf_bootstrap import main as tf_bootstrap_main
 from scripts.local.setup.tf_init import main as tf_init_main
 from scripts.local.setup.tf_plan import main as tf_plan_main
@@ -169,11 +163,8 @@ def _recover_wif_state(project_id: str) -> None:
         )
 
 
-MANIFESTS = Path(__file__).resolve().parents[3] / "infra" / "manifests"
-
-
 def main() -> int:
-    total = 9
+    total = 7
     project_id = env("PROJECT_ID")
 
     _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
@@ -195,25 +186,16 @@ def main() -> int:
     if (rc := tf_plan_main()) != 0:
         return rc
 
-    _step(6, total, "terraform apply tfplan -auto-approve (cluster + KServe + IAM)")
+    _step(6, total, "terraform apply tfplan -auto-approve")
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
 
-    _step(7, total, "kubectl apply -k infra/manifests/ (Deployment + InferenceService)")
-    run(["kubectl", "apply", "-k", str(MANIFESTS)])
-
-    _step(8, total, "deploy kserve_models (sync Model Registry → InferenceService)")
-    if (rc := deploy_kserve_models_main()) != 0:
-        return rc
-
-    _step(9, total, "deploy-api-gke (Cloud Build + kubectl set image search-api)")
+    _step(7, total, "deploy-api-local (Cloud Build + run deploy search-api)")
     if (rc := deploy_api_main()) != 0:
         return rc
 
     print()
     print("==> deploy-all complete.")
-    print(
-        "    Verify with: kubectl get pods -n search && kubectl get inferenceservice -n kserve-inference"
-    )
+    print("    Verify with: make ops-livez && make ops-api-url")
     print("    Pipeline submit is separate: make ops-train-now")
     return 0
 

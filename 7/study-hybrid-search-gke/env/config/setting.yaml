@@ -31,6 +31,14 @@ pipeline_template_gcs_path: gs://mlops-dev-a-pipeline-root/templates
 github_repo: kurosawa-kuro/study-gcp-mlops-hybrid-search-cloud-v2.0
 oncall_email: kurosawa-kuro@gmail.com
 
+# sa-api を impersonate してローカルから Meilisearch / 他の Cloud Run service を
+# 叩きたい開発者 user account (OIDC audience=<service URL> の identity token 発行に
+# `roles/iam.serviceAccountTokenCreator` 権限が要る)。Terraform で
+# `google_service_account_iam_member` を付与する。Phase 5 実運用で手動 `gcloud iam
+# service-accounts add-iam-policy-binding` が漏れて 2 時間ハマった教訓。
+admin_user_emails:
+  - kurokawa81toshifumi@gmail.com
+
 # Dataform — pipeline/data_job/dataform/workflow_settings.yaml は本ファイルから自動生成される
 # (Makefile の `make sync-dataform-config` を実行)。Dataform の YAML スキーマは
 # 固定キー (defaultProject / defaultLocation 等) なので、こちらに対応する値を

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from scripts._common import api_external_url, fail, http_json, identity_token, print_pretty
+from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
 
 
 def main() -> int:
@@ -15,7 +15,7 @@ def main() -> int:
     top_k = int(os.environ.get("TOP_K", "20"))
     max_rent = int(os.environ.get("MAX_RENT", "150000"))
 
-    url = api_external_url()
+    url = cloud_run_url()
     token = identity_token()
     payload = {"query": query, "filters": {"max_rent": max_rent}, "top_k": top_k}
     status, body = http_json("POST", f"{url}/search", token=token, payload=payload)
