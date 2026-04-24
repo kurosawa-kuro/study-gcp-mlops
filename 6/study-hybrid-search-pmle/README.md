@@ -1,4 +1,4 @@
-# study-gcp-ml-engineer-cert
+# study-hybrid-search-pmle
 
 **Phase 5 (`5/study-hybrid-search-vertex/`) の不動産ハイブリッド検索実装に、GCP Professional Machine Learning Engineer (PMLE) 試験範囲の 8 技術を実際に統合して動くコードとして学ぶ** フェーズ。Phase 3-5 で積んだ Port/Adapter 思想の延長線上で、新技術を adapter / 副経路 / 追加エンドポイント / 追加 pipeline として既存コードに組み込む。
 
@@ -32,7 +32,7 @@
 ## ディレクトリ
 
 ```text
-6/study-gcp-ml-engineer-cert/
+6/study-hybrid-search-pmle/
 ├── README.md / CLAUDE.md
 ├── docs/                # 更新対象 (02 → 01 → README → CLAUDE の権威順位)
 ├── app/                 # FastAPI + Port/Adapter。Phase 6 で新 adapter / 新エンドポイント追加

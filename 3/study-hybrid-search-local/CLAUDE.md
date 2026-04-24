@@ -24,7 +24,7 @@
 - **LambdaRank + NDCG**: `ml/training/trainer.py` の `objective: lambdarank` / `metric: ndcg` で検索結果の順序を最適化。`group_sizes` によるクエリ単位グルーピングが load-bearing
 - **フォールバック可用性**: LightGBM モデル未配置でも `/search` は動く（`ctr*0.4 + fav_rate*0.2 + inquiry_rate*0.2 + me5_score*0.2` の重み付き和で暫定順位）
 - **Port/Adapter 設計**: `common/src/common/ports/` と `pipeline/adapters/` で検索エンジン / 埋め込み / reranker / キャッシュを抽象化
-- **スコープ固定**: Local 検証 + 学習用ポートフォリオ。クラウド化は Phase 4 (`4/study-hybrid-search-cloud`) で実施
+- **スコープ固定**: Local 検証 + 学習用ポートフォリオ。クラウド化は Phase 4 (`4/study-hybrid-search-gcp`) で実施
 
 ---
 
@@ -94,7 +94,7 @@ scripts/
 
 | 役割 | パス | 引用ポイント |
 |---|---|---|
-| クラウド移行先 | `/home/ubuntu/repos/study-gcp-mlops/4/study-hybrid-search-cloud` | 本 Phase の検索スタックを BigQuery `VECTOR_SEARCH` + RRF + Cloud Run で再実装した後継 Phase |
+| クラウド移行先 | `/home/ubuntu/repos/study-gcp-mlops/4/study-hybrid-search-gcp` | 本 Phase の検索スタックを BigQuery `VECTOR_SEARCH` + RRF + Cloud Run で再実装した後継 Phase |
 | Vertex 版 | `/home/ubuntu/repos/study-gcp-mlops/5/study-hybrid-search-vertex` | Phase 4 に Vertex AI レイヤを後付けした最新 Phase |
 | ML 基礎（前提講義） | `/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations` | LightGBM 回帰・評価・推論 API の基本語彙 |
 

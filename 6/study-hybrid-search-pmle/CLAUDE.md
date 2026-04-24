@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本リポジトリ (`6/study-gcp-ml-engineer-cert`) で作業する Claude Code 向けのガイド。**Phase 6 は Phase 5 (`5/study-hybrid-search-vertex/`) 完成系に PMLE 試験範囲の 8 技術を adapter / 新規コンポーネントとして統合するフェーズ**。Phase 3-5 の Port/Adapter 思想そのものを新技術導入の形で実践する。
+本リポジトリ (`6/study-hybrid-search-pmle`) で作業する Claude Code 向けのガイド。**Phase 6 は Phase 5 (`5/study-hybrid-search-vertex/`) 完成系に PMLE 試験範囲の 8 技術を adapter / 新規コンポーネントとして統合するフェーズ**。Phase 3-5 の Port/Adapter 思想そのものを新技術導入の形で実践する。
 
 ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md)。本 CLAUDE.md はそれらに従属する。
 

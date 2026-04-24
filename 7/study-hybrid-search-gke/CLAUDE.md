@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-本リポジトリ (`7/study-hybrid-search-gke`) で作業する Claude Code 向けのガイド。**Phase 7 は Phase 6 (`6/study-gcp-ml-engineer-cert/`) の PMLE 技術統合をそのまま継承した上で、Serving 層のみを Vertex AI Endpoint から GKE + KServe InferenceService に差し替えた Draft フェーズ**。中核コード (不動産ハイブリッド検索) は変えず、encoder / reranker の推論呼び出しを cluster-local HTTP に切り替える。
+本リポジトリ (`7/study-hybrid-search-gke`) で作業する Claude Code 向けのガイド。**Phase 7 は Phase 6 (`6/study-hybrid-search-pmle/`) の PMLE 技術統合をそのまま継承した上で、Serving 層のみを Vertex AI Endpoint から GKE + KServe InferenceService に差し替えた Draft フェーズ**。中核コード (不動産ハイブリッド検索) は変えず、encoder / reranker の推論呼び出しを cluster-local HTTP に切り替える。
 
 ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md)。本 CLAUDE.md はそれらに従属する。
 

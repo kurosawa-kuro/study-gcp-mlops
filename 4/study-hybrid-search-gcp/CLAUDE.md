@@ -17,7 +17,7 @@
 
 ---
 
-## hybrid-search-cloud の設計テーゼ (題材: 不動産ハイブリッド検索)
+## hybrid-search-gcp の設計テーゼ (題材: 不動産ハイブリッド検索)
 
 - **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1a) Meilisearch BM25、(1b) BigQuery VECTOR_SEARCH、(2) RRF 融合、(3) LightGBM `lambdarank` 再ランク
 - **BigQuery + Cloud Run 中心**。モデル成果物は GCS (`gs://mlops-dev-a-models/lgbm/{date}/{run_id}/model.txt`)、系譜は BQ テーブル `mlops.training_runs`。**Vertex AI / Model Registry / BQML 非採用**
