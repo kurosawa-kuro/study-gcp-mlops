@@ -1,8 +1,8 @@
-"""Port for experiment tracking (W&B / Vertex Experiments).
+"""Port for experiment tracking (Vertex Experiments / Null adapter).
 
 Context-manager semantics so callers can ``with tracker: ...``; the enter
 returns the tracker itself for chaining ``log_metrics``. Concrete adapter:
-:class:`ml.training.experiments.wandb_tracker.WandbExperimentTracker`.
+:class:`ml.training.experiments.wandb_tracker.NullExperimentTracker`.
 """
 
 from __future__ import annotations

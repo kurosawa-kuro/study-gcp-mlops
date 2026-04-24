@@ -16,19 +16,19 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
     → ml/data/preprocess: 前処理 (欠損値補完・外れ値キャップ・対数変換)
       → ml/data/feature_engineering: 特徴量エンジニアリング (BedroomRatio・RoomsPerPerson)
         → ml/training: LightGBM 学習
-          → ml/evaluation: 精度評価 (RMSE, R²) + W&B ログ
+          → ml/evaluation: 精度評価 (RMSE, R²) + metrics.json 保存
             → ml/registry/artifacts/{run_id}/ に保存 + PostgreSQL に精度記録 + latest シンボリックリンク更新
 ```
 
 **Key design decisions:**
 - **Docker 前提** — seed / train は `docker compose` 経由で実行。DB も同じ network 上の `postgres` サービスを使用
-- **パッケージ間の責務分離**: pipeline(データ取得+オーケストレーション) / ml/training(学習) / ml/evaluation(評価+W&B) / ml/data(前処理+特徴量) / ml/common(共通)
+- **パッケージ間の責務分離**: pipeline(データ取得+オーケストレーション) / ml/training(学習) / ml/evaluation(評価+metrics.json) / ml/data(前処理+特徴量) / ml/common(共通)
 - **Repository pattern** — `PostgresRepository` (SQLAlchemy + psycopg)、`DATA_SOURCE` env var で切り替え
 - **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`ml/evaluation/metrics/regression.py`)
-- **W&B はオプション** — API キーなしで offline モード動作。精度評価・モデル保存に影響なし
+- **メトリクス管理** — RMSE / R² を `ml/registry/artifacts/{run_id}/metrics.json` に保存。W&B は教材対象外のため削除済み
 - **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`ml/registry/artifacts/latest` シンボリックリンクで最新を参照
 - **構造化ロギング** — `ml/common/logging/logger.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
-- **エラーハンドリング** — pipeline/training_job/main.py でデータ取得・学習・W&B の各ステップを try-except で保護
+- **エラーハンドリング** — pipeline/training_job/main.py でデータ取得・学習の各ステップを try-except で保護
 - **Makefile → scripts/ に委譲** — `scripts/core.py` に共通設定を集約
 
 ## Source Layout
@@ -97,11 +97,11 @@ scripts/
 | ファイル | 内容 | git 管理 |
 |---|---|---|
 | `env/config/setting.yaml` | 非クレデンシャル（DB ホスト・ポート・DB 名・モデルパス等） | track |
-| `env/secret/credential.yaml` | クレデンシャル（postgres_password, wandb_api_key） | **gitignore** (`env/secret/` ごと) |
+| `env/secret/credential.yaml` | クレデンシャル（postgres_password） | **gitignore** (`env/secret/` ごと) |
 
 `ml/common/config/base.py::BaseAppSettings` が pydantic-settings の YamlConfigSettingsSource を 2 本積んで両方をロード。優先度: **環境変数 > credential.yaml > setting.yaml > コード既定値**。
 
-**docker-compose 連携**: postgres コンテナ（公式イメージ）は env var で `POSTGRES_PASSWORD` を要求するため、`scripts/core.py::load_credentials` が起動前に credential.yaml を読み取り `POSTGRES_PASSWORD` / `WANDB_API_KEY` を process env に設定し、compose の `${POSTGRES_PASSWORD}` 補間で注入する。Python 側のコンテナは `./env/secret` を read-only volume でマウントし、BaseAppSettings が直接 YAML を読む。
+**docker-compose 連携**: postgres コンテナ（公式イメージ）は env var で `POSTGRES_PASSWORD` を要求するため、`scripts/core.py::load_credentials` が起動前に credential.yaml を読み取り `POSTGRES_PASSWORD` を process env に設定し、compose の `${POSTGRES_PASSWORD}` 補間で注入する。Python 側のコンテナは `./env/secret` を read-only volume でマウントし、BaseAppSettings が直接 YAML を読む。
 
 ### setting.yaml の主なキー
 
@@ -113,18 +113,16 @@ scripts/
 | `postgres_db` | DB 名 | `mlpipeline` |
 | `postgres_user` | DB ユーザー | `admin` |
 | `model_dir` | モデル出力先 | `ml/registry/artifacts` |
-| `wandb_project` | W&B プロジェクト名 | `california-housing` |
 
 ### credential.yaml の主なキー
 
 | キー | 用途 |
 |---|---|
 | `postgres_password` | PostgreSQL パスワード |
-| `wandb_api_key` | W&B API キー（空なら offline モード） |
 
 ## Dependencies
 
-lightgbm, pandas, numpy, scikit-learn (データ取得のみ), wandb, pydantic-settings, sqlalchemy, psycopg[binary]
+lightgbm, pandas, numpy, scikit-learn (データ取得のみ), pydantic-settings, sqlalchemy, psycopg[binary]
 
 テスト用 (ローカル pytest): `testcontainers[postgres]` (一時 PostgreSQL をテスト中に起動)。未インストール時は DB 依存テストが skip される。
 
@@ -136,7 +134,7 @@ pytest + `pyproject.toml` で設定。`pythonpath = ["."]`, `testpaths = ["tests
 tests/
 ├── conftest.py              共通フィクスチャ (sample_df, postgres_url, sample_db)
 ├── unit/ml/
-│   ├── test_evaluation.py   RMSE, R², save_metrics, W&B offline
+│   ├── test_evaluation.py   RMSE, R², save_metrics
 │   ├── test_trainer.py      LightGBM 学習 + run ID + symlink
 │   └── test_preprocess.py   前処理
 └── integration/

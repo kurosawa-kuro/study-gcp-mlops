@@ -14,9 +14,6 @@ data/*.db
 ml/registry/artifacts/*
 !ml/registry/artifacts/.gitkeep
 
-# W&B
-ml/wandb/
-
 # IDE
 .vscode/
 .idea/

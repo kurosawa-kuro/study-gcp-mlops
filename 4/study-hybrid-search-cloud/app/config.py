@@ -1,5 +1,7 @@
 """API settings."""
 
+from pydantic import SecretStr
+
 from common.config import BaseAppSettings
 
 
@@ -16,6 +18,10 @@ class ApiSettings(BaseAppSettings):
     meili_index_name: str = "properties"
     meili_api_key: str = ""
     meili_require_identity_token: bool = True
+    # Meilisearch master key — injected via Secret Manager (--set-secrets) in
+    # Cloud Run. Empty string means no Authorization header is sent (no-auth
+    # fallback for local dev without a master key configured).
+    meili_master_key: SecretStr = SecretStr("")
     # Local directory or GCS URI (gs://...) for the ME5 encoder checkpoint.
     # Empty string => sentence-transformers pulls from HuggingFace on startup
     # (dev-only path; not appropriate for Cloud Run).

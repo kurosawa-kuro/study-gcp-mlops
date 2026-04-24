@@ -29,7 +29,7 @@ from common import (
     get_logger,
 )
 from ml.registry import GcsArtifactUploader, create_rank_repository
-from ml.training.experiments import TrainSettings, WandbExperimentTracker
+from ml.training.experiments import NoopExperimentTracker, TrainSettings
 from ml.training.model_builder import build_rank_params
 from ml.training.ports import ArtifactUploader, ExperimentTracker, RankerTrainingRepository
 from ml.training.trainer import train, write_artifacts
@@ -186,12 +186,7 @@ def _validate_ranker_dataframe(
 
 def _default_tracker_factory(settings: TrainSettings) -> TrackerFactory:
     def _build(run_id: str, workdir: Path) -> ExperimentTracker:
-        return WandbExperimentTracker(
-            project=settings.wandb_project,
-            api_key=settings.wandb_api_key,
-            run_id=run_id,
-            workdir=Path(settings.wandb_dir),
-        )
+        return NoopExperimentTracker()
 
     return _build
 
@@ -265,7 +260,7 @@ def run(
     with tempfile.TemporaryDirectory() as td:
         workdir = Path(td)
         output_dir = workdir / "artifacts"
-        with build_tracker(run_id, workdir / "wandb") as tracker:
+        with build_tracker(run_id, workdir) as tracker:
             result = train(
                 train_df=train_df,
                 test_df=test_df,

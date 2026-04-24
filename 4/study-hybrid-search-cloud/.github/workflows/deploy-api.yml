@@ -45,39 +45,15 @@ jobs:
           image: ${{ env.SERVICE }}
           dockerfile: infra/run/services/search_api/Dockerfile
 
-      # Doppler-managed env is optional. When DOPPLER_TOKEN_API is provided,
-      # secrets from the Doppler project (config mapped to that token) are
-      # appended to --set-env-vars. Absent the token, only the static infra
-      # vars below are set. See docs/04_運用.md STEP 10 for token setup.
-      - name: Install Doppler CLI
-        if: ${{ secrets.DOPPLER_TOKEN_API != '' }}
-        uses: dopplerhq/cli-action@v3
-
-      - name: Collect Doppler secrets
-        id: doppler
-        if: ${{ secrets.DOPPLER_TOKEN_API != '' }}
-        env:
-          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_API }}
-        run: |
-          # Pipe-separated so values containing commas survive gcloud parsing.
-          DOPPLER_ENV=$(doppler secrets download --no-file --format env-no-quotes \
-            | grep '=' | tr '\n' '|' | sed 's/|$//')
-          echo "vars=$DOPPLER_ENV" >> "$GITHUB_OUTPUT"
-
       - name: Deploy to Cloud Run
-        env:
-          DOPPLER_ENV: ${{ steps.doppler.outputs.vars }}
         run: |
           MEILI_BASE_URL=$(gcloud run services describe meili-search \
             --region "${{ env.REGION }}" \
             --format 'value(status.url)')
           STATIC_ENV="PROJECT_ID=${{ env.PROJECT_ID }}|GCS_MODELS_BUCKET=mlops-dev-a-models|RANKING_LOG_TOPIC=ranking-log|FEEDBACK_TOPIC=search-feedback|RETRAIN_TOPIC=retrain-trigger|ENABLE_SEARCH=true|ENABLE_RERANK=true|ENCODER_MODEL_DIR=intfloat/multilingual-e5-base|MEILI_BASE_URL=${MEILI_BASE_URL}|MEILI_REQUIRE_IDENTITY_TOKEN=true|LOG_AS_JSON=1|GCP_LOGGING_ENABLED=1"
           # gcloud `^|^` prefix lets us use `|` as the delimiter between KEY=value
-          # pairs, which keeps Doppler secret values containing `,` intact.
+          # pairs, which keeps values containing `,` intact.
           ENV_ARG="^|^${STATIC_ENV}"
-          if [ -n "${DOPPLER_ENV}" ]; then
-            ENV_ARG="${ENV_ARG}|${DOPPLER_ENV}"
-          fi
           gcloud run deploy ${{ env.SERVICE }} \
             --region ${{ env.REGION }} \
             --image "${{ steps.build.outputs.image_uri }}" \
@@ -89,4 +65,5 @@ jobs:
             --execution-environment gen2 \
             --allow-unauthenticated \
             --set-env-vars "${ENV_ARG}" \
+            --set-secrets=MEILI_MASTER_KEY=meili-master-key:latest \
             --labels "git-sha=${GITHUB_SHA::8}"

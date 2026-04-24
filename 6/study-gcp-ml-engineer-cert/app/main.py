@@ -105,10 +105,12 @@ def _build_candidate_retriever(
         # backend; never replaces the primary Meilisearch path.
         lexical = override_lexical
     elif settings.meili_base_url:
+        # meili_master_key (Secret Manager) を優先、未設定時は meili_api_key にフォールバック。
+        _meili_key = settings.meili_master_key.get_secret_value() or settings.meili_api_key
         lexical = MeilisearchLexical(
             base_url=settings.meili_base_url,
             index_name=settings.meili_index_name,
-            api_key=settings.meili_api_key,
+            api_key=_meili_key,
             require_identity_token=settings.meili_require_identity_token,
         )
     else:

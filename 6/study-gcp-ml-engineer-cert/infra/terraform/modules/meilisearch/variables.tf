@@ -24,3 +24,9 @@ variable "meili_image" {
   type        = string
   default     = "docker.io/getmeili/meilisearch:v1.11"
 }
+
+variable "meili_master_key_secret_id" {
+  description = "Secret Manager secret ID for the Meilisearch master key (e.g. 'meili-master-key'). Injected as MEILI_MASTER_KEY via --set-secrets."
+  type        = string
+  default     = "meili-master-key"
+}

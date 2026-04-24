@@ -29,7 +29,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Every Port / pure-logic file is disallowed from importing these at all.
-UNIVERSAL_BANS: frozenset[str] = frozenset({"google.cloud", "wandb"})
+UNIVERSAL_BANS: frozenset[str] = frozenset({"google.cloud"})
 
 # Reused per-file ban-set: the common workspace's concrete adapters / GCS
 # storage layer must not leak into Ports or pure-logic modules of any
@@ -73,7 +73,7 @@ RULES: dict[str, frozenset[str]] = {
     "ml/training/ports/artifact_uploader.py": COMMON_ADAPTERS
     | frozenset({"lightgbm", "ml.registry", "embed"}),
     "ml/training/ports/experiment_tracker.py": COMMON_ADAPTERS
-    | frozenset({"lightgbm", "wandb", "embed"}),
+    | frozenset({"lightgbm", "embed"}),
     "ml/training/trainer.py": COMMON_ADAPTERS | frozenset({"embed"}),
     "ml/training/experiments/settings.py": frozenset({"lightgbm", "embed"}),
     "ml/evaluation/metrics/training_metrics.py": COMMON_ADAPTERS | frozenset({"lightgbm", "embed"}),

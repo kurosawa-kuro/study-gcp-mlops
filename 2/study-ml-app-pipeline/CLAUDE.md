@@ -37,14 +37,14 @@ Phase 1 のコア（`ml/training/trainer.py` / `ml/evaluation/` / `ml/data/prepr
 ┌─ ml/ports (Protocol 定義のみ) ──────┐
 │  DatasetReader                      │
 │  ModelStore                         │
-│  ExperimentTracker                  │
+│  Predictor                          │
 └────────────┬────────────────────────┘
              │ 実装
              ▼
 ┌─ ml/adapters (concrete 実装) ───────┐
 │  PostgresDatasetReader              │
 │  FilesystemModelStore               │
-│  WandbExperimentTracker             │
+│  ModelStorePredictor                │
 └─────────────────────────────────────┘
 
 ml/container.py ─ DI 配線（port ↔ adapter）、FastAPI lifespan / job entrypoint から参照
@@ -53,7 +53,7 @@ ml/container.py ─ DI 配線（port ↔ adapter）、FastAPI lifespan / job ent
 **依存方向ルール**（import は下方向のみ。逆流禁止）:
 - `app/`, `pipeline/` → `ml/core`, `ml/container`
 - `ml/core` → `ml/ports`（Protocol のみ、外部 SDK 非依存）
-- `ml/adapters` → `ml/ports` を実装、外部 SDK（sqlalchemy / psycopg / wandb 等）使用可
+- `ml/adapters` → `ml/ports` を実装、外部 SDK（sqlalchemy / psycopg 等）使用可
 - `ml/ports` → Python 標準のみ
 - `ml/core` は `ml/adapters` を import しない
 
@@ -82,11 +82,11 @@ ml/container.py ─ DI 配線（port ↔ adapter）、FastAPI lifespan / job ent
 │   ├── ports/              # Protocol 定義のみ（外部 SDK 非依存）
 │   │   ├── dataset.py      # DatasetReader.load() -> DataFrame
 │   │   ├── model_store.py  # ModelStore.save/load(run_id, path)
-│   │   └── tracker.py      # ExperimentTracker.log_metrics(...)
+│   │   └── predictor.py    # Predictor.predict()
 │   ├── adapters/           # ports の具象実装
 │   │   ├── postgres_dataset.py
 │   │   ├── filesystem_model_store.py
-│   │   └── wandb_tracker.py
+│   │   └── predictor.py
 │   └── container.py        # DI 配線（settings → adapters → container）
 ├── pipeline/               # Inbound Adapter (pipeline job) — entrypoint のみ
 │   ├── seed_job/main.py

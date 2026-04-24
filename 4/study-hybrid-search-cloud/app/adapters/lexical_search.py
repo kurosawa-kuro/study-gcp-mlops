@@ -24,7 +24,22 @@ class NoopLexicalSearch(LexicalSearchPort):
 
 
 class MeilisearchLexical(LexicalSearchPort):
-    """Calls Meilisearch ``/indexes/properties/search`` and returns rank list."""
+    """Calls Meilisearch ``/indexes/properties/search`` and returns rank list.
+
+    Authentication precedence (all optional, applied in this order):
+    1. ``master_key`` — sent as ``Authorization: Bearer <key>`` directly to
+       Meilisearch. Takes precedence over identity-token-based Cloud Run IAM
+       auth when both are present, because Meilisearch itself enforces the key.
+       Injected via Secret Manager ``--set-secrets=MEILI_MASTER_KEY`` in Cloud
+       Run. Empty string means no Meilisearch-level auth header is added.
+    2. ``require_identity_token`` — obtains a Google ID token and sends it as
+       ``Authorization: Bearer <id-token>`` for Cloud Run IAM authentication.
+       When ``master_key`` is non-empty this step is still executed so that the
+       Cloud Run ingress lets the request through; the Meilisearch process then
+       uses the master key from env (``MEILI_MASTER_KEY``) for its own auth.
+    3. ``api_key`` — legacy ``x-meili-api-key`` header (kept for backward
+       compatibility; not used in new deployments).
+    """
 
     def __init__(
         self,
@@ -33,12 +48,14 @@ class MeilisearchLexical(LexicalSearchPort):
         index_name: str = "properties",
         timeout_seconds: float = 3.0,
         api_key: str = "",
+        master_key: str = "",
         require_identity_token: bool = True,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._index_name = index_name
         self._timeout_seconds = timeout_seconds
         self._api_key = api_key
+        self._master_key = master_key
         self._require_identity_token = require_identity_token
         self._logger = get_logger("app")
 
@@ -52,10 +69,15 @@ class MeilisearchLexical(LexicalSearchPort):
         headers: dict[str, str] = {"content-type": "application/json"}
         if self._api_key:
             headers["x-meili-api-key"] = self._api_key
+        if self._master_key:
+            headers["authorization"] = f"Bearer {self._master_key}"
         if self._require_identity_token:
             try:
                 token = id_token.fetch_id_token(Request(), self._base_url)
-                headers["authorization"] = f"Bearer {token}"
+                if not self._master_key:
+                    # Only override Authorization with ID token when master key
+                    # is absent; Cloud Run IAM auth still occurs via ingress.
+                    headers["authorization"] = f"Bearer {token}"
             except Exception:
                 self._logger.exception("Failed to mint ID token for meili-search")
                 return []

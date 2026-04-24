@@ -51,7 +51,7 @@ class MeilisearchLexical(LexicalSearchPort):
     ) -> list[tuple[str, int]]:
         headers: dict[str, str] = {"content-type": "application/json"}
         if self._api_key:
-            headers["x-meili-api-key"] = self._api_key
+            headers["authorization"] = f"Bearer {self._api_key}"
         if self._require_identity_token:
             try:
                 token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]

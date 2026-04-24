@@ -55,6 +55,15 @@ resource "google_cloud_run_v2_service" "meili_search" {
         name  = "MEILI_HTTP_ADDR"
         value = "0.0.0.0:8080"
       }
+      env {
+        name = "MEILI_MASTER_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "meili-master-key"
+            version = "latest"
+          }
+        }
+      }
 
       volume_mounts {
         name       = "meili-data"

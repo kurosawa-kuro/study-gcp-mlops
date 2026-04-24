@@ -1,6 +1,5 @@
-"""Experiment tracking: Protocol + W&B adapter."""
+"""Experiment tracking: Protocol + no-op default."""
 
-from .experiment_tracker import ExperimentTracker
-from .wandb_tracker import WandbExperimentTracker
+from .experiment_tracker import ExperimentTracker, NoopExperimentTracker
 
-__all__ = ["ExperimentTracker", "WandbExperimentTracker"]
+__all__ = ["ExperimentTracker", "NoopExperimentTracker"]

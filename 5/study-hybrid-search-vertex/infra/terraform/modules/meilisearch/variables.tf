@@ -24,3 +24,9 @@ variable "meili_image" {
   type        = string
   default     = "docker.io/getmeili/meilisearch:v1.11"
 }
+
+variable "meili_master_key_secret_id" {
+  description = "Secret Manager secret ID for the Meilisearch master key (meili-master-key). Cloud Run injects MEILI_MASTER_KEY from this secret at runtime."
+  type        = string
+  default     = "meili-master-key"
+}

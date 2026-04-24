@@ -53,9 +53,16 @@ from scripts.local.setup.seed_minimal_clean import main as seed_clean_main
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 
-# Resource addresses for the 8 BQ tables that carry deletion_protection.
+# Resource addresses for the 10 BQ tables that carry deletion_protection.
 # Kept in sync with infra/terraform/modules/data/main.tf — if a new protected table
 # is added, append it here.
+#
+# Phase 6 Run 2 で `properties_enriched` (T8 Gemini enrichment) と
+# `ranking_log_hourly_ctr` (T2 Dataflow sink) の 2 つが追加されたが
+# PROTECTED_TABLE_TARGETS に反映されておらず、destroy-all の step 5
+# (terraform destroy) で
+#   Error: cannot destroy table ... without setting deletion_protection=false
+# で fail していた。Phase 6 対応で 8 → 10 に拡張する。
 PROTECTED_TABLE_TARGETS = [
     "module.data.google_bigquery_table.training_runs",
     "module.data.google_bigquery_table.search_logs",
@@ -65,6 +72,8 @@ PROTECTED_TABLE_TARGETS = [
     "module.data.google_bigquery_table.property_features_daily",
     "module.data.google_bigquery_table.property_embeddings",
     "module.data.google_bigquery_table.model_monitoring_alerts",
+    "module.data.google_bigquery_table.properties_enriched",
+    "module.data.google_bigquery_table.ranking_log_hourly_ctr",
 ]
 
 # Vertex AI Endpoint resource IDs — these match the `name` fields in

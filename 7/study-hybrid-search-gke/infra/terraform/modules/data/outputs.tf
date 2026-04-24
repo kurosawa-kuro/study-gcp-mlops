@@ -60,8 +60,7 @@ output "artifact_registry" {
 
 output "secrets" {
   value = {
-    doppler_token = google_secret_manager_secret.doppler_token
-    wandb_api_key = google_secret_manager_secret.wandb_api_key
+    meili_master_key = google_secret_manager_secret.meili_master_key
   }
 }
 

@@ -12,9 +12,6 @@ class Settings(BaseAppSettings):
     postgres_password: str = "password"
     model_dir: str = "ml/registry/artifacts"
     model_path: str = "ml/registry/artifacts/latest/model.lgb"
-    wandb_project: str = "california-housing"
-    wandb_api_key: str = ""
-    wandb_dir: str = "ml/wandb/wandb"
 
     @property
     def postgres_dsn(self) -> str:

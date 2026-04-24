@@ -16,7 +16,6 @@ def _apply_db_env(monkeypatch, postgres_url: str) -> None:
     monkeypatch.setenv("POSTGRES_DB", parsed.database or "mlpipeline")
     monkeypatch.setenv("POSTGRES_USER", parsed.username or "admin")
     monkeypatch.setenv("POSTGRES_PASSWORD", parsed.password or "password")
-    monkeypatch.setenv("WANDB_API_KEY", "")
 
 
 def test_train_and_predict_jobs(sample_db, tmp_path, monkeypatch):

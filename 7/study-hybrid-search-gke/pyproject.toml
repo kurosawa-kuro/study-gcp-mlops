@@ -28,7 +28,6 @@ dependencies = [
     # --- ml serving / training ---
     "lightgbm>=4.5",
     "sentence-transformers>=3.0",
-    "wandb>=0.17",
     # --- pipelines (KFP / Vertex Pipelines) ---
     "google-cloud-pipeline-components>=2.17",
     "kfp>=2.9,<3",

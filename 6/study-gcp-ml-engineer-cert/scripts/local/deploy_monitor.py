@@ -82,6 +82,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _build_describe(project_id: str, build_id: str) -> tuple[str, str]:
+    # Phase 6 Run 2 修正: 旧 session で拾った build_id が既に削除されていると
+    # `gcloud builds describe` が NOT_FOUND で exit 1 を返す。check=True のまま
+    # だと monitor プロセスごと落ちて wrapping している destroy-all / deploy-all
+    # が途中で abort する事故が再発するので、NOT_FOUND を許容して空を返す。
     proc = run(
         [
             "gcloud",
@@ -92,7 +96,10 @@ def _build_describe(project_id: str, build_id: str) -> tuple[str, str]:
             "--format=json",
         ],
         capture=True,
+        check=False,
     )
+    if proc.returncode != 0:
+        return "", ""
     try:
         payload = json.loads(proc.stdout or "{}")
     except json.JSONDecodeError:

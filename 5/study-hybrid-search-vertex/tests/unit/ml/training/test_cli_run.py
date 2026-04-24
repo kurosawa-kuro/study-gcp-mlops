@@ -56,24 +56,6 @@ class _StubUploader:
         return f"gs://stub/lgbm/{date_str}/{run_id}/model.txt"
 
 
-class _StubTracker:
-    def __init__(self) -> None:
-        self.logged: list[dict[str, float]] = []
-
-    def __enter__(self) -> _StubTracker:
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        return None
-
-    def log_metrics(self, metrics: dict[str, float]) -> None:
-        self.logged.append(metrics)
-
-
-def _tracker_factory(_run_id: str, _workdir: Path) -> _StubTracker:
-    return _StubTracker()
-
-
 def test_split_by_request_id_keeps_groups_intact() -> None:
     df = rank_cli.synthetic_ranking_frames()[0]
     train_df, test_df = _split_by_request_id(df)
@@ -100,7 +82,6 @@ def test_run_non_dry_run_happy_path(tmp_path: Path) -> None:
         window_days=30,
         repository=repo,
         uploader=uploader,
-        tracker_factory=_tracker_factory,
     )
 
     assert model_uri.startswith("gs://stub/lgbm/")
@@ -119,7 +100,6 @@ def test_run_non_dry_run_raises_on_empty_dataset() -> None:
             dry_run=False,
             repository=repo,
             uploader=_StubUploader(),
-            tracker_factory=_tracker_factory,
         )
 
 
@@ -132,7 +112,6 @@ def test_run_dry_run_skips_upload_and_save(tmp_path: Path) -> None:
         save_to=str(tmp_path / "smoke.txt"),
         repository=repo,
         uploader=uploader,
-        tracker_factory=_tracker_factory,
     )
 
     assert Path(result).is_file()

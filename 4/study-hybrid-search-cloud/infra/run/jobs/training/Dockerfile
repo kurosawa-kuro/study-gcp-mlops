@@ -24,7 +24,7 @@ COPY ml/training/  ml/training/
 # --no-editable: see infra/run/services/search_api/Dockerfile for rationale (runtime stage only copies
 # /opt/venv, so editable installs pointing at /src/ would 404 at import time).
 RUN uv sync --frozen --no-dev --package common --no-editable \
-    && uv pip install --python /opt/venv/bin/python "lightgbm>=4.5" "wandb>=0.17"
+    && uv pip install --python /opt/venv/bin/python "lightgbm>=4.5"
 
 
 FROM python:3.12-slim-bookworm AS runtime

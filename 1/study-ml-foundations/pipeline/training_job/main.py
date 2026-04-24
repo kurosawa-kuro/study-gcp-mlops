@@ -9,8 +9,6 @@ from ml.data.feature_engineering.feature_engineering import engineer_features
 from ml.data.loaders.config import Settings
 from ml.data.loaders.repository import get_repository
 from ml.data.preprocess.preprocess import preprocess
-from ml.evaluation import init_wandb, log_metrics
-from ml.evaluation.config import EvalSettings
 from ml.training.trainer import train
 
 logger = get_logger(__name__)
@@ -18,7 +16,6 @@ logger = get_logger(__name__)
 
 def main() -> None:
     settings = Settings()
-    eval_settings = EvalSettings()
     run_id = generate_run_id()
 
     # データ取得
@@ -47,16 +44,6 @@ def main() -> None:
     train_df = engineer_features(train_df)
     test_df = engineer_features(test_df)
 
-    # W&B 初期化
-    try:
-        init_wandb(
-            eval_settings.wandb_api_key,
-            eval_settings.wandb_project,
-            eval_settings.wandb_dir,
-        )
-    except Exception as e:
-        logger.warning("W&B initialization failed, continuing without it: %s", e)
-
     # 学習
     try:
         metrics = train(train_df, test_df, settings.model_dir, run_id)
@@ -70,12 +57,6 @@ def main() -> None:
         logger.info("Run saved to PostgreSQL: %s", run_id)
     except Exception as e:
         logger.warning("Failed to save run to PostgreSQL: %s", e)
-
-    # メトリクスログ
-    try:
-        log_metrics(metrics)
-    except Exception as e:
-        logger.warning("Failed to log metrics to W&B: %s", e)
 
     logger.info("Done.")
 

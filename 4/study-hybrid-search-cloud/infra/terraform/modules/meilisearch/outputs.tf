@@ -12,3 +12,8 @@ output "meili_data_bucket" {
   description = "GCS bucket mounted to /meili_data"
   value       = google_storage_bucket.meili_data
 }
+
+output "meili_sa_email" {
+  description = "Email of sa-meili service account — passed to data module for Secret Manager IAM binding"
+  value       = google_service_account.meili.email
+}

@@ -350,18 +350,11 @@ resource "google_artifact_registry_repository" "mlops" {
 }
 
 # =========================================================================
-# Secret Manager — Doppler token + W&B API key (values populated out-of-band)
+# Secret Manager — meili-master-key (value populated out-of-band)
 # =========================================================================
 
-resource "google_secret_manager_secret" "doppler_token" {
-  secret_id = "doppler-service-token"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret" "wandb_api_key" {
-  secret_id = "wandb-api-key"
+resource "google_secret_manager_secret" "meili_master_key" {
+  secret_id = "meili-master-key"
   replication {
     auto {}
   }
@@ -393,8 +386,8 @@ resource "google_storage_bucket_iam_member" "api_models_read" {
   member = "serviceAccount:${var.service_accounts.api.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "api_doppler_access" {
-  secret_id = google_secret_manager_secret.doppler_token.id
+resource "google_secret_manager_secret_iam_member" "api_meili_key_access" {
+  secret_id = google_secret_manager_secret.meili_master_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_accounts.api.email}"
 }
@@ -422,18 +415,6 @@ resource "google_storage_bucket_iam_member" "train_pipeline_root_admin" {
   bucket = google_storage_bucket.pipeline_root.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${var.service_accounts.job_train.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "job_train_doppler_access" {
-  secret_id = google_secret_manager_secret.doppler_token.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.service_accounts.job_train.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "job_train_wandb_access" {
-  secret_id = google_secret_manager_secret.wandb_api_key.id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.service_accounts.job_train.email}"
 }
 
 # sa-job-embed: read raw.properties via feature_mart.properties_cleaned view +

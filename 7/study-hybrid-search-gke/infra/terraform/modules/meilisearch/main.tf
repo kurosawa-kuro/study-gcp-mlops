@@ -51,6 +51,16 @@ resource "google_cloud_run_v2_service" "meili_search" {
         value = "/meili_data"
       }
 
+      env {
+        name = "MEILI_MASTER_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = var.meili_master_key_secret_id
+            version = "latest"
+          }
+        }
+      }
+
       volume_mounts {
         name       = "meili-data"
         mount_path = "/meili_data"
@@ -74,4 +84,10 @@ resource "google_cloud_run_v2_service_iam_member" "api_invoker" {
   location = var.region
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.service_accounts.api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "meili_key_access" {
+  secret_id = var.meili_master_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.meili.email}"
 }

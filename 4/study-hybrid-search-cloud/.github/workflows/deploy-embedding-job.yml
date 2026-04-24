@@ -60,34 +60,12 @@ jobs:
           image: ${{ env.JOB }}
           dockerfile: infra/run/jobs/embedding/Dockerfile
 
-      # Doppler-managed env is optional (encoder checkpoints do not need a
-      # secret today, so most installs will skip). Kept symmetric with
-      # deploy-training-job.yml so operators reuse muscle memory.
-      - name: Install Doppler CLI
-        if: ${{ secrets.DOPPLER_TOKEN_JOB != '' }}
-        uses: dopplerhq/cli-action@v3
-
-      - name: Collect Doppler secrets
-        id: doppler
-        if: ${{ secrets.DOPPLER_TOKEN_JOB != '' }}
-        env:
-          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN_JOB }}
-        run: |
-          DOPPLER_ENV=$(doppler secrets download --no-file --format env-no-quotes \
-            | grep '=' | tr '\n' '|' | sed 's/|$//')
-          echo "vars=$DOPPLER_ENV" >> "$GITHUB_OUTPUT"
-
       - name: Update Cloud Run Jobs
-        env:
-          DOPPLER_ENV: ${{ steps.doppler.outputs.vars }}
         run: |
           SHORT_SHA="${GITHUB_SHA::8}"
           # Points the Job at the bundled `embed` console script (ml/data/pyproject.toml).
           STATIC="PROJECT_ID=${{ env.PROJECT_ID }}|GIT_SHA=${SHORT_SHA}|ENCODER_MODEL_DIR="
           ENV_ARG="^|^${STATIC}"
-          if [ -n "${DOPPLER_ENV}" ]; then
-            ENV_ARG="${ENV_ARG}|${DOPPLER_ENV}"
-          fi
           # embedding-job は infra/modules/runtime/main.tf で定義済
           # (google_cloud_run_v2_job.embedding_job)。以前の NOT_FOUND 許容は
           # 不要になったので `|| true` を除去し、失敗で workflow を落とす。

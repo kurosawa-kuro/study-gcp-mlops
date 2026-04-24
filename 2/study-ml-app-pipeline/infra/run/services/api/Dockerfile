@@ -8,7 +8,6 @@ RUN pip install --no-cache-dir \
     lightgbm \
     numpy \
     pandas \
-    wandb \
     fastapi \
     uvicorn \
     jinja2 \

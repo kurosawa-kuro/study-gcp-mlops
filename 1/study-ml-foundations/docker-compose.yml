@@ -24,8 +24,6 @@ services:
       dockerfile: infra/run/jobs/trainer/Dockerfile
     volumes:
       - ./env/secret:/app/env/secret:ro
-    environment:
-      WANDB_API_KEY: ${WANDB_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,8 +37,6 @@ services:
       - ./ml/registry/artifacts:/app/ml/registry/artifacts
       - ./artifacts:/app/artifacts
       - ./env/secret:/app/env/secret:ro
-    environment:
-      WANDB_API_KEY: ${WANDB_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

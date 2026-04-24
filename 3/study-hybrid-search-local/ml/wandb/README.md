@@ -1,4 +1,5 @@
-# W&B Runs
+# ml/wandb (廃止)
 
-Offline/online W&B run artifacts are stored under `ml/wandb/wandb`.
-This directory is intentionally tracked as the canonical run output root.
+W&B 連携を Phase 3 から削除したため、このディレクトリは使用しない。
+
+実験メトリクスは `runs/{run_id}/metrics.json` に保存される（`ml/evaluation/report/tracking.py` 参照）。

@@ -1,4 +1,4 @@
 from .settings import TrainSettings
-from .tracker import WandbExperimentTracker
+from .tracker import NoopExperimentTracker
 
-__all__ = ["TrainSettings", "WandbExperimentTracker"]
+__all__ = ["TrainSettings", "NoopExperimentTracker"]

@@ -9,7 +9,6 @@ RUN pip install --no-cache-dir \
     pandas \
     numpy \
     scikit-learn \
-    wandb \
     "pydantic-settings[yaml]" \
     "psycopg[binary]" \
     sqlalchemy

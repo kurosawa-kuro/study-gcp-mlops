@@ -37,8 +37,11 @@ module "data" {
   # `service_accounts` reference above, which establishes an implicit dep.
   github_deployer_sa_email   = "sa-github-deployer@${var.project_id}.iam.gserviceaccount.com"
   enable_deletion_protection = var.enable_deletion_protection
+  # sa-meili is created by the meilisearch module; pass email here so data
+  # module can grant secretAccessor on meili-master-key.
+  meili_sa_email = module.meilisearch.meili_sa_email
 
-  depends_on = [google_project_service.enabled]
+  depends_on = [google_project_service.enabled, module.meilisearch]
 }
 
 module "runtime" {

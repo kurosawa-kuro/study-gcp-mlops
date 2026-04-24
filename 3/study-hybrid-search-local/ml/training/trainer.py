@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 from pathlib import Path
 
 import numpy as np
-from ml.evaluation.report.tracking import init_wandb, log_metrics
 
 TRAIN_CSV_PATH = Path("/app/artifacts/train/rank_train.csv")
 MODEL_PATH = Path("/app/artifacts/models/lgbm_ranker.txt")
@@ -98,19 +96,6 @@ def train_model() -> dict[str, object]:
         "queries": len(group_sizes),
         "positive_rows": positive_count,
     }
-
-    init_wandb(
-        api_key=os.getenv("WANDB_API_KEY", ""),
-        project=os.getenv("WANDB_PROJECT", "study-hybrid-search-local"),
-        wandb_dir=os.getenv("WANDB_DIR", "ml/wandb/wandb"),
-    )
-    log_metrics(
-        {
-            "rows": float(metadata["rows"]),
-            "queries": float(metadata["queries"]),
-            "positive_rows": float(metadata["positive_rows"]),
-        }
-    )
 
     METADATA_PATH.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
     return metadata

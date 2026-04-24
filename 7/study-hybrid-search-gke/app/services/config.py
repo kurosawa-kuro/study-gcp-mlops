@@ -1,5 +1,7 @@
 """API settings."""
 
+from pydantic import SecretStr
+
 from ml.common.config import BaseAppSettings
 
 
@@ -15,6 +17,7 @@ class ApiSettings(BaseAppSettings):
     meili_base_url: str = ""
     meili_index_name: str = "properties"
     meili_api_key: str = ""
+    meili_master_key: SecretStr = SecretStr("")  # Secret Manager: meili-master-key
     meili_require_identity_token: bool = True
 
     # --- KServe inference endpoints (cluster-local HTTP) ----------------------

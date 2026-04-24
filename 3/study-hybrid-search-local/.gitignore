@@ -12,8 +12,8 @@ __pycache__/
 env/secret/*
 !env/secret/README.md
 
-# W&B local runs
-ml/wandb/
+# Local experiment run artifacts
+runs/
 
 # Logs
 tea_debug.log

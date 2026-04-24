@@ -57,3 +57,9 @@ variable "enable_deletion_protection" {
   type        = bool
   default     = true
 }
+
+variable "meili_sa_email" {
+  description = "Email of the Meilisearch Cloud Run SA (sa-meili). Granted secretAccessor on meili-master-key so the meili-search Cloud Run service can read the master key at runtime."
+  type        = string
+  default     = ""
+}

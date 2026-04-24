@@ -1,11 +1,10 @@
-"""evaluation パッケージのテスト（指標算出・保存・W&B）."""
+"""evaluation パッケージのテスト（指標算出・保存）."""
 
 from pathlib import Path
 
 import numpy as np
 
 from ml.evaluation.metrics import evaluate, r2_score, rmse, save_metrics
-from ml.evaluation.report.tracking import init_wandb, log_metrics
 
 
 class TestMetrics:
@@ -46,9 +45,3 @@ class TestSaveMetrics:
         path = str(tmp_path / "metrics.json")
         save_metrics({"rmse": 0.5, "r2": 0.8}, path)
         assert Path(path).exists()
-
-
-class TestTracking:
-    def test_wandb_offline(self):
-        init_wandb(api_key="", project="test-project")
-        log_metrics({"rmse": 0.5})

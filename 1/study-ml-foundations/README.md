@@ -35,7 +35,7 @@ PostgreSQL (docker-compose: postgres サービス)
     → ml/data/preprocess: 前処理 (欠損値補完・外れ値キャップ・対数変換)
       → ml/data/feature_engineering: 特徴量エンジニアリング (BedroomRatio・RoomsPerPerson)
         → ml/training: LightGBM 学習
-        → ml/evaluation: 精度評価 (RMSE, R²) + W&B ログ
+        → ml/evaluation: 精度評価 (RMSE, R²) + metrics.json 保存
           → ml/registry/artifacts/{run_id}/ に保存 + PostgreSQL に精度記録 + latest 更新
 ```
 
@@ -46,7 +46,7 @@ PostgreSQL (docker-compose: postgres サービス)
 | `pipeline/` | data/training/evaluation のジョブエントリーポイント |
 | `ml/data/` | データ取得・前処理・特徴量生成 |
 | `ml/training/` | LightGBM 学習アルゴリズム |
-| `ml/evaluation/` | 精度評価 (RMSE, R²) + W&B 実験ログ |
+| `ml/evaluation/` | 精度評価 (RMSE, R²) + metrics.json 保存 |
 | `ml/registry/` | 実行履歴メタデータとアーティファクト管理 |
 | `ml/common/` | 共通定義 (特徴量カラム, 設定ベースクラス, ロギング, Run ID 生成) |
 
@@ -57,7 +57,7 @@ PostgreSQL (docker-compose: postgres サービス)
 | 学習 | LightGBM |
 | データ | PostgreSQL 16 + sklearn California Housing |
 | 評価 | numpy 自前実装 (RMSE, R²) |
-| 実験ログ | W&B (オプション) |
+| メトリクス管理 | ローカル JSON (`ml/registry/artifacts/{run_id}/metrics.json`) |
 | 設定管理 | pydantic-settings + YAML |
 | インフラ | Docker Compose |
 
@@ -85,10 +85,6 @@ ml/registry/artifacts/
 ```
 
 推論 API は Phase 2 で提供。Phase 2 は独立学習を前提とし、モデル成果物はフェーズ間で共有しない方針。
-
-## W&B 連携
-
-`env/secret/credential.yaml` に `wandb_api_key` を設定するとクラウドにログ送信。未設定時は offline モードで保存され、パイプライン本体の動作には影響しない。
 
 ## テスト
 

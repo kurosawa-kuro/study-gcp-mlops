@@ -22,13 +22,10 @@ def main() -> None:
     train_df = engineer_features(preprocess(train_df))
     test_df = engineer_features(preprocess(test_df))
 
-    container.tracker.start(run_id, {"phase": "2", "job": "train"})
     booster, metrics = train(train_df, test_df)
     payload = dict(metrics)
     payload["run_id"] = run_id
     container.model_store.save(run_id, booster, payload)
-    container.tracker.log_metrics(payload)
-    container.tracker.finish()
     logger.info("Training completed: run_id=%s", run_id)
 
 

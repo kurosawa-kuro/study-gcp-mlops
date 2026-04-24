@@ -17,8 +17,7 @@ def main() -> None:
     compose(["down", "--remove-orphans", "--volumes"], check=False)
 
     models_dir = root / "ml" / "registry" / "artifacts"
-    wandb_dir = root / "ml" / "wandb" / "wandb"
-    if models_dir.exists() or wandb_dir.exists():
+    if models_dir.exists():
         run(
             [
                 "docker",
@@ -26,12 +25,10 @@ def main() -> None:
                 "--rm",
                 "-v",
                 f"{models_dir}:/work/models",
-                "-v",
-                f"{wandb_dir}:/work/wandb",
                 "alpine",
                 "sh",
                 "-c",
-                "rm -rf /work/models/* /work/wandb/*",
+                "rm -rf /work/models/*",
             ],
             check=False,
         )

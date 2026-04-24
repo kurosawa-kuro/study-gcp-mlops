@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+from pydantic import SecretStr
+
 from ml.common.config import BaseAppSettings
 
 
@@ -18,6 +20,9 @@ class ApiSettings(BaseAppSettings):
     meili_index_name: str = "properties"
     meili_api_key: str = ""
     meili_require_identity_token: bool = True
+    # Secret Manager 経由で Cloud Run に注入 (--set-secrets MEILI_MASTER_KEY=meili-master-key:latest)
+    # ローカル開発時は env/secret/credential.yaml の meili_master_key キーまたは環境変数で供給する。
+    meili_master_key: SecretStr = SecretStr("")
     vertex_location: str = "asia-northeast1"
     vertex_encoder_endpoint_id: str = ""
     vertex_predict_timeout_seconds: float = 30.0
