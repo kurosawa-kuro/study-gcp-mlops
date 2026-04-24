@@ -1,0 +1,27 @@
+# Cloud Build の source upload ではローカル `.venv` (5.5 GB) を絶対に含めない。
+# gcloud は `.dockerignore` を自動で尊重するが、念のため `.gcloudignore` を
+# 明示して upload 対象を確実に絞る。
+
+# ----- Python bytecode / caches -----
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+
+# ----- Python virtualenv (必ず除外、巨大) -----
+.venv/
+**/.venv/
+
+# ----- Terraform local state (巨大 + 秘密情報) -----
+**/.terraform/
+**/*.tfstate*
+
+# ----- VCS / CI metadata (Cloud Build が独自に処理) -----
+.git/
+.github/
+
+# ----- ML experiment trackers / artifact dumps -----
+ml/wandb/
+**/wandb/
+dist/
