@@ -1,47 +1,11 @@
 locals {
-  # Feature Group parity invariant:
+  # Feature Group parity invariant — REMOVED (Phase 5 scope reduction)
+  # Was:
   # - ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER (property-side 7 cols)
   # - monitoring/validate_feature_skew.sql UNPIVOT lists
   # - tests/integration/parity/test_feature_parity_feature_group.py
-  #
-  # Query-time signals (me5_score / lexical_rank / semantic_rank) are excluded.
-  feature_group_property_features = [
-    {
-      name        = "rent"
-      value_type  = "DOUBLE"
-      description = "Monthly rent"
-    },
-    {
-      name        = "walk_min"
-      value_type  = "DOUBLE"
-      description = "Walking minutes to nearest station"
-    },
-    {
-      name        = "age_years"
-      value_type  = "DOUBLE"
-      description = "Property age in years"
-    },
-    {
-      name        = "area_m2"
-      value_type  = "DOUBLE"
-      description = "Floor area in square meters"
-    },
-    {
-      name        = "ctr"
-      value_type  = "DOUBLE"
-      description = "Historical click-through rate"
-    },
-    {
-      name        = "fav_rate"
-      value_type  = "DOUBLE"
-      description = "Historical favorite rate"
-    },
-    {
-      name        = "inquiry_rate"
-      value_type  = "DOUBLE"
-      description = "Historical inquiry conversion rate"
-    },
-  ]
+  # Now: query-time features (rent/walk_min/age_years/area_m2/ctr/fav_rate/inquiry_rate)
+  # are joined directly from feature_mart.property_features_daily in query pipelines.
 
   encoder_endpoint_name = (
     var.encoder_endpoint_id != ""
@@ -222,42 +186,16 @@ resource "google_eventarc_trigger" "monitoring_to_pipeline" {
 }
 
 # =========================================================================
-# Vertex AI Feature Group — offline wrapper over feature_mart.property_features_daily.
+# Vertex AI Feature Group — REMOVED (Phase 5 scope reduction)
 #
-# Entity: property_id. Seven property-side features mirror FEATURE_COLS_RANKER
-# (parity test: tests/parity/test_feature_parity_feature_group.py).
-# Query-time signals (me5_score / lexical_rank / semantic_rank) stay outside
-# the Feature Group because they are computed per-request, not per-property.
+# Feature Group was originally an offline wrapper for property-side features
+# (rent / walk_min / age_years / area_m2 / ctr / fav_rate / inquiry_rate).
+# In practice, these features are computed on-the-fly or joined at query time,
+# and Vertex Feature Group created operational overhead without clear benefit.
+# Dropped in favor of direct BigQuery joins in query pipelines.
+#
+# Parity test (test_feature_parity_feature_group.py) also removed.
 # =========================================================================
-
-resource "google_vertex_ai_feature_group" "property_features" {
-  count    = var.enable_feature_group ? 1 : 0
-  provider = google-beta
-
-  name        = "property_features"
-  region      = var.vertex_location
-  description = "Offline Feature Group wrapping feature_mart.property_features_daily"
-
-  big_query {
-    big_query_source {
-      input_uri = "bq://${var.project_id}.${var.feature_mart_dataset_id}.property_features_daily"
-    }
-    entity_id_columns = ["property_id"]
-  }
-}
-
-resource "google_vertex_ai_feature_group_feature" "property_features" {
-  for_each = var.enable_feature_group ? {
-    for feat in local.feature_group_property_features : feat.name => feat
-  } : {}
-
-  provider = google-beta
-
-  name          = each.value.name
-  region        = var.vertex_location
-  feature_group = google_vertex_ai_feature_group.property_features[0].name
-  description   = each.value.description
-}
 
 # =========================================================================
 # Vertex AI Endpoints — empty shells. Model deployment is handled by the

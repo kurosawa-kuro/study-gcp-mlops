@@ -37,7 +37,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
         setup-model-monitoring setup-pipeline-schedule setup-encoder-endpoint setup-reranker-endpoint \
-        deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
+        deploy-all deploy-all-direct run-all destroy-all destroy-phase6-learning seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
         ops-deploy-monitor ops-monitor \
@@ -154,6 +154,9 @@ run-all: ## End-to-end validation flow after deploy (layer check → seed → tr
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.local.setup.destroy_all
+
+destroy-phase6-learning: ## Lightweight coast-down: remove endpoints + GCS artifacts (preserve Terraform state). Pass APPLY=1 to execute.
+	uv run python -m scripts.local.setup.destroy_phase6_learning
 
 seed-test: ## Insert 5 test properties for PDCA smoke
 	uv run python -m scripts.local.setup.seed_minimal

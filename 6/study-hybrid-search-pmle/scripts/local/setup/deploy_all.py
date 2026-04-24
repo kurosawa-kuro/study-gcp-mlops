@@ -19,6 +19,7 @@ min-instances=1, BQ storage, etc.) — see CLAUDE.md non-negotiables.
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 from scripts._common import env, run
@@ -29,6 +30,8 @@ from scripts.local.setup.tf_init import main as tf_init_main
 from scripts.local.setup.tf_plan import main as tf_plan_main
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
+TFLOCK_PATH = INFRA / ".terraform.lock.hcl"
+TFSTATE_LOCK_PATH = INFRA / ".terraform/terraform.tfstate.lock.hcl"
 
 
 def _step(n: int, total: int, label: str) -> None:
@@ -36,6 +39,68 @@ def _step(n: int, total: int, label: str) -> None:
     print("================================================================")
     print(f" deploy-all  step {n}/{total}: {label}")
     print("================================================================")
+
+
+def _check_stale_terraform_lock() -> None:
+    """Detect and warn about (or auto-recover) stale Terraform state locks.
+    
+    If .terraform/terraform.tfstate.lock.hcl exists and is >24 hours old,
+    this indicates a previous terraform operation crashed or was orphaned
+    without releasing the lock. The lock blocks the next tf-plan.
+    
+    Behavior:
+    - Warn user about the stale lock age
+    - If ALLOW_FORCE_UNLOCK=1 env is set, call 'terraform force-unlock <lock-id>'
+    - Otherwise, require user to manually investigate or set ALLOW_FORCE_UNLOCK=1
+    """
+    stale_threshold_sec = 86400  # 24 hours
+    
+    # Try multiple possible lock file paths (varies by Terraform version/backend)
+    lock_candidates = [TFSTATE_LOCK_PATH]
+    
+    for lock_path in lock_candidates:
+        if not lock_path.exists():
+            continue
+        
+        mtime = lock_path.stat().st_mtime
+        age_sec = time.time() - mtime
+        age_hours = age_sec / 3600
+        
+        if age_sec > stale_threshold_sec:
+            print(f"\n⚠️  WARNING: Stale Terraform state lock detected!")
+            print(f"   Lock file: {lock_path}")
+            print(f"   Age: {age_hours:.1f} hours (threshold: 24h)")
+            print(f"   This typically means a prior tf-apply/tf-plan crashed without cleanup.")
+            print()
+            
+            # Try to extract lock ID from lock file for force-unlock
+            try:
+                lock_content = lock_path.read_text()
+                # Lock file format: ID = "XXXXXXXXX" (9 chars)
+                import re
+                match = re.search(r'ID\s*=\s*"([^"]+)"', lock_content)
+                if match:
+                    lock_id = match.group(1)
+                    print(f"   Lock ID: {lock_id}")
+                    
+                    allow_force = env.get("ALLOW_FORCE_UNLOCK", "0") == "1"
+                    if allow_force:
+                        print(f"   ALLOW_FORCE_UNLOCK=1 detected. Forcing unlock...")
+                        run([
+                            "terraform",
+                            f"-chdir={INFRA}",
+                            "force-unlock",
+                            lock_id,
+                            "-force"
+                        ])
+                        print(f"   ✓ Lock released.")
+                    else:
+                        print(f"   To auto-recover, run: ALLOW_FORCE_UNLOCK=1 make deploy-all")
+                        print(f"   Or manually: terraform -chdir={INFRA} force-unlock {lock_id} -force")
+                        raise RuntimeError(f"Stale Terraform lock at {lock_path}. Set ALLOW_FORCE_UNLOCK=1 to proceed.")
+            except Exception as e:
+                print(f"   Error processing lock file: {e}")
+                raise
 
 
 def _gcloud_capture(args: list[str]) -> tuple[int, str]:
@@ -164,7 +229,7 @@ def _recover_wif_state(project_id: str) -> None:
 
 
 def main() -> int:
-    total = 7
+    total = 8
     project_id = env("PROJECT_ID")
 
     _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
@@ -175,21 +240,28 @@ def main() -> int:
     if (rc := tf_init_main()) != 0:
         return rc
 
-    _step(3, total, "recover WIF pool/provider if soft-deleted (PDCA loop safety)")
+    _step(3, total, "check-stale-lock (detect orphaned Terraform state locks >24h)")
+    try:
+        _check_stale_terraform_lock()
+    except RuntimeError as e:
+        print(f"❌ {e}")
+        return 1
+
+    _step(4, total, "recover WIF pool/provider if soft-deleted (PDCA loop safety)")
     _recover_wif_state(project_id)
 
-    _step(4, total, "sync-dataform-config (regenerate workflow_settings.yaml)")
+    _step(5, total, "sync-dataform-config (regenerate workflow_settings.yaml)")
     if (rc := sync_dataform_main()) != 0:
         return rc
 
-    _step(5, total, "tf-plan (saves infra/tfplan)")
+    _step(6, total, "tf-plan (saves infra/tfplan)")
     if (rc := tf_plan_main()) != 0:
         return rc
 
-    _step(6, total, "terraform apply tfplan -auto-approve")
+    _step(7, total, "terraform apply tfplan -auto-approve")
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
 
-    _step(7, total, "deploy-api-local (Cloud Build + run deploy search-api)")
+    _step(8, total, "deploy-api-local (Cloud Build + run deploy search-api)")
     if (rc := deploy_api_main()) != 0:
         return rc
 

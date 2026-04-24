@@ -75,11 +75,7 @@ variable "models_bucket_name" {
   type        = string
 }
 
-variable "enable_feature_group" {
-  description = "When true, declare the Vertex AI Feature Group wrapping feature_mart.property_features_daily"
-  type        = bool
-  default     = true
-}
+
 
 variable "enable_endpoints" {
   description = "When true, declare the encoder + reranker Vertex AI Endpoints. Model deployment still happens via the Python SDK."
