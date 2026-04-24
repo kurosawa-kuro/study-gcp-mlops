@@ -1,261 +1,153 @@
-# scripts 一覧 (Phase 1-7)
+# scripts 命名標準 (Phase 1-7)
 
-このドキュメントは、各 Phase の scripts 配下にある実行スクリプトを
-"どの役割で使うか" と "どの名前で存在するか" の観点で整理したものです。
+このドキュメントは、scripts 命名を次の原則で統一するための正本です。
 
-対象パス:
-- 1/study-ml-foundations/scripts
-- 2/study-ml-app-pipeline/scripts
-- 3/study-hybrid-search-local/scripts
-- 4/study-hybrid-search-gcp/scripts
-- 5/study-hybrid-search-vertex/scripts
-- 6/study-hybrid-search-pmle/scripts
-- 7/study-hybrid-search-gke/scripts
+- Make target = ユーザー向け公開 API
+- scripts = 内部実装
 
-除外:
-- __pycache__
-- .gitkeep
+公開 API は Make 側で安定提供し、内部実装は scripts 側で整理・進化させます。
 
 ---
 
-## Phase 1: study-ml-foundations
+## 一点結論
 
-### 共通/基盤
-- core.py: コンテナ競合解消や共通処理のユーティリティ
+- Make target 名を正本語彙とする
+- scripts 名は Make target と 1 対 1 で追跡できる形に寄せる
+- まず Phase 4-7 で統一し、その後 Phase 1-3 へ展開する
 
-### Setup/Train
-- local/setup/seed.py: 学習用データ seed
-- local/setup/train.py: 学習実行
+---
 
-### Ops/Test
-- local/ops/test.py: pytest 実行
-- local/ops/clean.py: 生成物クリーンアップ
-- local/run_all_monitor.py: run-all 監視ラッパー
+## 標準ディレクトリ構成
 
-### ドキュメント
-- README.md: scripts の使い方
+Phase 4-7 の最終形は次を標準とする。
 
-## Phase 2: study-ml-app-pipeline
+```text
+scripts/
+	setup/
+	deploy/
+	ops/
+	ci/
+	sql/
+	bqml/        # Phase 6/7
+	enrichment/  # Phase 6/7
+	core.py
+```
 
-### 共通/基盤
-- core.py: コンテナ/ポート競合解消などの共通ユーティリティ
+補足:
+- 既存の `scripts/local/*` は移行期間のみ許容
+- 既存の `scripts/dev/*` は `scripts/setup/*` へ寄せる
 
-### Setup/Train/Deploy
-- local/setup/seed.py: seed データ投入
-- local/setup/train.py: 学習実行
-- local/deploy/serve.py: ローカル API 起動
+---
 
-### Ops/Test
-- local/ops/test.py: pytest 実行
-- local/ops/clean.py: クリーンアップ
-- local/run_all_monitor.py: run-all 監視ラッパー
+## 命名変換ルール
 
-## Phase 3: study-hybrid-search-local
+### 1. Make を先に定義する
 
-### CI
-- ci/layers.py: レイヤ依存ルール検査
+例:
+- make deploy-all
+- make tf-plan
+- make ops-search
 
-### Setup/Runtime
-- local/setup/compose.sh: docker compose ラッパー
-- local/setup/free_ports.sh: 使用ポート解放
+### 2. scripts 側は target 語彙へ寄せる
 
-### Ops (検索/学習/評価)
-- local/ops/health_check.py: API ヘルスチェック
-- local/ops/search_check.py: 検索 smoke
-- local/ops/search_component_check.py: 検索コンポーネント寄与チェック
-- local/ops/ranking_check.py: ランキング挙動確認
-- local/ops/ranking_check_verbose.py: 詳細ランキング確認
-- local/ops/feedback_check.py: feedback 経路確認
-- local/ops/training_label_seed.py: ラベル seed
-- local/ops/training_fit_safe.py: 学習安全実行
-- local/ops/accuracy_report.py: 精度レポート
-- local/run_all_monitor.py: run-all 監視ラッパー
+| Make target | Canonical script |
+|---|---|
+| deploy-all | scripts/setup/deploy_all.py |
+| destroy-all | scripts/setup/destroy_all.py |
+| tf-plan | scripts/setup/tf_plan.py |
+| deploy-api-local | scripts/deploy/api_local.py |
+| deploy-kserve-models | scripts/deploy/kserve_models.py |
+| ops-livez | scripts/ops/livez.py |
+| ops-search | scripts/ops/search.py |
+| ops-search-components | scripts/ops/search_components.py |
+| ops-ranking | scripts/ops/ranking.py |
+| ops-feedback | scripts/ops/feedback.py |
+| ops-check-retrain | scripts/ops/check_retrain.py |
+| ops-label-seed | scripts/ops/label_seed.py |
+| ops-accuracy-report | scripts/ops/accuracy_report.py |
 
-### ドキュメント
-- README.md
-- ci/README.md
-- dev/README.md
-- local/README.md
+### 3. suffix の扱い
 
-## Phase 4: study-hybrid-search-gcp
+原則として次の suffix は新規採用しない。
 
-### 共通/基盤
-- _common.py: 設定/共通処理
+- _check
+- _monitor
+- _safe
+- _now
+- _init
 
-### CI
-- ci/check_layers.py: レイヤ依存検査
+理由:
+- 意味が実行文脈依存で曖昧になりやすい
+- Make target 側の語彙とずれやすい
 
-### Dev (Terraform/環境/seed)
-- dev/doctor.py: 環境検査
-- dev/config_init.py: 初期設定生成
-- dev/sync_dataform.py: Dataform 設定同期
-- dev/tf_bootstrap.py: Terraform 事前準備
-- dev/tf_init.py: Terraform init
-- dev/tf_plan.py: Terraform plan
-- dev/deploy_all.py: デプロイ集約
-- dev/destroy_all.py: リソース削除
-- dev/seed_minimal.py: 最小 seed
-- dev/seed_minimal_clean.py: 最小 seed 削除
+例外:
+- 互換維持のための移行ラッパーに限って一時利用可
 
-### Local Ops/Deploy
-- local/deploy_monitor.py: deploy/run 監視
-- local/deploy_checker.py: デプロイ後検証
-- local/deploy_init.py: デプロイ初期化
-- local/deploy_api.py: API デプロイ
-- local/deploy_training_job.py: training job デプロイ
-- local/run_training_job.py: training job 実行
-- local/livez_check.py: livez
-- local/search_check.py: search
-- local/search_component_check.py: search component
-- local/ranking_check.py: ranking
-- local/feedback_check.py: feedback
-- local/training_label_seed.py: ラベル seed
-- local/check_retrain.py: 再学習判定
-- local/accuracy_report.py: 精度レポート
+---
 
-### SQL (運用クエリ)
-- local/sql/skew_latest.sql
-- local/sql/search_volume.sql
-- local/sql/runs_recent.sql
-- local/sql/bq_scan_top.sql
+## 現状評価 (2026-04-25)
 
-## Phase 5: study-hybrid-search-vertex
+### Phase 4
 
-### 共通/CI
-- _common.py: 共通設定ユーティリティ
-- ci/layers.py: レイヤ検査
-- ci/sync_dataform.py: Dataform 同期
+- `scripts/dev/*` と `scripts/local/*` が混在
+- `ops-search` が `scripts.local.search_check` など suffix 駆動の実装を参照
+- 4-7 の中で最も語彙不一致が大きい
 
-### Setup (Terraform/Vertex)
-- local/setup/doctor.py
-- local/setup/tf_bootstrap.py
-- local/setup/tf_init.py
-- local/setup/tf_plan.py
-- local/setup/create_schedule.py
-- local/setup/setup_model_monitoring.py
-- local/setup/setup_encoder_endpoint.py
-- local/setup/upload_encoder_assets.py
-- local/setup/deploy_all.py
-- local/setup/destroy_all.py
-- local/setup/seed_minimal.py
-- local/setup/seed_minimal_clean.py
-- local/setup/print_github_variables.py
+### Phase 5-7
 
-### Deploy/Ops
-- local/deploy_monitor.py: deploy/run 監視
-- local/deploy/api_local.py: API デプロイ
-- local/deploy/training_job_local.py: training job デプロイ
-- local/ops/livez_check.py
-- local/ops/search_check.py
-- local/ops/search_component_check.py
-- local/ops/ranking_check.py
-- local/ops/feedback_check.py
-- local/ops/training_label_seed.py
-- local/ops/check_retrain.py
-- local/ops/accuracy_report.py
-- local/ops/sync_meili.py: Meilisearch 同期
-- local/ops/register_model.py: モデル登録
-- local/ops/promote.py: モデル昇格
+- `scripts/local/setup|deploy|ops` で一定の整理は済んでいる
+- ただし `*_check.py` 命名や `local` プレフィックスが残る
+- `scripts.local.ops.search_check` のように Make target とファイル名が 1 対 1 でない箇所がある
 
-### SQL
-- local/sql/skew_latest.sql
-- local/sql/search_volume.sql
-- local/sql/runs_recent.sql
-- local/sql/bq_scan_top.sql
+---
 
-## Phase 6: study-hybrid-search-pmle
+## 移行方針 (段階的)
 
-### 共通/CI/BQML
-- _common.py
-- ci/layers.py
-- ci/sync_dataform.py
-- bqml/train_popularity.sql: BQML 学習 SQL
-- local/bqml/train_popularity.py: BQML 学習実行
+### Step 1: Canonical path を追加
 
-### Setup (PMLE/Endpoint)
-- local/setup/doctor.py
-- local/setup/tf_bootstrap.py
-- local/setup/tf_init.py
-- local/setup/tf_plan.py
-- local/setup/create_schedule.py
-- local/setup/setup_model_monitoring.py
-- local/setup/setup_encoder_endpoint.py
-- local/setup/setup_reranker_endpoint.py
-- local/setup/upload_encoder_assets.py
-- local/setup/deploy_all.py
-- local/setup/destroy_all.py
-- local/setup/destroy_phase6_learning.py
-- local/setup/seed_minimal.py
-- local/setup/seed_minimal_clean.py
-- local/setup/print_github_variables.py
+Phase 4-7 で次を追加する。
 
-### Deploy/Ops/Enrichment
-- local/deploy_monitor.py
-- local/deploy/api_local.py
-- local/deploy/training_job_local.py
-- local/enrichment/run_enrichment.py
-- local/ops/livez_check.py
-- local/ops/search_check.py
-- local/ops/search_component_check.py
-- local/ops/ranking_check.py
-- local/ops/feedback_check.py
-- local/ops/training_label_seed.py
-- local/ops/check_retrain.py
-- local/ops/accuracy_report.py
-- local/ops/sync_meili.py
-- local/ops/register_model.py
-- local/ops/promote.py
-- local/ops/slo_status.py
+- scripts/setup/*.py
+- scripts/deploy/*.py
+- scripts/ops/*.py
+- scripts/sql/*.sql
 
-### SQL
-- local/sql/skew_latest.sql
-- local/sql/search_volume.sql
-- local/sql/runs_recent.sql
-- local/sql/bq_scan_top.sql
+### Step 2: 互換ラッパーを残す
 
-## Phase 7: study-hybrid-search-gke
+旧 path (`scripts/local/*`, `scripts/dev/*`) は薄い import 転送だけにし、実装本体を canonical へ寄せる。
 
-### 共通/CI/BQML
-- _common.py
-- ci/layers.py
-- ci/sync_dataform.py
-- bqml/train_popularity.sql
-- local/bqml/train_popularity.py
+### Step 3: Makefile を canonical に切替
 
-### Setup (GKE)
-- local/setup/doctor.py
-- local/setup/tf_bootstrap.py
-- local/setup/tf_init.py
-- local/setup/tf_plan.py
-- local/setup/create_schedule.py
-- local/setup/setup_model_monitoring.py
-- local/setup/deploy_all.py
-- local/setup/destroy_all.py
-- local/setup/seed_minimal.py
-- local/setup/seed_minimal_clean.py
-- local/setup/print_github_variables.py
+例:
 
-### Deploy/Ops/Enrichment
-- local/deploy_monitor.py
-- local/deploy/api_gke.py: GKE API デプロイ
-- local/deploy/kserve_models.py: KServe モデル反映
-- local/deploy/training_job_local.py
-- local/enrichment/run_enrichment.py
-- local/ops/livez_check.py
-- local/ops/search_check.py
-- local/ops/search_component_check.py
-- local/ops/ranking_check.py
-- local/ops/feedback_check.py
-- local/ops/training_label_seed.py
-- local/ops/check_retrain.py
-- local/ops/accuracy_report.py
-- local/ops/sync_meili.py
-- local/ops/register_model.py
-- local/ops/promote.py
-- local/ops/slo_status.py
+- `uv run python -m scripts.local.ops.search_check`
+	-> `uv run python -m scripts.ops.search`
+- `uv run python -m scripts.dev.tf_plan`
+	-> `uv run python -m scripts.setup.tf_plan`
 
-### SQL
-- local/sql/skew_latest.sql
-- local/sql/search_volume.sql
-- local/sql/runs_recent.sql
-- local/sql/bq_scan_top.sql
+### Step 4: 互換層の削除
+
+- 2 リリース分の移行期間を目安に旧 path を削除
+- docs と README の呼び出し例を同時更新
+
+---
+
+## 直近の実施順 (推奨)
+
+1. Phase 4 の `dev/local` 混在を解消
+2. Phase 5 の `ops/*_check.py` を canonical 名へ寄せる
+3. 同パターンを Phase 6, 7 に展開
+4. 最後に Phase 1-3 を同ルールへ寄せる
+
+---
+
+## 運用ルール
+
+- 新規 Make target を追加する場合は、同名語彙の script を同時追加する
+- script 名を先に決めない。必ず target 名を先に決める
+- 既存 target を廃止する場合は互換 alias を先に用意し、README で告知する
+
+関連資料:
+- [docs/Makefile.md](docs/Makefile.md)
+- [docs/04_運用.md](docs/04_運用.md)
+- [README.md](README.md)
