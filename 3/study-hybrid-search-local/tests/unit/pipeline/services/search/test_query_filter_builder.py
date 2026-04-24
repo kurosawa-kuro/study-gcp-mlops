@@ -1,7 +1,7 @@
 """
 正常系テスト: services/search/query_filter_builder.py
 """
-from pipeline.services.search.query_filter_builder import build_search_payload
+from pipeline.batch_serving_job.services.search.query_filter_builder import build_search_payload
 
 
 def test_no_filters():

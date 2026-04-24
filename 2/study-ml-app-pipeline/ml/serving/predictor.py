@@ -1,7 +1,7 @@
 """Predictor adapter backed by ModelStore."""
 
 from ml.serving.inference import predict_price
-from ml.ports.model_store import ModelStore
+from ml.registry.port import ModelStore
 from ml.serving.port import Predictor
 
 

@@ -9,9 +9,9 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from common.core.db import get_db_connection
-from pipeline.repositories.evaluation_report_repository import insert_offline_eval_report
-from pipeline.services.evaluation.kpi_service import compute_kpi_metrics
-from pipeline.services.evaluation.offline_metrics_service import compute_offline_metrics
+from pipeline.batch_serving_job.repositories.evaluation_report_repository import insert_offline_eval_report
+from pipeline.batch_serving_job.services.evaluation.kpi_service import compute_kpi_metrics
+from pipeline.batch_serving_job.services.evaluation.offline_metrics_service import compute_offline_metrics
 
 REPORT_DIR = Path("/app/artifacts/reports")
 

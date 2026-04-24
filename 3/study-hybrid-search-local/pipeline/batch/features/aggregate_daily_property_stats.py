@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from common.clients.meilisearch_client import MeiliClient
 from common.core.db import get_db_connection
-from pipeline.services.ranking.feature_service import (
+from pipeline.batch_serving_job.services.ranking.feature_service import (
     recalculate_property_stats,
     remove_inactive_features,
     upsert_property_features,

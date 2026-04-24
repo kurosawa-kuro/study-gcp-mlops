@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from common.ports.inbound.search_usecase import SearchQuery
-from pipeline.repositories.property_embedding_repository import fetch_property_embeddings
-from pipeline.services.embeddings.similarity_service import cosine_similarity
-from pipeline.services.ranking.lgbm_reranker import rerank_with_lgbm
+from pipeline.batch_serving_job.repositories.property_embedding_repository import fetch_property_embeddings
+from pipeline.batch_serving_job.services.embeddings.similarity_service import cosine_similarity
+from pipeline.batch_serving_job.services.ranking.lgbm_reranker import rerank_with_lgbm
 
 
 class LightGBMRerankingAdapter:

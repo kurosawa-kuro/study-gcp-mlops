@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pipeline.repositories.evaluation_report_repository import latest_adoption_decision
+from pipeline.batch_serving_job.repositories.evaluation_report_repository import latest_adoption_decision
 from ml.training.model_builder import fetch_training_rows, write_csv
 from ml.training.trainer import train_model
 

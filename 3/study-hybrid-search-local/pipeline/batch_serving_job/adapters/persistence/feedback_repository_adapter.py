@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from common.ports.outbound.feedback_port import FeedbackAction
-from pipeline.repositories.search_log_repository import apply_feedback
+from pipeline.batch_serving_job.repositories.search_log_repository import apply_feedback
 
 
 class FeedbackRepositoryAdapter:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from common.ports.inbound.feedback_usecase import FeedbackCommand
-from pipeline.application.record_feedback import RecordFeedbackUseCase
+from pipeline.batch_serving_job.application.record_feedback import RecordFeedbackUseCase
 
 
 class FakeFeedbackPort:

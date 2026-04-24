@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pipeline.services.embeddings.me5_embedding_service import encode_queries
+from pipeline.batch_serving_job.services.embeddings.me5_embedding_service import encode_queries
 
 
 class ME5EmbeddingAdapter:

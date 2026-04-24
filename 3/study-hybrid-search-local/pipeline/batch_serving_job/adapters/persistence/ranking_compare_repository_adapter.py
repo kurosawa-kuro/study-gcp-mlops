@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pipeline.repositories.ranking_compare_repository import log_ranking_comparison
+from pipeline.batch_serving_job.repositories.ranking_compare_repository import log_ranking_comparison
 
 
 class RankingCompareRepositoryAdapter:

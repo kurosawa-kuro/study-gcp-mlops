@@ -4,7 +4,7 @@ from typing import Any
 
 from common.clients.meilisearch_client import MeiliClient
 from common.ports.inbound.search_usecase import SearchQuery
-from pipeline.services.search.query_filter_builder import build_search_payload
+from pipeline.batch_serving_job.services.search.query_filter_builder import build_search_payload
 
 
 class MeilisearchPropertySearchAdapter:

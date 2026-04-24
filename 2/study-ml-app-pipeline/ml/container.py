@@ -2,10 +2,10 @@
 
 from dataclasses import dataclass
 
-from ml.adapters.filesystem_model_store import FilesystemModelStore
 from ml.data.port import DatasetReader
 from ml.data.postgres_dataset import PostgresDatasetAdapter
-from ml.ports.model_store import ModelStore
+from ml.registry.filesystem_model_store import FilesystemModelStore
+from ml.registry.port import ModelStore
 from ml.serving.port import Predictor
 from ml.serving.predictor import ModelStorePredictor
 

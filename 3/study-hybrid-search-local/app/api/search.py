@@ -5,7 +5,7 @@ from app.dependencies import get_search_properties_usecase
 from app.schemas import SearchParams
 from common.core.logging import RequestContextVar, get_logger
 from common.ports.inbound.search_usecase import SearchQuery
-from pipeline.application.search_properties import SearchPropertiesUseCase
+from pipeline.batch_serving_job.application.search_properties import SearchPropertiesUseCase
 
 logger = get_logger(__name__)
 router = APIRouter()

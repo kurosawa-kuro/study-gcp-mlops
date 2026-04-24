@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from common.ports.inbound.search_usecase import SearchQuery
-from pipeline.repositories.search_log_repository import log_search_and_increment_impressions
+from pipeline.batch_serving_job.repositories.search_log_repository import log_search_and_increment_impressions
 
 
 class SearchLogRepositoryAdapter:

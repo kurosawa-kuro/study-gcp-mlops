@@ -2,7 +2,7 @@
 正常系テスト: services/evaluation/offline_metrics_service.py（純粋関数のみ）
 """
 
-from pipeline.services.evaluation.offline_metrics_service import (
+from pipeline.batch_serving_job.services.evaluation.offline_metrics_service import (
     _avg_precision,
     _find_rank,
     _ndcg_at_10,

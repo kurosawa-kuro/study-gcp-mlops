@@ -40,7 +40,7 @@ class _UvicornThread(threading.Thread):
 
 def _seed_model(model_dir: Path) -> None:
     """lifespan の warmup と /predict が成立するよう、最小モデルを 1 本保存する."""
-    from ml.adapters.filesystem_model_store import FilesystemModelStore
+    from ml.registry.filesystem_model_store import FilesystemModelStore
     from ml.data.feature_engineering import engineer_features
     from ml.data.preprocess import preprocess
     from ml.training.trainer import train

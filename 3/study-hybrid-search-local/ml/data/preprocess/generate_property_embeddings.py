@@ -3,8 +3,8 @@ from __future__ import annotations
 from psycopg.rows import dict_row
 
 from common.core.db import get_db_connection
-from pipeline.repositories.property_embedding_repository import upsert_property_embeddings
-from pipeline.services.embeddings.me5_embedding_service import (
+from pipeline.batch_serving_job.repositories.property_embedding_repository import upsert_property_embeddings
+from pipeline.batch_serving_job.services.embeddings.me5_embedding_service import (
     encode_passages,
     get_embedder,
 )

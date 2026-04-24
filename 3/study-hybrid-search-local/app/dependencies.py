@@ -13,23 +13,23 @@ from common.ports.outbound.property_search_port import PropertySearchPort
 from common.ports.outbound.ranking_compare_log_port import RankingCompareLogPort
 from common.ports.outbound.reranking_port import RerankingPort
 from common.ports.outbound.search_log_port import SearchLogPort
-from pipeline.adapters.cache.redis_cache_adapter import RedisCacheAdapter
-from pipeline.adapters.embeddings.me5_embedding_adapter import ME5EmbeddingAdapter
-from pipeline.adapters.persistence.feedback_repository_adapter import (
+from pipeline.batch_serving_job.adapters.cache.redis_cache_adapter import RedisCacheAdapter
+from pipeline.batch_serving_job.adapters.embeddings.me5_embedding_adapter import ME5EmbeddingAdapter
+from pipeline.batch_serving_job.adapters.persistence.feedback_repository_adapter import (
     FeedbackRepositoryAdapter,
 )
-from pipeline.adapters.persistence.ranking_compare_repository_adapter import (
+from pipeline.batch_serving_job.adapters.persistence.ranking_compare_repository_adapter import (
     RankingCompareRepositoryAdapter,
 )
-from pipeline.adapters.persistence.search_log_repository_adapter import (
+from pipeline.batch_serving_job.adapters.persistence.search_log_repository_adapter import (
     SearchLogRepositoryAdapter,
 )
-from pipeline.adapters.ranking.lgbm_reranking_adapter import LightGBMRerankingAdapter
-from pipeline.adapters.search.meilisearch_property_search_adapter import (
+from pipeline.batch_serving_job.adapters.ranking.lgbm_reranking_adapter import LightGBMRerankingAdapter
+from pipeline.batch_serving_job.adapters.search.meilisearch_property_search_adapter import (
     MeilisearchPropertySearchAdapter,
 )
-from pipeline.application.record_feedback import RecordFeedbackUseCase
-from pipeline.application.search_properties import SearchPropertiesUseCase
+from pipeline.batch_serving_job.application.record_feedback import RecordFeedbackUseCase
+from pipeline.batch_serving_job.application.search_properties import SearchPropertiesUseCase
 
 
 def get_property_search_port() -> PropertySearchPort:

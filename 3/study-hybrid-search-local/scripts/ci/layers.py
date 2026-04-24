@@ -103,8 +103,8 @@ def _rules_for_stage(stage: int) -> list[Rule]:
     rules = [
         Rule(
             name="application-usecases",
-            target_dir=ROOT / "pipeline" / "application",
-            allowed_prefixes=("pipeline.application", "common.ports", "common.dtos"),
+            target_dir=ROOT / "pipeline" / "batch_serving_job" / "application",
+            allowed_prefixes=("pipeline.batch_serving_job.application", "common.ports", "common.dtos"),
         ),
     ]
 
@@ -115,13 +115,17 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                 target_dir=ROOT / "app" / "api",
                 allowed_prefixes=(
                     "app",
-                    "pipeline.application",
+                    "pipeline.batch_serving_job.application",
                     "common.core",
                     "common.ports",
                     "fastapi",
                     "httpx",
                 ),
-                blocked_prefixes=("pipeline.repositories", "common.clients", "pipeline.adapters"),
+                blocked_prefixes=(
+                    "pipeline.batch_serving_job.repositories",
+                    "common.clients",
+                    "pipeline.batch_serving_job.adapters",
+                ),
             )
         )
 
@@ -131,7 +135,14 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                 name="ports",
                 target_dir=ROOT / "common" / "src" / "common" / "ports",
                 allowed_prefixes=("common.ports", "common.dtos"),
-                blocked_prefixes=("pipeline.adapters", "common.clients", "pipeline.repositories", "app", "fastapi", "pydantic"),
+                blocked_prefixes=(
+                    "pipeline.batch_serving_job.adapters",
+                    "common.clients",
+                    "pipeline.batch_serving_job.repositories",
+                    "app",
+                    "fastapi",
+                    "pydantic",
+                ),
             )
         )
 
@@ -145,14 +156,14 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                         "pipeline.batch",
                         "common.core",
                         "common.clients",
-                        "pipeline.repositories",
-                        "pipeline.services",
+                        "pipeline.batch_serving_job.repositories",
+                        "pipeline.batch_serving_job.services",
                         "psycopg",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipeline.application",
-                        "pipeline.adapters",
+                        "pipeline.batch_serving_job.application",
+                        "pipeline.batch_serving_job.adapters",
                         "common.ports.inbound",
                         "ml",
                     ),
@@ -169,8 +180,8 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipeline.application",
-                        "pipeline.adapters",
+                        "pipeline.batch_serving_job.application",
+                        "pipeline.batch_serving_job.adapters",
                         "common.ports.inbound",
                     ),
                 ),
@@ -182,14 +193,14 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                         "ml",
                         "common.core",
                         "common.clients",
-                        "pipeline.repositories",
-                        "pipeline.services",
+                        "pipeline.batch_serving_job.repositories",
+                        "pipeline.batch_serving_job.services",
                         "psycopg",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipeline.application",
-                        "pipeline.adapters",
+                        "pipeline.batch_serving_job.application",
+                        "pipeline.batch_serving_job.adapters",
                         "common.ports.inbound",
                     ),
                 ),
@@ -200,15 +211,15 @@ def _rules_for_stage(stage: int) -> list[Rule]:
                     allowed_prefixes=(
                         "ml",
                         "common.core",
-                        "pipeline.repositories",
+                        "pipeline.batch_serving_job.repositories",
                         "psycopg",
                         "numpy",
                         "lightgbm",
                     ),
                     blocked_prefixes=(
                         "app",
-                        "pipeline.application",
-                        "pipeline.adapters",
+                        "pipeline.batch_serving_job.application",
+                        "pipeline.batch_serving_job.adapters",
                         "common.ports.inbound",
                     ),
                 ),
@@ -219,17 +230,17 @@ def _rules_for_stage(stage: int) -> list[Rule]:
         rules.append(
             Rule(
                 name="adapters-outbound",
-                target_dir=ROOT / "pipeline" / "adapters",
+                target_dir=ROOT / "pipeline" / "batch_serving_job" / "adapters",
                 allowed_prefixes=(
-                    "pipeline.adapters",
+                    "pipeline.batch_serving_job.adapters",
                     "common.ports",
                     "common.clients",
                     "common.core",
-                    "pipeline.repositories",
-                    "pipeline.services",
+                    "pipeline.batch_serving_job.repositories",
+                    "pipeline.batch_serving_job.services",
                     "redis",
                 ),
-                blocked_prefixes=("app", "pipeline.application"),
+                blocked_prefixes=("app", "pipeline.batch_serving_job.application"),
             )
         )
 

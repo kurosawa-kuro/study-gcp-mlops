@@ -3,7 +3,7 @@
 import lightgbm as lgb
 import numpy as np
 
-from ml.adapters.filesystem_model_store import FilesystemModelStore
+from ml.registry.filesystem_model_store import FilesystemModelStore
 
 
 def _tiny_booster():

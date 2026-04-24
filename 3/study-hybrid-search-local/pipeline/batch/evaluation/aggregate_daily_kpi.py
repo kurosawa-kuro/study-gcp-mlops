@@ -4,7 +4,7 @@ import argparse
 from datetime import date
 
 from common.core.db import get_db_connection
-from pipeline.services.evaluation.kpi_service import compute_kpi_metrics
+from pipeline.batch_serving_job.services.evaluation.kpi_service import compute_kpi_metrics
 
 
 def upsert_kpi_for_day(target_date: date) -> dict[str, float | int | str]:

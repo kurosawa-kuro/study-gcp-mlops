@@ -8,7 +8,7 @@ from typing import Any
 
 
 from common.ports.inbound.search_usecase import SearchQuery
-from pipeline.application.search_properties import SearchPropertiesUseCase
+from pipeline.batch_serving_job.application.search_properties import SearchPropertiesUseCase
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pipeline.repositories.evaluation_report_repository import insert_offline_eval_report
-from pipeline.services.evaluation.offline_metrics_service import compute_offline_metrics
+from pipeline.batch_serving_job.repositories.evaluation_report_repository import insert_offline_eval_report
+from pipeline.batch_serving_job.services.evaluation.offline_metrics_service import compute_offline_metrics
 
 
 def main() -> None:

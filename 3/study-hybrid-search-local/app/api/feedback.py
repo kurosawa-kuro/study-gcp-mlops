@@ -4,7 +4,7 @@ from app.dependencies import get_record_feedback_usecase
 from app.schemas import FeedbackRequest
 from common.core.logging import RequestContextVar, get_logger
 from common.ports.inbound.feedback_usecase import FeedbackCommand
-from pipeline.application.record_feedback import RecordFeedbackUseCase
+from pipeline.batch_serving_job.application.record_feedback import RecordFeedbackUseCase
 
 logger = get_logger(__name__)
 router = APIRouter()

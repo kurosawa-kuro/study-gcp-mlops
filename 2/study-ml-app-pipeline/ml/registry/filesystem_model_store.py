@@ -5,7 +5,7 @@ from pathlib import Path
 import lightgbm as lgb
 
 from ml.evaluation.metrics import save_metrics
-from ml.ports.model_store import ModelStore
+from ml.registry.port import ModelStore
 
 
 class FilesystemModelStore(ModelStore):

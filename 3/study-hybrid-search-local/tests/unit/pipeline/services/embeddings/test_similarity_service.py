@@ -1,7 +1,7 @@
 """
 正常系テスト: services/embeddings/similarity_service.py
 """
-from pipeline.services.embeddings.similarity_service import cosine_similarity
+from pipeline.batch_serving_job.services.embeddings.similarity_service import cosine_similarity
 
 
 def test_identical_vectors():

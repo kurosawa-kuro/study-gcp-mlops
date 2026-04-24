@@ -1,7 +1,7 @@
 """
 正常系テスト: services/evaluation/kpi_service.py
 """
-from pipeline.services.evaluation.kpi_service import compute_kpi_metrics
+from pipeline.batch_serving_job.services.evaluation.kpi_service import compute_kpi_metrics
 
 
 def test_basic_kpi():
