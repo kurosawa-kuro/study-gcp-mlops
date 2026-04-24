@@ -52,9 +52,9 @@
 
 Phase 6 から継承。特徴量を追加 / 変更するとき、以下 6 つを **必ず同じ PR で揃える**:
 
-1. `definitions/features/property_features_daily.sqlx`
-2. `ml/common/feature_engineering.py::build_ranker_features`
-3. `ml/common/schema/feature_schema.py::FEATURE_COLS_RANKER`
+1. `pipeline/data_job/dataform/features/property_features_daily.sqlx`
+2. `ml/data/feature_engineering/ranker_features.py::build_ranker_features`
+3. `ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER`
 4. `infra/terraform/modules/data/main.tf` の `ranking_log.features` RECORD
 5. `monitoring/validate_feature_skew.sql` の UNPIVOT
 6. `infra/terraform/modules/vertex/main.tf::google_vertex_ai_feature_group_feature` × N
@@ -88,10 +88,15 @@ Phase 6 から継承。特徴量を追加 / 変更するとき、以下 6 つを
 | `make tf-validate` | オフライン terraform validate |
 | `make tf-bootstrap` | Phase 0 (API 有効化 + tfstate バケット作成、冪等) |
 | `make tf-plan` | Terraform plan |
+| `make deploy-all` | **Phase 7 の E2E デプロイ** — tf-bootstrap → tf-init → WIF 復元 → sync-dataform → tf-plan → tf apply → `scripts.deploy.api_gke` を順に実行 |
+| `make destroy-all` | Terraform 管理下の全リソース破棄 (BQ table `deletion_protection` を `-target` で先に解除)。`deploy-all` とペアで PDCA loop |
+| `make run-all-core` / `make verify-all` | デプロイ後の E2E 検証 (check-layers → seed-test → ops-train-now → ops-livez/search/ranking/feedback/label-seed → ops-daily → ops-accuracy-report) |
+| `make seed-test` / `make seed-test-clean` | PDCA smoke 用 5 件の test property 投入 / 削除 |
 | `make kube-creds` | 対象 GKE Autopilot クラスタの kubeconfig を取得 |
-| `make deploy-api` | Cloud Build → Artifact Registry → `kubectl set image` で rollout |
+| `make deploy-api` | Cloud Build → Artifact Registry → `kubectl set image` で rollout (単独) |
 | `make deploy-kserve-models` | Vertex Model Registry の `production` alias artifact URI を引いて KServe InferenceService を更新 |
 | `make ops-reload-api` | `kubectl rollout restart deployment/search-api` で rolling restart |
+| `make ops-deploy-monitor` / `make ops-run-all-monitor` | `scripts.deploy.monitor` で `deploy-all` / `run-all-core` を実行しリアルタイムでステップ / Cloud Build 停滞を監視 |
 | `make ops-slo-status` | Phase 6 T5: SLO compliance + burn-rate を表示 |
 | `make bqml-train-popularity` | Phase 6 T1: BQML property-popularity model 学習 |
 | `make enrich-properties` | Phase 6 T8: Gemini description enrichment |
@@ -102,7 +107,7 @@ Phase 6 から継承。特徴量を追加 / 変更するとき、以下 6 つを
 ## GKE 固有の注意点
 
 - **KServe URL**: `KSERVE_ENCODER_URL` / `KSERVE_RERANKER_URL` は cluster-local DNS (`http://<svc>.<ns>.svc.cluster.local/...`)。`infra/manifests/search-api/deployment.yaml` で ConfigMap に注入
-- **KServe InferenceService の storageUri 更新**: `scripts/local/deploy/kserve_models.py` が Vertex Model Registry の `production` alias を引いて `kubectl patch` で書き換える。`make deploy-kserve-models` でラッパー
+- **KServe InferenceService の storageUri 更新**: `scripts/deploy/kserve_models.py` が Vertex Model Registry の `production` alias を引いて `kubectl patch` で書き換える。`make deploy-kserve-models` でラッパー
 - **2 段階 apply**: 初回 Terraform apply は `-target=module.gke -target=module.iam -target=module.data` で cluster / IAM / storage を先行作成。provider.tf の kubernetes/helm provider が cluster 完成後に有効化されるため
 - **Kubernetes Secret `meili-master-key`**: ExternalSecrets Operator 未導入のため Secret Manager から手動同期が必要。`env/secret/README.md` に手順あり
 - **Vertex AI Endpoint は使わない**: encoder / reranker の推論は KServe 経由。`kserve_encoder_url` / `kserve_reranker_url` に cluster-local URL を設定する

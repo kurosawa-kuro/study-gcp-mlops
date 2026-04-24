@@ -43,7 +43,7 @@ raw.properties (upstream ETL)
 | `ml/training/` | LambdaRank 学習本体 |
 | `ml/serving/` | 推論補助ロジック |
 | `pipeline/` | KFP エントリポイント (`data_job`, `training_job`, `evaluation_job`, `batch_serving_job`) |
-| `scripts/local/` | deploy/setup/ops の運用コマンド群 (`deploy/api_gke.py` / `deploy/kserve_models.py` 追加) |
+| `scripts/` | deploy/setup/ops の運用コマンド群 (`scripts/deploy/api_gke.py` / `scripts/deploy/kserve_models.py` / `scripts/setup/deploy_all.py` / `scripts/setup/destroy_all.py` 等) |
 | `monitoring/` | feature skew Scheduled Query SQL |
 | `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api (kubectl set image) + deploy-*-image / deploy-pipeline / deploy-dataform |
 | `docs/` | 仕様と設計・移行ロードマップ・実装カタログ・運用 (+ ドキュメント運用ルール) |
@@ -57,8 +57,8 @@ raw.properties (upstream ETL)
 - **Phase 5 からの差分**: serving 層のみ GKE + KServe に移行。Pipelines / Feature Group / Model Registry / BigQuery VECTOR_SEARCH / Meilisearch は **差分ゼロで維持**
 - **Port / Adapter 設計**: `app.services.protocols` の `EncoderClient` / `RerankerClient` 実装を `VertexEndpointEncoder/Reranker` → `KServeEncoder/Reranker` に差し替えただけ (core / services / ports は無変更)
 - **認可境界**: Gateway API + IAP + NetworkPolicy で Cloud Run の `--no-allow-unauthenticated` + IAM 相当を再現
-- **Workload Identity**: Phase 5 の 9 SA をそのまま GKE KSA にバインドして使い回す (新規 SA は追加しない)
-- **予測分布 drift 検知は縮退**: Vertex Model Monitoring v2 は Vertex Endpoint 前提なので Phase 6 では失う (復活方針は Phase 7+ で判断)
+- **Workload Identity**: Phase 6 の 10 SA をそのまま GKE KSA にバインドして使い回す (新規 SA は追加しない)
+- **予測分布 drift 検知は縮退**: Vertex Model Monitoring v2 は Vertex Endpoint 前提なので Phase 7 (serving 層 = KServe) では失う (復活は KServe payload logging + 自前 drift 計算の別タスクに分離)
 - **固定値**: プロジェクト `mlops-dev-a` / リージョン `asia-northeast1` / Python 3.12 / uv / Terraform 1.9
 
 ## デプロイ
@@ -72,14 +72,14 @@ raw.properties (upstream ETL)
 | `pipeline/data_job/**`, `ml/data/**` | `deploy-encoder-image.yml` | Docker build → push encoder image (Vertex Pipelines で使用) |
 | `pipeline/training_job/**`, `ml/training/**` | `deploy-trainer-image.yml` | Docker build → push KFP trainer image |
 | `ml/serving/**` | `deploy-reranker-image.yml` | Docker build → push reranker image |
-| `pipeline/**`, `scripts/local/setup/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS + Schedule setup |
+| `pipeline/**`, `scripts/setup/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS + Schedule setup |
 | `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
 
 認証はすべて WIF。
 
 ## ドキュメント
 
-初めてこのリポジトリに触る人は、まず [`docs/04_運用.md §1 環境構築`](docs/04_運用.md) を上から叩く。
+初めてこのリポジトリに触る人は、まず [`docs/04_運用.md §1 PDCA メインフロー`](docs/04_運用.md) を上から叩く (`make deploy-all` → `make run-all` → `make destroy-all`)。
 
 | ドキュメント | 目的 | 主な読者 |
 |---|---|---|
