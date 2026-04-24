@@ -90,7 +90,14 @@ resource "google_monitoring_slo" "latency" {
 
 # =========================================================================
 # Burn-rate alert policies — fast burn (2% of budget in 1h) + slow burn
-# (10% of budget in 3d). Multipliers configurable via *_burn_threshold vars.
+# (10% of budget in 1d). Multipliers configurable via *_burn_threshold vars.
+#
+# Phase 6 Run 2 修正: GCP Monitoring は alert policy の
+# `condition_threshold.filter` に渡す time window を **24h 以下** に制限する
+# (`Durations longer than 24h are not supported`)。Google SRE Workbook の
+# 推奨する 3 日窓はそのままでは受理されないので、slow-burn は 24h 窓に縮めて
+# 受理可能な最長値を採用している。SLO 本体 (`rolling_period_days = 30`) は
+# 不変で、burn-rate の観測窓だけが短くなる。
 # =========================================================================
 
 resource "google_monitoring_alert_policy" "availability_fast_burn" {
@@ -118,13 +125,13 @@ resource "google_monitoring_alert_policy" "availability_fast_burn" {
 
 resource "google_monitoring_alert_policy" "availability_slow_burn" {
   project      = var.project_id
-  display_name = "${var.service_name} availability SLO slow-burn (${var.slow_burn_threshold}x / 3d)"
+  display_name = "${var.service_name} availability SLO slow-burn (${var.slow_burn_threshold}x / 1d)"
   combiner     = "OR"
 
   conditions {
     display_name = "Slow burn"
     condition_threshold {
-      filter          = "select_slo_burn_rate(\"${google_monitoring_slo.availability.name}\", \"259200s\")"
+      filter          = "select_slo_burn_rate(\"${google_monitoring_slo.availability.name}\", \"86400s\")"
       duration        = "0s"
       comparison      = "COMPARISON_GT"
       threshold_value = var.slow_burn_threshold
@@ -164,13 +171,13 @@ resource "google_monitoring_alert_policy" "latency_fast_burn" {
 
 resource "google_monitoring_alert_policy" "latency_slow_burn" {
   project      = var.project_id
-  display_name = "${var.service_name} latency SLO slow-burn (${var.slow_burn_threshold}x / 3d)"
+  display_name = "${var.service_name} latency SLO slow-burn (${var.slow_burn_threshold}x / 1d)"
   combiner     = "OR"
 
   conditions {
     display_name = "Slow burn"
     condition_threshold {
-      filter          = "select_slo_burn_rate(\"${google_monitoring_slo.latency.name}\", \"259200s\")"
+      filter          = "select_slo_burn_rate(\"${google_monitoring_slo.latency.name}\", \"86400s\")"
       duration        = "0s"
       comparison      = "COMPARISON_GT"
       threshold_value = var.slow_burn_threshold

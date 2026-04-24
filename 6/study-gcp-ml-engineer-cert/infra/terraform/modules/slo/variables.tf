@@ -66,7 +66,7 @@ variable "fast_burn_threshold" {
 }
 
 variable "slow_burn_threshold" {
-  description = "Slow-burn multiplier. Standard value is 1.0 (10% of error budget in 3 days)."
+  description = "Slow-burn multiplier. Standard value is 1.0 (10% of error budget in 1 day; GCP Monitoring filter は 24h 以下のみ受理するため 3d から短縮済)."
   type        = number
   default     = 1.0
 }

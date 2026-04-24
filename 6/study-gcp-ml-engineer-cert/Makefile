@@ -36,7 +36,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
         check-layers sync-dataform-config \
         tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
-        setup-model-monitoring setup-pipeline-schedule \
+        setup-model-monitoring setup-pipeline-schedule setup-encoder-endpoint setup-reranker-endpoint \
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
@@ -112,6 +112,12 @@ setup-model-monitoring: ## Print resolved Vertex Model Monitoring setup payload
 
 setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payload
 	uv run python -m scripts.local.setup.create_schedule
+
+setup-encoder-endpoint: ## Register + deploy property-encoder (default dry-run; pass APPLY=1 to actually deploy)
+	uv run python -m scripts.local.setup.setup_encoder_endpoint $${APPLY:+--apply}
+
+setup-reranker-endpoint: ## Register + deploy property-reranker from gs://.../reranker/v1/ (default dry-run; APPLY=1 to deploy)
+	uv run python -m scripts.local.setup.setup_reranker_endpoint $${APPLY:+--apply}
 
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-bootstrap → apply → deploy-api-local)
 	uv run python -m scripts.local.setup.deploy_all
