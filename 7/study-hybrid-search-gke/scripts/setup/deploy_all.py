@@ -24,9 +24,9 @@ from pathlib import Path
 from scripts._common import env, run
 from scripts.ci.sync_dataform import main as sync_dataform_main
 from scripts.deploy.api_gke import main as deploy_api_main
-from scripts.local.setup.tf_bootstrap import main as tf_bootstrap_main
-from scripts.local.setup.tf_init import main as tf_init_main
-from scripts.local.setup.tf_plan import main as tf_plan_main
+from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
+from scripts.setup.tf_init import main as tf_init_main
+from scripts.setup.tf_plan import main as tf_plan_main
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 

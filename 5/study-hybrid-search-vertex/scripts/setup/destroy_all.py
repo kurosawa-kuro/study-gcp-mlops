@@ -49,7 +49,7 @@ import subprocess
 from pathlib import Path
 
 from scripts._common import env, run
-from scripts.local.setup.seed_minimal_clean import main as seed_clean_main
+from scripts.setup.seed_minimal_clean import main as seed_clean_main
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 

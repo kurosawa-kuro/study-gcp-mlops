@@ -1,26 +1,24 @@
-"""Register + deploy the Vertex AI reranker Model onto its Endpoint.
+"""Register the encoder Model in Vertex AI and deploy it to an Endpoint.
 
-Phase 6 Run 1 で学んだ教訓:
-  `scripts/local/ops/register_model.py` は SUCCEEDED pipeline run 前提
-  (pipeline-root bucket から `train-reranker_*/executor_output.json` を探しに
-  いく)。destroy-all 直後で pipeline が一度も回っていない partial-reset 状態で
-  は reranker endpoint を復元する手段がなく、やむなく一時スクリプト
-  `/tmp/phase6-deploy-reranker.py` を手書きで復元していた。
+Phase 3 one-off, consumed after:
 
-このモジュールはその一時スクリプトを恒久化し、
-``setup_encoder_endpoint.py`` と同じ ``build_endpoint_spec`` / ``_apply``
-シグネチャで reranker を扱えるようにする。
+1. ``scripts/setup/upload_encoder_assets.py --apply`` populated
+   ``gs://{models-bucket}/encoders/multilingual-e5-base/v1/``
+2. ``deploy-encoder-image.yml`` pushed ``property-encoder:<sha>`` to Artifact
+   Registry.
 
-Pipeline 経由の Model.upload は従来どおり ``register_model.py`` を使える。
-このモジュールは **GCS artifact (gs://{bucket}/reranker/v1/model.txt) が既に
-ある前提** の direct-register ルートを担当する (smoke モデル / manual upload
-/ Run 1 の復元手順)。
+Reranker has no sibling script because the KFP ``register_reranker``
+component handles upload + deploy inside the train pipeline; the encoder
+sits outside any pipeline so it needs an explicit setup step.
 
-Default は:
-  artifact_uri = gs://{PROJECT_ID}-models/reranker/v1/
-  image        = {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO}/property-reranker:latest
-  machine      = n1-standard-2 (min=max=1, 学習リポ minimum spec 準拠)
-  service_account = sa-endpoint-reranker@{PROJECT_ID}.iam.gserviceaccount.com
+Follows the ``setup_model_monitoring.py`` / ``create_schedule.py`` split:
+:func:`build_endpoint_spec` resolves a plain-dict spec from env (unit-testable,
+no GCP calls); :func:`_apply` performs the actual ``aiplatform.Model.upload``
++ ``Endpoint.deploy`` and is only invoked under ``--apply``.
+
+Idempotent: Endpoints are matched by display_name (create-or-reuse), and the
+Model is always uploaded as a new version with alias ``staging``. Traffic is
+routed to the new version at 100%. Rollback is ``scripts/ops/promote.py``.
 """
 
 from __future__ import annotations
@@ -33,12 +31,12 @@ from scripts._common import env
 
 DEFAULT_MACHINE_TYPE: str = "n1-standard-2"
 DEFAULT_MIN_REPLICAS: int = 1
-DEFAULT_MAX_REPLICAS: int = 1  # 学習リポは常に min=max=1
+DEFAULT_MAX_REPLICAS: int = 3
 DEFAULT_ASSET_VERSION: str = "v1"
 
 
 def _artifact_registry_image(project_id: str, region: str, repo: str, tag: str) -> str:
-    return f"{region}-docker.pkg.dev/{project_id}/{repo}/property-reranker:{tag}"
+    return f"{region}-docker.pkg.dev/{project_id}/{repo}/property-encoder:{tag}"
 
 
 def build_endpoint_spec() -> dict[str, Any]:
@@ -46,17 +44,15 @@ def build_endpoint_spec() -> dict[str, Any]:
     project_id = env("PROJECT_ID")
     region = env("VERTEX_LOCATION", env("REGION"))
     repo = env("ARTIFACT_REPO", "mlops")
-    image_tag = env("RERANKER_IMAGE_TAG", "latest")
+    image_tag = env("ENCODER_IMAGE_TAG", "latest")
     bucket = env("GCS_MODELS_BUCKET", f"{project_id}-models" if project_id else "")
-    version = env("RERANKER_ASSET_VERSION", DEFAULT_ASSET_VERSION)
-    artifact_prefix = f"reranker/{version}/"
+    version = env("ENCODER_ASSET_VERSION", DEFAULT_ASSET_VERSION)
+    artifact_prefix = f"encoders/multilingual-e5-base/{version}/"
     return {
         "project_id": project_id,
         "vertex_location": region,
-        "endpoint_display_name": env(
-            "RERANKER_ENDPOINT_DISPLAY_NAME", "property-reranker-endpoint"
-        ),
-        "model_display_name": env("RERANKER_MODEL_DISPLAY_NAME", "property-reranker"),
+        "endpoint_display_name": env("ENCODER_ENDPOINT_DISPLAY_NAME", "property-encoder-endpoint"),
+        "model_display_name": env("ENCODER_MODEL_DISPLAY_NAME", "property-encoder"),
         "serving_container_image_uri": _artifact_registry_image(
             project_id, region, repo, image_tag
         ),
@@ -64,15 +60,15 @@ def build_endpoint_spec() -> dict[str, Any]:
         "serving_container_health_route": "/health",
         "serving_container_ports": [8080],
         "artifact_uri": f"gs://{bucket}/{artifact_prefix}" if bucket else "",
-        "machine_type": env("RERANKER_MACHINE_TYPE", DEFAULT_MACHINE_TYPE),
-        "min_replica_count": int(env("RERANKER_MIN_REPLICAS", str(DEFAULT_MIN_REPLICAS))),
-        "max_replica_count": int(env("RERANKER_MAX_REPLICAS", str(DEFAULT_MAX_REPLICAS))),
+        "machine_type": env("ENCODER_MACHINE_TYPE", DEFAULT_MACHINE_TYPE),
+        "min_replica_count": int(env("ENCODER_MIN_REPLICAS", str(DEFAULT_MIN_REPLICAS))),
+        "max_replica_count": int(env("ENCODER_MAX_REPLICAS", str(DEFAULT_MAX_REPLICAS))),
         "service_account": env(
-            "RERANKER_ENDPOINT_SERVICE_ACCOUNT",
-            f"sa-endpoint-reranker@{project_id}.iam.gserviceaccount.com" if project_id else "",
+            "ENCODER_ENDPOINT_SERVICE_ACCOUNT",
+            f"sa-endpoint-encoder@{project_id}.iam.gserviceaccount.com" if project_id else "",
         ),
-        "model_alias": env("RERANKER_MODEL_ALIAS", "staging"),
-        "traffic_percentage": int(env("RERANKER_TRAFFIC_PERCENTAGE", "100")),
+        "model_alias": env("ENCODER_MODEL_ALIAS", "staging"),
+        "traffic_percentage": int(env("ENCODER_TRAFFIC_PERCENTAGE", "100")),
     }
 
 
@@ -96,16 +92,15 @@ def _apply(spec: dict[str, Any]) -> dict[str, Any]:
     import traceback
 
     def _log(msg: str) -> None:
-        print(f"[setup_reranker] {msg}", flush=True)
-        print(f"[setup_reranker] {msg}", file=sys.stderr, flush=True)
+        print(f"[setup_encoder] {msg}", flush=True)
+        print(f"[setup_encoder] {msg}", file=sys.stderr, flush=True)
 
     _log("STEP 1 — validate spec")
     _log(f"  artifact_uri={spec['artifact_uri']!r}")
     _log(f"  serving_container_image_uri={spec['serving_container_image_uri']!r}")
     _log(f"  machine_type={spec['machine_type']}")
     _log(
-        f"  min_replica_count={spec['min_replica_count']} "
-        f"max_replica_count={spec['max_replica_count']}"
+        f"  min_replica_count={spec['min_replica_count']} max_replica_count={spec['max_replica_count']}"
     )
     _log(f"  service_account={spec['service_account']!r}")
     _log(f"  endpoint_display_name={spec['endpoint_display_name']}")
@@ -113,8 +108,7 @@ def _apply(spec: dict[str, Any]) -> dict[str, Any]:
 
     if not spec["artifact_uri"]:
         raise RuntimeError(
-            "artifact_uri is empty; upload model.txt to "
-            "gs://{PROJECT_ID}-models/reranker/v1/model.txt first"
+            "artifact_uri is empty; run scripts/setup/upload_encoder_assets.py --apply first"
         )
     try:
         _log("STEP 2 — import aiplatform + init")
@@ -131,7 +125,6 @@ def _apply(spec: dict[str, Any]) -> dict[str, Any]:
             serving_container_ports=spec["serving_container_ports"],
             artifact_uri=spec["artifact_uri"],
             version_aliases=[spec["model_alias"]],
-            sync=True,
         )
         _log(f"  Model.upload OK resource={model.resource_name} version={model.version_id}")
 
@@ -147,15 +140,10 @@ def _apply(spec: dict[str, Any]) -> dict[str, Any]:
             max_replica_count=spec["max_replica_count"],
             traffic_percentage=spec["traffic_percentage"],
             service_account=spec["service_account"],
-            sync=True,
         )
         _log("  Model.deploy OK")
     except Exception:
-        _log(
-            "ERROR in _apply — candidates: (H1) artifact_uri 先に model.txt が未配置、"
-            "(H2) sa-endpoint-reranker が models bucket を read 不可、"
-            "(H3) property-reranker:latest image が未 push / tag 外れ"
-        )
+        _log("ERROR in _apply")
         _log(traceback.format_exc())
         raise
     return {
@@ -167,11 +155,7 @@ def _apply(spec: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Register + deploy the Vertex AI reranker Model onto its Endpoint. "
-            "Direct-register route (requires pre-uploaded model.txt in GCS). "
-            "For pipeline-driven registration, use scripts.ops.register_model."
-        )
+        description="Register + deploy the Vertex AI encoder Model onto its Endpoint"
     )
     parser.add_argument(
         "--apply",

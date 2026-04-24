@@ -1,4 +1,4 @@
-"""Remove everything `scripts.dev.seed_minimal` wrote. Symmetric with
+"""Remove everything `scripts.setup.seed_minimal` wrote. Symmetric with
 `make seed-test`.
 
 Drops:

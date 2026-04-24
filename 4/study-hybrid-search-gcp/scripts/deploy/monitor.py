@@ -2,7 +2,7 @@
 
 Usage:
   make ops-deploy-monitor
-  uv run python -m scripts.local.deploy_monitor
+  uv run python -m scripts.deploy.monitor
 
 Behavior:
 1) Starts deploy-all as a child process (unbuffered output).
@@ -158,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
 
     child_env = dict(os.environ)
     child_env["PYTHONUNBUFFERED"] = "1"
-    cmd = ["uv", "run", "python", "-u", "-m", "scripts.dev.deploy_all"]
+    cmd = ["uv", "run", "python", "-u", "-m", "scripts.setup.deploy_all"]
     print(f"[monitor] start deploy-all command={' '.join(cmd)}")
     proc = subprocess.Popen(
         cmd,

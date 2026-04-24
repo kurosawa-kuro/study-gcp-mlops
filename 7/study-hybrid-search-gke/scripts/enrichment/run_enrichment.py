@@ -10,7 +10,7 @@ when the team decides to run it as part of the daily embed flow.
 
 Usage::
 
-    PROJECT_ID=mlops-dev-a uv run python -m scripts.local.enrichment.run_enrichment \\
+    PROJECT_ID=mlops-dev-a uv run python -m scripts.enrichment.run_enrichment \\
         --batch-size 50 --limit 200 --model gemini-1.5-flash
 
 Design notes:
@@ -31,7 +31,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
-logger = logging.getLogger("scripts.local.enrichment")
+logger = logging.getLogger("scripts.enrichment")
 
 PROMPT_TEMPLATE = """\
 あなたは不動産リスティングを構造化するアシスタントです。

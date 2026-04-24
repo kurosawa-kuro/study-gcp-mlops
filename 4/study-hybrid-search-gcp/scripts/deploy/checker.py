@@ -1,7 +1,7 @@
 """Post-deploy checker (formerly deploy_monitor).
 
 Usage:
-  uv run python -m scripts.local.deploy_checker --api-build-id <id> --model-build-id <id>
+  uv run python -m scripts.deploy.checker --api-build-id <id> --model-build-id <id>
 
 Behavior:
 1) Poll Cloud Build statuses (API + training-job image) until terminal state.
@@ -250,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print("==> run component gate")
     proc = subprocess.run(
-        ["uv", "run", "python", "-m", "scripts.local.search_component_check"],
+        ["uv", "run", "python", "-m", "scripts.ops.search_components"],
         check=False,
     )
     if proc.returncode != 0:

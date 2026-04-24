@@ -2,12 +2,12 @@
 
 Usage (deploy-all, 既定):
   make ops-deploy-monitor
-  uv run python -m scripts.local.deploy_monitor
+  uv run python -m scripts.deploy.monitor
 
 Usage (任意コマンドをラップ):
   make ops-monitor CMD="make deploy-api-local"
   make ops-monitor LABEL=bqml CMD="make bqml-train-popularity"
-  uv run python -m scripts.local.deploy_monitor --label bqml -- make bqml-train-popularity
+  uv run python -m scripts.deploy.monitor --label bqml -- make bqml-train-popularity
 
 Behavior:
 1) Starts the target command as a child process (unbuffered output).
@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 
 from scripts._common import env, fail, run
 
-_DEFAULT_CMD: list[str] = ["uv", "run", "python", "-u", "-m", "scripts.local.setup.deploy_all"]
+_DEFAULT_CMD: list[str] = ["uv", "run", "python", "-u", "-m", "scripts.setup.deploy_all"]
 _DEFAULT_LABEL = "deploy-all"
 
 
@@ -74,7 +74,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help=(
             "Command to monitor. Pass after `--`, e.g. "
-            "`uv run python -m scripts.local.deploy_monitor -- make deploy-api-local`. "
+            "`uv run python -m scripts.deploy.monitor -- make deploy-api-local`. "
             "Omit to default to deploy-all."
         ),
     )

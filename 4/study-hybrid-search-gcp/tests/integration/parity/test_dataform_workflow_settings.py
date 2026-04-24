@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.dev.sync_dataform import REQUIRED_KEYS, render
+from scripts.setup.sync_dataform import REQUIRED_KEYS, render
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SETTING_YAML = REPO_ROOT / "env" / "config" / "setting.yaml"

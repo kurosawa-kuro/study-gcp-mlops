@@ -3,9 +3,9 @@
 Usage examples:
 
 - Local API (no auth token):
-    TARGET=local LOCAL_API_URL=http://127.0.0.1:8080 uv run python -m scripts.local.accuracy_report
+    TARGET=local LOCAL_API_URL=http://127.0.0.1:8080 uv run python -m scripts.ops.accuracy_report
 - GCP Cloud Run:
-    TARGET=gcp uv run python -m scripts.local.accuracy_report
+    TARGET=gcp uv run python -m scripts.ops.accuracy_report
 
 Input dataset is a JSON file containing:
 {

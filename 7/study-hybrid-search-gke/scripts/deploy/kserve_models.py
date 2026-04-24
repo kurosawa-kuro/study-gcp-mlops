@@ -81,7 +81,7 @@ def _resolve_latest(display_name: str, *, project_id: str, region: str) -> Model
     if not models:
         _error(
             f"No model with display_name={display_name}. "
-            f"Run `make ops-train-now` → `scripts.local.ops.register_model --apply` "
+            f"Run `make ops-train-now` → `scripts.ops.register_model --apply` "
             f"to populate Model Registry first."
         )
         raise RuntimeError(f"No model with display_name={display_name}")
