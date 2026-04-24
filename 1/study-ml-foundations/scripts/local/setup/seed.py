@@ -12,7 +12,7 @@ from core import compose, step
 
 def main() -> None:
     step("Seeding PostgreSQL")
-    compose(["run", "--rm", "--build", "seed"])
+    compose(["run", "--rm", "--build", "--remove-orphans", "-T", "seed"])
 
 
 if __name__ == "__main__":

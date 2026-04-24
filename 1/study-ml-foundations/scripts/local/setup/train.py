@@ -12,7 +12,7 @@ from core import compose, step
 
 def main() -> None:
     step("Training")
-    compose(["run", "--rm", "--build", "trainer"])
+    compose(["run", "--rm", "--build", "--remove-orphans", "-T", "trainer"])
 
 
 if __name__ == "__main__":

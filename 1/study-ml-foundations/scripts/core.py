@@ -73,7 +73,8 @@ def compose(args: list[str], *, check: bool = True) -> int:
     load_credentials()
     if args and args[0] in {"up", "run"}:
         free_host_ports()
-    return run(["docker", "compose", *args], check=check)
+    # Force plain, non-interactive compose output to avoid spinner-like states.
+    return run(["docker", "compose", "--ansi", "never", *args], check=check)
 
 
 def python_bin() -> str:
