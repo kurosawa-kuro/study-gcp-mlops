@@ -37,6 +37,11 @@ scripts/
 - 既存の `scripts/local/*` は移行期間のみ許容
 - 既存の `scripts/dev/*` は `scripts/setup/*` へ寄せる
 
+`docs/Makefile.md` との関係:
+- `docs/Makefile.md` は公開 target 語彙の正本
+- 本書は、その target をどの script path に寄せるかの命名正本
+- target を変えずに実装 path だけ移す移行を許容する
+
 ---
 
 ## 命名変換ルール
@@ -89,9 +94,9 @@ scripts/
 
 ### Phase 4
 
-- `scripts/dev/*` と `scripts/local/*` が混在
-- `ops-search` が `scripts.local.search_check` など suffix 駆動の実装を参照
-- 4-7 の中で最も語彙不一致が大きい
+- canonical 構成への移行が完了済み
+- `scripts/setup|deploy|ops|sql` が主経路として存在
+- 旧 `scripts/local/*` / `scripts/dev/*` も一部残るため、互換整理はまだ必要
 
 ### Phase 5-7
 
@@ -99,13 +104,22 @@ scripts/
 - ただし `*_check.py` 命名や `local` プレフィックスが残る
 - `scripts.local.ops.search_check` のように Make target とファイル名が 1 対 1 でない箇所がある
 
+### 進捗まとめ
+
+| Phase | 状態 | 主な残課題 |
+|---|---|---|
+| 4 | canonical 化済み | 旧 path の互換整理 |
+| 5 | 移行前半 | `local/*` から `setup|deploy|ops` へ寄せる |
+| 6 | 移行前半 | `local/*` と `*_check.py` の整理 |
+| 7 | 移行前半 | Phase 5/6 と同型で整理 |
+
 ---
 
 ## 移行方針 (段階的)
 
 ### Step 1: Canonical path を追加
 
-Phase 4-7 で次を追加する。
+未移行 phase で次を追加する。
 
 - scripts/setup/*.py
 - scripts/deploy/*.py
@@ -130,13 +144,15 @@ Phase 4-7 で次を追加する。
 - 2 リリース分の移行期間を目安に旧 path を削除
 - docs と README の呼び出し例を同時更新
 
+Make target 名は移行期間中も維持する。利用者に見せる互換層は Make 側ではなく script import 側で吸収する。
+
 ---
 
 ## 直近の実施順 (推奨)
 
-1. Phase 4 の `dev/local` 混在を解消
-2. Phase 5 の `ops/*_check.py` を canonical 名へ寄せる
-3. 同パターンを Phase 6, 7 に展開
+1. Phase 5 の `ops/*_check.py` を canonical 名へ寄せる
+2. 同パターンを Phase 6, 7 に展開
+3. Phase 4 の旧 `local/dev` 互換層を整理する
 4. 最後に Phase 1-3 を同ルールへ寄せる
 
 ---
@@ -146,6 +162,7 @@ Phase 4-7 で次を追加する。
 - 新規 Make target を追加する場合は、同名語彙の script を同時追加する
 - script 名を先に決めない。必ず target 名を先に決める
 - 既存 target を廃止する場合は互換 alias を先に用意し、README で告知する
+- `docs/Makefile.md` に存在しない語彙を新規 script のトップレベル分類名に持ち込まない
 
 関連資料:
 - [docs/Makefile.md](docs/Makefile.md)

@@ -70,7 +70,7 @@ help: ## Show this help
 		$(MAKEFILE_LIST)
 
 doctor: ## Verify that prerequisite tools are installed
-	uv run python -m scripts.local.setup.doctor
+	uv run python -m scripts.setup.doctor
 
 # ----- Python workspace -----
 
@@ -103,10 +103,10 @@ check-layers: ## AST-based layer boundary check (Ports / pure logic must not imp
 # ----- Terraform -----
 
 tf-bootstrap: ## Phase 0: enable APIs + create tfstate bucket (idempotent, needs project owner rights)
-	uv run python -m scripts.local.setup.tf_bootstrap
+	uv run python -m scripts.setup.tf_bootstrap
 
 tf-init: ## terraform init (with tfstate bucket preflight check)
-	uv run python -m scripts.local.setup.tf_init
+	uv run python -m scripts.setup.tf_init
 
 tf-validate: ## terraform validate (backend-less, works offline)
 	terraform -chdir=$(TF_DIR) init -backend=false -upgrade=false >/dev/null
@@ -119,22 +119,22 @@ tf-fmt-fix: ## terraform fmt (writes)
 	terraform -chdir=$(TF_DIR) fmt
 
 tf-plan: ## terraform plan (requires GITHUB_REPO + ONCALL_EMAIL; saves tfplan)
-	uv run python -m scripts.local.setup.tf_plan
+	uv run python -m scripts.setup.tf_plan
 
 setup-model-monitoring: ## Print resolved Vertex Model Monitoring setup payload
-	uv run python -m scripts.local.setup.setup_model_monitoring
+	uv run python -m scripts.setup.setup_model_monitoring
 
 setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payload
-	uv run python -m scripts.local.setup.create_schedule
+	uv run python -m scripts.setup.create_schedule
 
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-apply → kubectl apply -k → kserve_models → api_gke)
-	uv run python -m scripts.local.setup.deploy_all
+	uv run python -m scripts.setup.deploy_all
 
 ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
 	@mkdir -p "$(MONITOR_LOG_DIR)"
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \
 	echo "monitor-log: $$log_file"; \
-	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
+	bash -o pipefail -c 'uv run python -u -m scripts.deploy.monitor 2>&1 | tee "$$0"' "$$log_file"
 
 deploy-all-direct: ## Compatibility alias of deploy-all (Phase4 naming)
 	$(MAKE) deploy-all
@@ -159,19 +159,19 @@ ops-run-all-monitor: ## Real-time monitor for run-all-core
 	@mkdir -p "$(MONITOR_LOG_DIR)"
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all-monitor.log"; \
 	echo "monitor-log: $$log_file"; \
-	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --label run-all -- make run-all-core 2>&1 | tee "$$0"' "$$log_file"
+	bash -o pipefail -c 'uv run python -u -m scripts.deploy.monitor --label run-all -- make run-all-core 2>&1 | tee "$$0"' "$$log_file"
 
 verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
 	$(MAKE) run-all-core
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
-	uv run python -m scripts.local.setup.destroy_all
+	uv run python -m scripts.setup.destroy_all
 
 seed-test: ## Insert 5 test properties for PDCA smoke
-	uv run python -m scripts.local.setup.seed_minimal
+	uv run python -m scripts.setup.seed_minimal
 
 seed-test-clean: ## Drop the test seed data (benign if absent)
-	uv run python -m scripts.local.setup.seed_minimal_clean
+	uv run python -m scripts.setup.seed_minimal_clean
 
 # ----- App / Job smoke commands (local) -----
 
@@ -194,10 +194,10 @@ kube-creds: ## Fetch kubeconfig for the Phase 6 GKE Autopilot cluster
 		--region=$(REGION) --project=$(PROJECT_ID)
 
 deploy-api: ## Cloud Build + `kubectl set image` for search-api (Phase 6 replaces deploy-api-local)
-	uv run python -m scripts.local.deploy.api_gke
+	uv run python -m scripts.deploy.api_gke
 
 deploy-kserve-models: ## Sync Model Registry artifacts into KServe InferenceService
-	uv run python -m scripts.local.deploy.kserve_models
+	uv run python -m scripts.deploy.kserve_models
 
 # ----- Housekeeping -----
 
@@ -234,45 +234,45 @@ ops-pipeline-run: ## Submit a pipeline manually: TARGET=embed|train PARAM='key=v
 	uv run python -m pipeline.workflow.compile --target $${TARGET:-train} --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com $${PARAM:+--parameter $$PARAM}
 
 ops-promote-reranker: ## Print or apply reranker promotion plan: VERSION=vN APPLY=1
-	uv run python -m scripts.local.ops.promote reranker $${VERSION:-v1} $${APPLY:+--apply}
+	uv run python -m scripts.ops.promote reranker $${VERSION:-v1} $${APPLY:+--apply}
 
 ops-reload-api: ## Trigger a rolling restart of search-api Pods to re-read ConfigMap / model URIs
 	kubectl rollout restart deployment/search-api --namespace=search
 
 ops-livez: ## Hit /livez on the deployed search-api (IAM-gated)
-	uv run python -m scripts.local.ops.livez_check
+	uv run python -m scripts.ops.livez
 
 ops-search: ## POST /search smoke (override QUERY/TOP_K/MAX_RENT env vars)
-	uv run python -m scripts.local.ops.search_check
+	uv run python -m scripts.ops.search
 
 ops-search-components: ## Strict gate: lexical/semantic/rerank contributions must all be non-zero
-	uv run python -m scripts.local.ops.search_component_check
+	uv run python -m scripts.ops.search_components
 
 ops-ranking: ## POST /search and inspect lexical_rank / final_rank / score / me5_score
-	uv run python -m scripts.local.ops.ranking_check
+	uv run python -m scripts.ops.ranking
 
 ops-feedback: ## /search → /feedback round-trip (publisher path smoke)
-	uv run python -m scripts.local.ops.feedback_check
+	uv run python -m scripts.ops.feedback
 
 ops-label-seed: ## Seed feedback events (click/favorite/inquiry) against /search
-	uv run python -m scripts.local.ops.training_label_seed
+	uv run python -m scripts.ops.label_seed
 
 ops-check-retrain: ## POST /jobs/check-retrain with OIDC; pipe to jq
-	uv run python -m scripts.local.ops.check_retrain
+	uv run python -m scripts.ops.check_retrain
 
 ops-accuracy-report: ## Simple ranking accuracy report on deployed Cloud Run (/search, TARGET=gcp)
-	TARGET=gcp uv run python -m scripts.local.ops.accuracy_report
+	TARGET=gcp uv run python -m scripts.ops.accuracy_report
 
 local-accuracy-report: ## Simple ranking accuracy report against local API (/search, TARGET=local)
-	TARGET=local uv run python -m scripts.local.ops.accuracy_report
+	TARGET=local uv run python -m scripts.ops.accuracy_report
 
 # ----- Phase 6 PMLE ops targets -----
 
 ops-slo-status: ## Phase 6 T5: print current compliance + burn-rate (1h/3d) for availability + latency SLOs
-	uv run python -m scripts.local.ops.slo_status
+	uv run python -m scripts.ops.slo_status
 
 bqml-train-popularity: ## Phase 6 T1: train BQML property-popularity model (BOOSTED_TREE_REGRESSOR)
-	uv run python -m scripts.local.bqml.train_popularity
+	uv run python -m scripts.bqml.train_popularity
 
 enrich-properties: ## Phase 6 T8: run Gemini description enrichment (LIMIT=50 BATCH=10)
-	uv run python -m scripts.local.enrichment.run_enrichment --limit=$${LIMIT:-50} --batch-size=$${BATCH:-10}
+	uv run python -m scripts.enrichment.run_enrichment --limit=$${LIMIT:-50} --batch-size=$${BATCH:-10}

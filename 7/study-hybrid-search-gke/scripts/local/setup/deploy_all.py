@@ -9,7 +9,7 @@
 4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
 6. `terraform apply tfplan -auto-approve` — apply infra
-7. `deploy/api_local` — Cloud Build + gcloud run deploy search-api
+7. `deploy/api_gke` — Cloud Build + kubectl rollout search-api
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the moment infra is created (Cloud Run
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from scripts._common import env, run
 from scripts.ci.sync_dataform import main as sync_dataform_main
-from scripts.local.deploy.api_local import main as deploy_api_main
+from scripts.deploy.api_gke import main as deploy_api_main
 from scripts.local.setup.tf_bootstrap import main as tf_bootstrap_main
 from scripts.local.setup.tf_init import main as tf_init_main
 from scripts.local.setup.tf_plan import main as tf_plan_main
@@ -189,7 +189,7 @@ def main() -> int:
     _step(6, total, "terraform apply tfplan -auto-approve")
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
 
-    _step(7, total, "deploy-api-local (Cloud Build + run deploy search-api)")
+    _step(7, total, "deploy-api (Cloud Build + kubectl rollout search-api)")
     if (rc := deploy_api_main()) != 0:
         return rc
 
