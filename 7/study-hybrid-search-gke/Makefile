@@ -28,6 +28,9 @@ ONCALL_EMAIL  ?= $(call _yaml_get,oncall_email)
 # Local model path produced by `make train-smoke-persist`.
 MODEL_PATH_OVERRIDE ?= /tmp/hybrid-search-cloud-smoke-model.txt
 
+# deploy-monitor log output directory.
+MONITOR_LOG_DIR ?= $(ROOT)/logs/deploy-monitor
+
 export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
@@ -38,6 +41,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api deploy-kserve-models kube-creds \
+		ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
         ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
@@ -113,6 +117,12 @@ setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payloa
 
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-apply → kubectl apply -k → kserve_models → api_gke)
 	uv run python -m scripts.local.setup.deploy_all
+
+ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \
+	echo "monitor-log: $$log_file"; \
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
 
 deploy-all-direct: ## Compatibility alias of deploy-all (Phase4 naming)
 	$(MAKE) deploy-all

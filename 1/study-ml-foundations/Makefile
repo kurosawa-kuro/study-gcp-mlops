@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := help
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+MONITOR_LOG_DIR ?= logs/run-all-monitor
 
-.PHONY: help build seed train test all down clean free-ports
+.PHONY: help build seed train test all run-all-core run-all ops-run-all-monitor down clean free-ports
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -22,6 +23,16 @@ test: ## Run pytest (local)
 	$(PYTHON) scripts/local/ops/test.py
 
 all: build seed train ## build → seed → train
+
+run-all-core: all test ## Core flow (build → seed → train → test)
+
+ops-run-all-monitor: ## Monitor run-all progress and save logs
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all.log"; \
+	echo "monitor-log: $$log_file"; \
+	$(PYTHON) scripts/local/deploy_monitor.py --label run-all --log-file "$$log_file" -- "$(MAKE)" run-all-core
+
+run-all: ops-run-all-monitor ## End-to-end local flow via monitor (build → seed → train → test)
 
 down: ## Stop and remove docker compose services
 	docker compose down --remove-orphans

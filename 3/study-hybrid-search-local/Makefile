@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,$(if $(wildcard ../.venv/bin/python),../.venv/bin/python,python3))
+MONITOR_LOG_DIR ?= logs/run-all-monitor
 
 # docker compose を直接呼ばず、env/secret/credential.yaml を読み込むラッパー経由で起動する
 DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
@@ -15,7 +16,7 @@ DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 	ops-embed \
 	ops-train-build ops-train-fit ops-train-fit-safe \
 	eval-compare eval-offline kpi-daily eval-weekly-report ops-retrain \
-	ops-bootstrap ops-daily ops-weekly run-all verify-pipeline
+	ops-bootstrap ops-daily ops-weekly run-all-core run-all ops-run-all-monitor verify-pipeline
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -183,5 +184,13 @@ verify-pipeline: ## Representative end-to-end smoke checks (auto-clean conflicts
 	$(MAKE) eval-compare
 	$(MAKE) eval-offline
 
-run-all: ## End-to-end local validation flow (includes component + accuracy report)
+run-all-core: ## Core local validation flow (includes component + accuracy report)
 	$(MAKE) verify-pipeline
+
+ops-run-all-monitor: ## Monitor run-all progress and save logs
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all.log"; \
+	echo "monitor-log: $$log_file"; \
+	$(PYTHON) scripts/local/deploy_monitor.py --label run-all --log-file "$$log_file" -- "$(MAKE)" run-all-core
+
+run-all: ops-run-all-monitor ## End-to-end local validation flow via monitor
