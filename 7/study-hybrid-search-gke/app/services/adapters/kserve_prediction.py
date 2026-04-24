@@ -247,7 +247,12 @@ class KServeReranker:
             raise ValueError("KServeReranker requires a non-empty endpoint_url")
         self.endpoint_name = self.endpoint_url
         self.model_path = self.endpoint_url
-        self.explain_url = explain_url.strip() if explain_url else None
+        # Treat whitespace-only strings as "no explain URL configured" so
+        # misconfigured ConfigMap values (accidental trailing newline, tab, etc.)
+        # degrade to the parameters.explain=true fallback instead of producing
+        # a bogus request to an empty URL.
+        _explain = explain_url.strip() if explain_url else ""
+        self.explain_url = _explain if _explain else None
         self._timeout_seconds = timeout_seconds
         self._client = client or httpx.Client(timeout=timeout_seconds)
         logger.info(
