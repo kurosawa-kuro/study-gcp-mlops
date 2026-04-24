@@ -122,8 +122,20 @@ def _build_search_cache(settings: ApiSettings) -> CacheStore:
 
 def _build_encoder_client(settings: ApiSettings) -> tuple[EncoderClient | None, str | None]:
     logger = get_logger("app")
+    # Phase 5 Run 2 で endpoint_id 未設定により API が silently 起動不能だった
+    # 再発防止: 設定の絶対値と判定結果を毎回明示する。
+    logger.info(
+        "build_encoder_client enable_search=%s kserve_encoder_url=%r timeout=%.1fs",
+        settings.enable_search,
+        settings.kserve_encoder_url,
+        settings.kserve_predict_timeout_seconds,
+    )
     if not settings.kserve_encoder_url:
-        logger.warning("ENABLE_SEARCH=true but KSERVE_ENCODER_URL is empty")
+        logger.warning(
+            "ENABLE_SEARCH=true but KSERVE_ENCODER_URL is empty — encoder client DISABLED. "
+            "Check infra/manifests/search-api/deployment.yaml env `KSERVE_ENCODER_URL`. "
+            "Expected cluster-local: http://property-encoder.kserve-inference.svc.cluster.local/predict"
+        )
         return None, None
     try:
         client = KServeEncoder(
@@ -131,17 +143,32 @@ def _build_encoder_client(settings: ApiSettings) -> tuple[EncoderClient | None, 
             timeout_seconds=settings.kserve_predict_timeout_seconds,
         )
     except Exception:
-        logger.exception("Failed to initialize KServe encoder client")
+        logger.exception(
+            "Failed to initialize KServe encoder client url=%r",
+            settings.kserve_encoder_url,
+        )
         return None, None
+    logger.info("encoder client READY endpoint_name=%s", client.endpoint_name)
     return client, client.endpoint_name
 
 
 def _build_reranker_client(settings: ApiSettings) -> tuple[RerankerClient | None, str | None]:
     logger = get_logger("app")
+    logger.info(
+        "build_reranker_client enable_rerank=%s kserve_reranker_url=%r timeout=%.1fs",
+        settings.enable_rerank,
+        settings.kserve_reranker_url,
+        settings.kserve_predict_timeout_seconds,
+    )
     if not settings.enable_rerank:
+        logger.info("ENABLE_RERANK=false — reranker client DISABLED (intentional)")
         return None, None
     if not settings.kserve_reranker_url:
-        logger.warning("ENABLE_RERANK=true but KSERVE_RERANKER_URL is empty")
+        logger.warning(
+            "ENABLE_RERANK=true but KSERVE_RERANKER_URL is empty — reranker client DISABLED. "
+            "Expected cluster-local: "
+            "http://property-reranker.kserve-inference.svc.cluster.local/v1/models/property-reranker:predict"
+        )
         return None, None
     try:
         client = KServeReranker(
@@ -149,8 +176,12 @@ def _build_reranker_client(settings: ApiSettings) -> tuple[RerankerClient | None
             timeout_seconds=settings.kserve_predict_timeout_seconds,
         )
     except Exception:
-        logger.exception("Failed to initialize KServe reranker client")
+        logger.exception(
+            "Failed to initialize KServe reranker client url=%r",
+            settings.kserve_reranker_url,
+        )
         return None, None
+    logger.info("reranker client READY endpoint_name=%s", client.endpoint_name)
     return client, client.endpoint_name
 
 

@@ -14,8 +14,10 @@ from app.services.adapters import (
 )
 
 
-def _fake_httpx_client(response_json: Any) -> MagicMock:
+def _fake_httpx_client(response_json: Any, *, status_code: int = 200) -> MagicMock:
     fake_response = MagicMock()
+    fake_response.status_code = status_code
+    fake_response.text = ""
     fake_response.json.return_value = response_json
     fake_response.raise_for_status.return_value = None
     client = MagicMock()
