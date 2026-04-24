@@ -39,7 +39,7 @@ ops-run-all-monitor: ## Monitor run-all progress and save logs
 	@mkdir -p "$(MONITOR_LOG_DIR)"
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all.log"; \
 	echo "monitor-log: $$log_file"; \
-	$(PYTHON) scripts/local/run_all_monitor.py --log-file "$$log_file" -- "$(MAKE)" run-all-core
+	$(PYTHON) scripts/local/run_all_monitor.py --log-file "$$log_file" -- $(MAKE) run-all-core
 
 run-all: ops-run-all-monitor ## End-to-end local flow via monitor (build → seed → train → test)
 
