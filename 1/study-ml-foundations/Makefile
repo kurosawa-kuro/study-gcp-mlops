@@ -7,11 +7,11 @@ PHASE_NAME := phase-1-foundations
 NA_TARGETS := up wait-db doctor sync logs api-refresh serve \
 	test-e2e install-browsers lint fmt fmt-check typecheck check check-layers \
 	db-migrate-% db-seed-% ops-bootstrap \
-	tf-% deploy-all deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
-	setup-% ops-monitor ops-monitor-lro \
+	tf-% deploy-all deploy-all-direct deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
+	setup-% ops-monitor ops-monitor-lro ops-monitor-deploy \
 	seed-test seed-test-clean train-smoke train-smoke-persist api-dev api-dev-search-rerank \
 	ops-api-url ops-skew-% ops-search-volume ops-runs-recent ops-bq-scan-top ops-train-now ops-pipeline-run ops-reload-api ops-enable-search ops-promote-reranker ops-check-retrain ops-slo-status \
-	ops-livez ops-search ops-search-components ops-ranking ops-ranking-verbose ops-feedback ops-label-seed ops-accuracy-report ops-daily \
+	ops-livez ops-search ops-search-components ops-ranking ops-ranking-verbose ops-feedback ops-label-seed ops-accuracy-report ops-daily ops-weekly \
 	ops-sync ops-embed ops-train-build ops-train-fit eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
 	bqml-train-popularity enrich-properties destroy-phase6-learning kube-creds local-accuracy-report
 
@@ -36,7 +36,7 @@ train: ## Run LightGBM training → ml/registry/artifacts/{run_id}/
 test: ## Run pytest (local)
 	$(PYTHON) scripts/local/ops/test.py
 
-run-all-core: build seed train test ## Core flow (build → seed → train → test)
+run-all-core: ## Core flow (build → seed → train → test)
 	$(MAKE) build
 	$(MAKE) seed
 	$(MAKE) train
@@ -48,7 +48,7 @@ ops-run-all-monitor: ## Monitor run-all progress and save logs
 	echo "monitor-log: $$log_file"; \
 	$(PYTHON) scripts/local/run_all_monitor.py --log-file "$$log_file" -- $(MAKE) run-all-core
 
-run-all: ops-run-all-monitor ## End-to-end local flow via monitor (build → seed → train → test)
+run-all: ## End-to-end local flow via monitor (build → seed → train → test)
 	$(MAKE) ops-run-all-monitor
 
 verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary

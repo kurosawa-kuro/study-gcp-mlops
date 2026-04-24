@@ -4,9 +4,9 @@ PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,$(if $(wildcard ../
 MONITOR_LOG_DIR ?= logs/run-all-monitor
 
 PHASE_NAME := phase-3-local
-NA_TARGETS := doctor lint fmt fmt-check typecheck check \
-	tf-% deploy-all deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
-	setup-% ops-monitor ops-monitor-lro \
+NA_TARGETS := doctor lint fmt fmt-check typecheck check clean seed \
+	tf-% deploy-all deploy-all-direct deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
+	setup-% ops-monitor ops-monitor-lro ops-monitor-deploy \
 	seed-test seed-test-clean train-smoke train-smoke-persist api-dev api-dev-search-rerank serve \
 	ops-api-url ops-skew-% ops-search-volume ops-runs-recent ops-bq-scan-top ops-train-now ops-pipeline-run ops-reload-api ops-enable-search ops-promote-reranker ops-check-retrain ops-slo-status \
 	bqml-train-popularity enrich-properties destroy-phase6-learning kube-creds local-accuracy-report
@@ -17,7 +17,7 @@ include ../../mk/base.mk
 DOCKER_COMPOSE ?= ./scripts/local/setup/compose.sh
 
 .PHONY: \
-	help up build down logs test test-e2e install-browsers sync api-refresh ports-free up-clean \
+	help up build down logs test test-e2e install-browsers sync api-refresh free-ports up-clean \
 	wait-db \
 	check-layers \
 	db-migrate-core db-seed-properties db-migrate-ops db-migrate-features db-migrate-embeddings db-migrate-learning db-migrate-eval \
@@ -36,13 +36,10 @@ help: ## Show this help
 up: ## Start docker compose services (detached)
 	$(DOCKER_COMPOSE) up -d
 
-ports-free: ## Free host ports 8000/5432/5050/7700/6379 (stop foreign containers)
+free-ports: ## Free host ports 8000/5432/5050/7700/6379 (stop foreign containers)
 	./scripts/local/setup/free_ports.sh
 
-free-ports: ## Canonical alias of ports-free
-	$(MAKE) ports-free
-
-up-clean: ports-free up ## Free ports then start docker compose (safe bring-up)
+up-clean: free-ports up ## Free ports then start docker compose (safe bring-up)
 
 wait-db: ## Wait until postgres accepts connections
 	@$(DOCKER_COMPOSE) exec -T postgres sh -lc 'for i in $$(seq 1 15); do pg_isready -U "$${POSTGRES_USER:-admin}" -d "$${POSTGRES_DB:-estate}" >/dev/null 2>&1 && exit 0; sleep 1; done; echo "postgres is not ready after 15s" >&2; exit 1'
@@ -197,7 +194,7 @@ verify-pipeline: ## Representative end-to-end smoke checks (auto-clean conflicts
 	$(MAKE) eval-compare
 	$(MAKE) eval-offline
 
-run-all-core: ports-free ## Core local validation flow (includes component + accuracy report)
+run-all-core: ## Core local validation flow (includes component + accuracy report)
 	$(MAKE) verify-pipeline
 
 ops-run-all-monitor: ## Monitor run-all progress and save logs
@@ -206,7 +203,7 @@ ops-run-all-monitor: ## Monitor run-all progress and save logs
 	echo "monitor-log: $$log_file"; \
 	$(PYTHON) scripts/local/run_all_monitor.py --log-file "$$log_file" -- $(MAKE) run-all-core
 
-run-all: ops-run-all-monitor ## End-to-end local validation flow via monitor
+run-all: ## End-to-end local validation flow via monitor
 	$(MAKE) ops-run-all-monitor
 
 verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary

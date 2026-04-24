@@ -32,11 +32,14 @@ MODEL_PATH_OVERRIDE ?= /tmp/hybrid-search-cloud-smoke-model.txt
 MONITOR_LOG_DIR ?= $(ROOT)/logs/deploy-monitor
 
 PHASE_NAME := phase-7-gke
-NA_TARGETS := up wait-db free-ports serve test-e2e install-browsers \
+NA_TARGETS := up down wait-db free-ports build seed serve test-e2e install-browsers \
 	db-migrate-% db-seed-% ops-bootstrap \
 	ops-sync ops-embed ops-train-build ops-train-fit ops-ranking-verbose \
+	ops-weekly \
 	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
-	deploy-training-job-local
+	deploy-training-job-local deploy-api-local \
+	api-dev-search-rerank setup-encoder-endpoint setup-reranker-endpoint \
+	ops-monitor ops-monitor-lro ops-enable-search destroy-phase6-learning
 
 include ../../mk/base.mk
 
@@ -156,7 +159,7 @@ ops-run-all-monitor: ## Real-time monitor for run-all-core
 	@mkdir -p "$(MONITOR_LOG_DIR)"
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-run-all-monitor.log"; \
 	echo "monitor-log: $$log_file"; \
-	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --label run-all -- $(MAKE) run-all-core 2>&1 | tee "$$0"' "$$log_file"
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --label run-all -- make run-all-core 2>&1 | tee "$$0"' "$$log_file"
 
 verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
 	$(MAKE) run-all-core

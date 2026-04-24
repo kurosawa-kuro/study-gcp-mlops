@@ -7,7 +7,7 @@
 # - それ以外のコンテナは停止に加えて強制削除し、固定 container_name 衝突も残さない
 # - ホストプロセスがポートを掴んでいる場合はコンテナ起因ではないため警告のみ
 #
-# 使い方: `make ports-free` または直接 `./scripts/local/setup/free_ports.sh`
+# 使い方: `make free-ports` または直接 `./scripts/local/setup/free_ports.sh`
 set -euo pipefail
 
 PORTS=(8000 5432 5050 7700 6379)

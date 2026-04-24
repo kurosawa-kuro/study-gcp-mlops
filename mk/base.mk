@@ -28,10 +28,10 @@ BASE_CANONICAL_TARGETS := \
 	seed seed-test seed-test-clean train-smoke train-smoke-persist \
 	api-dev api-dev-search-rerank serve \
 	tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
-	deploy-all deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
+	deploy-all deploy-all-direct deploy-api deploy-api-local deploy-training-job-local deploy-kserve-models destroy-all \
 	setup-encoder-endpoint setup-reranker-endpoint setup-model-monitoring setup-pipeline-schedule \
 	ops-monitor ops-monitor-lro ops-monitor-deploy ops-monitor-run-all \
-	ops-livez ops-search ops-search-components ops-ranking ops-ranking-verbose ops-feedback ops-label-seed ops-accuracy-report ops-daily \
+	ops-livez ops-search ops-search-components ops-ranking ops-ranking-verbose ops-feedback ops-label-seed ops-accuracy-report ops-daily ops-weekly \
 	ops-sync ops-embed ops-train-build ops-train-fit ops-train-now ops-pipeline-run ops-reload-api ops-enable-search ops-promote-reranker ops-check-retrain \
 	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
 	ops-api-url ops-skew-latest ops-skew-run ops-search-volume ops-runs-recent ops-bq-scan-top ops-slo-status \
