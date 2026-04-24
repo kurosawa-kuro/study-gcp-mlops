@@ -40,7 +40,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api-local deploy-training-job-local \
-        ops-deploy-monitor \
+        ops-deploy-monitor ops-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback ops-enable-search \
         ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
@@ -124,6 +124,14 @@ ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \
 	echo "monitor-log: $$log_file"; \
 	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor 2>&1 | tee "$$0"' "$$log_file"
+
+ops-monitor: ## Generic monitor: CMD="<command>" [LABEL=<name>] (例: make ops-monitor CMD="make deploy-api-local")
+	@if [ -z "$(CMD)" ]; then echo "usage: make ops-monitor CMD=\"<command>\" [LABEL=<name>]" >&2; exit 2; fi
+	@mkdir -p "$(MONITOR_LOG_DIR)"
+	@label="$${LABEL:-cmd}"; \
+	log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-$$label-monitor.log"; \
+	echo "monitor-log: $$log_file"; \
+	bash -o pipefail -c 'uv run python -u -m scripts.local.deploy_monitor --label "$$0" -- $$1 2>&1 | tee "$$2"' "$$label" "$(CMD)" "$$log_file"
 
 run-all: ## End-to-end validation flow after deploy (layer check → seed → train pipeline submit → smoke APIs → daily ops)
 	$(MAKE) check-layers
