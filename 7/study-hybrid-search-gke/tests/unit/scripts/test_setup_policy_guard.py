@@ -14,11 +14,7 @@ def test_setup_scripts_use_local_and_ci_import_paths() -> None:
     destroy_all = _read("scripts/local/setup/destroy_all.py")
 
     assert "from scripts.ci.sync_dataform import main as sync_dataform_main" in deploy_all
-    assert "from scripts.local.deploy.api_gke import main as deploy_api_main" in deploy_all
-    assert (
-        "from scripts.local.deploy.kserve_models import main as deploy_kserve_models_main"
-        in deploy_all
-    )
+    assert "from scripts.local.deploy.api_local import main as deploy_api_main" in deploy_all
     assert "from scripts.local.setup.tf_bootstrap import main as tf_bootstrap_main" in deploy_all
     assert "from scripts.local.setup.tf_init import main as tf_init_main" in deploy_all
     assert "from scripts.local.setup.tf_plan import main as tf_plan_main" in deploy_all
@@ -45,28 +41,21 @@ def test_setup_scripts_target_dev_terraform_environment() -> None:
     assert expected in tf_plan
 
 
-def test_api_deploy_targets_gke_kserve_boundaries() -> None:
-    api_gke = _read("scripts/local/deploy/api_gke.py")
+def test_api_deploy_enforces_search_env_and_public_access() -> None:
+    api_local = _read("scripts/local/deploy/api_local.py")
 
-    assert "kubectl" in api_gke
-    assert "rollout" in api_gke
-    assert "search-api" in api_gke
-    # GKE 版は Cloud Run 特有の flag を使わない
-    assert "--allow-unauthenticated" not in api_gke
-    assert "gcloud run deploy" not in api_gke
+    assert "ENABLE_SEARCH=true" in api_local
+    assert "VERTEX_ENCODER_ENDPOINT_ID" in api_local
+    assert "--allow-unauthenticated" in api_local
+    assert "--no-allow-unauthenticated" not in api_local
 
 
-def test_kserve_models_script_uses_kubectl_patch() -> None:
-    kserve_models = _read("scripts/local/deploy/kserve_models.py")
-
-    assert "kubectl" in kserve_models
-    assert "inferenceservice" in kserve_models
-    assert "property-encoder" in kserve_models
-    assert "property-reranker" in kserve_models
-
-
-def test_makefile_has_gke_compatible_ops_targets() -> None:
+def test_makefile_has_phase4_compatible_ops_targets() -> None:
     makefile = _read("Makefile")
 
-    assert "deploy-all:" in makefile
-    assert "destroy-all:" in makefile
+    assert "deploy-all-direct:" in makefile
+    assert "ops-search-components:" in makefile
+    assert "ops-accuracy-report:" in makefile
+    assert "local-accuracy-report:" in makefile
+    assert "python -m scripts.local.ops.search_component_check" in makefile
+    assert "python -m scripts.local.ops.accuracy_report" in makefile

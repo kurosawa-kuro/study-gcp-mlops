@@ -1,7 +1,3 @@
-output "api_service" {
-  value = google_cloud_run_v2_service.search_api
-}
-
 output "ranking_log_topic" {
   value = google_pubsub_topic.ranking_log
 }
