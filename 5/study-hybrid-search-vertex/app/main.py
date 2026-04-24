@@ -96,6 +96,7 @@ def _build_candidate_retriever(settings: ApiSettings) -> BigQueryCandidateRetrie
             base_url=settings.meili_base_url,
             index_name=settings.meili_index_name,
             api_key=settings.meili_api_key,
+            master_key=settings.meili_master_key.get_secret_value(),
             require_identity_token=settings.meili_require_identity_token,
         )
     else:

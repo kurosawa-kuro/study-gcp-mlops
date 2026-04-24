@@ -136,7 +136,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 
 - Phase 1–10d の実装 + scripts/tests 再編 + setting.yaml 集約が完了。California Housing 関連コード / Dataform / Python / Terraform / Scheduled Query は 10b/10c で完全削除済
 - `make check` PASS 基準。repo-level tests は `tests/{unit,integration,e2e}/`
-- Port / pure-logic ファイルの境界は `scripts/ci/check_layers.py::RULES` が canonical。`tests/unit/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
+- Port / pure-logic ファイルの境界は `scripts/ci/check_layers.py::RULES` が canonical。`tests/unit/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / 具象 adapter の直接 import を禁止)
 - feature parity invariant (5 ファイル) は自動検知:
   - `tests/e2e/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
   - `tests/e2e/test_feature_parity_ranking.py` — Python `build_ranker_features` ↔ `schema.py` ↔ infra `ranking_log.features` RECORD + Dataform SQLX のビヘイビア列チェック
@@ -146,9 +146,8 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 - `make tf-validate` PASS (offline)、`make tf-bootstrap` で Phase 0 半自動化済
 - **残タスク**:
   - **`embedding-job` Cloud Run Job が Terraform 未定義** (drift) — `infra/modules/runtime/main.tf` に `google_cloud_run_v2_job.embedding_job` を追加する必要あり。`sa-job-embed` SA + IAM + Artifact Registry 側は揃っている。`deploy-embedding-job.yml` は NOT_FOUND を `|| true` で許容している暫定状態
-  - Doppler → Cloud Run 環境変数注入は **配線されていない** (Secret Manager 容器は作るが誰も読まない、`--set-secrets` 未使用)。STEP 10 を skip しても動く
+  - Secret Manager `meili-master-key` — Terraform で container 作成済み。値は `gcloud secrets versions add meili-master-key --data-file=-` で投入。`search-api` / `meili-search` は `--set-secrets=MEILI_MASTER_KEY=meili-master-key:latest` で注入
   - Monitoring 通知先差し替え (`oncall@example.com` placeholder)
-  - Looker Studio ダッシュボード (IaC 対象外)
   - VECTOR INDEX の IaC 化 (`google_bigquery_vector_index` provider 対応待ち、`docs/02_移行ロードマップ.md §14 R3`)
   - Phase 6 以降の LambdaRank booster 本番連携 (`/search` から `score` を出す rerank 組み込み)
 
@@ -158,7 +157,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/sync/**` / `defi
 
 - `monitoring/validate_feature_skew.sql` は BQML の `ML.VALIDATE_DATA_SKEW()` 関数**ではなく**、カスタム mean-drift 実装 (`mean_drift_sigma`)
 - `FORCE_RELOAD=<ts>` は特殊な env ではなく、任意の env 変更で Cloud Run revision が再生成され lifespan が再ロードされる性質を利用した慣用。`make ops-reload-api` がラッパー
-- Doppler 連携は仕様 (Secret Manager → Cloud Run env) としては記述済みだが、deploy workflow は GitHub Secret 経由 (`secrets.DOPPLER_TOKEN_*`) で Doppler CLI を呼び、Secret Manager 容器は誰も読んでいない。当面は `--set-env-vars` 直書き運用
+- Secret Manager `meili-master-key` は `--set-secrets=MEILI_MASTER_KEY=meili-master-key:latest` で Cloud Run に注入する。`search-api` の `ApiSettings.meili_master_key` (SecretStr) に入り、`MeilisearchLexical` が `Authorization: Bearer <key>` ヘッダーを付与して Meilisearch を呼ぶ。master key が空なら no-auth fallback
 - BigQuery `VECTOR_SEARCH` + `VECTOR INDEX` は Terraform google provider 未対応 (2026-04 時点)。INDEX は `docs/04_運用.md STEP 16` で手動 DDL
 - `/healthz` は Cloud Run の Knative frontend が予約 (HTML 404 を返して container に到達しない) ため、deploy 後の liveness 検査には **`/livez`** (alias) を使う。local の `make api-dev` 時は `/healthz` でも届く
 - Cloud Run image は初回 apply 時 `gcr.io/cloudrun/hello` placeholder で起動 (Artifact Registry が空のため)。real image は CI もしくは `make deploy-api-local` で push する。`lifecycle.ignore_changes = [... image ...]` により Terraform は real image を差し戻さない

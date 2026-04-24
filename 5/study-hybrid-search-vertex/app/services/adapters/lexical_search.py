@@ -33,12 +33,14 @@ class MeilisearchLexical(LexicalSearchPort):
         index_name: str = "properties",
         timeout_seconds: float = 3.0,
         api_key: str = "",
+        master_key: str = "",
         require_identity_token: bool = True,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._index_name = index_name
         self._timeout_seconds = timeout_seconds
         self._api_key = api_key
+        self._master_key = master_key
         self._require_identity_token = require_identity_token
         self._logger = get_logger("app")
 
@@ -50,7 +52,9 @@ class MeilisearchLexical(LexicalSearchPort):
         top_k: int,
     ) -> list[tuple[str, int]]:
         headers: dict[str, str] = {"content-type": "application/json"}
-        if self._api_key:
+        if self._master_key:
+            headers["authorization"] = f"Bearer {self._master_key}"
+        elif self._api_key:
             headers["x-meili-api-key"] = self._api_key
         if self._require_identity_token:
             try:

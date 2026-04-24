@@ -52,10 +52,12 @@ class MeilisearchLexical(LexicalSearchPort):
         top_k: int,
     ) -> list[tuple[str, int]]:
         headers: dict[str, str] = {"content-type": "application/json"}
-        if self._master_key:
-            headers["authorization"] = f"Bearer {self._master_key}"
-        elif self._api_key:
-            headers["authorization"] = f"Bearer {self._api_key}"
+        # Meilisearch API key auth: master_key takes priority over api_key.
+        # Uses X-Meili-Api-Key so it does not conflict with Cloud Run ID-token
+        # Authorization header injected below when require_identity_token=True.
+        effective_key = self._master_key or self._api_key
+        if effective_key:
+            headers["x-meili-api-key"] = effective_key
         if self._require_identity_token:
             try:
                 token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]

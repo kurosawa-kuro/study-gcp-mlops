@@ -26,7 +26,7 @@ raw.properties (upstream ETL)
   └─ Cloud Run Service `meili-search` (GCS FUSE `/meili_data` mount)
 
   └─ Scheduled Query 05:00 JST `property_feature_skew_check` ─> mlops.validation_results
-       └─ Cloud Monitoring ログベースメトリクス + Looker Studio
+       └─ Cloud Monitoring ログベースメトリクス
 ```
 
 ## ディレクトリ

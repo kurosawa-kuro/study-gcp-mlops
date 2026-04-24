@@ -144,7 +144,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 
 - Phase 1–10d の実装 + scripts/tests 再編 + setting.yaml 集約が完了。California Housing 関連コード / Dataform / Python / Terraform / Scheduled Query は 10b/10c で完全削除済
 - `make check` 現行 231 tests (`tests/{arch,parity,infra}/` + workspace 別 `{app,common,ml/embed,ml/train}/tests/`)。全通過。
-- Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
+- Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / 具象 adapter の直接 import を禁止)
 - feature parity invariant (6 ファイル) は自動検知:
   - `tests/parity/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
   - `tests/parity/test_feature_parity_ranking.py` — Python `build_ranker_features` ↔ `schema.py` ↔ infra `ranking_log.features` RECORD + Dataform SQLX のビヘイビア列チェック
@@ -155,9 +155,8 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 - `make tf-validate` PASS (offline)、`make tf-bootstrap` で Phase 0 半自動化済
 - **残タスク**:
   - **trainer fixture の `semantic_rank` 欠落解消済** — Phase 10e リファクタで `ml/train/tests/test_trainer.py` / `test_cli_run.py` は `FEATURE_COLS_RANKER` (`semantic_rank` 含む) を揃えた synthetic frame を生成済み
-  - Doppler → Cloud Run 環境変数注入は **配線されていない** (Secret Manager 容器は作るが誰も読まない、`--set-secrets` 未使用)。STEP 10 を skip しても動く
+  - GKE 側 Kubernetes Secret `meili-master-key` は ExternalSecrets Operator がない場合は手動同期が必要 (`docs/04_運用.md §1 STEP 10` 参照)
   - Monitoring 通知先差し替え (`oncall@example.com` placeholder)
-  - Looker Studio ダッシュボード (IaC 対象外)
   - VECTOR INDEX の IaC 化 (`google_bigquery_vector_index` provider 対応待ち、`docs/02_移行ロードマップ.md §14 R3`)
   - Phase 6 以降の LambdaRank booster 本番連携 (`/search` から `score` を出す rerank 組み込み)
 
@@ -167,7 +166,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 
 - `monitoring/validate_feature_skew.sql` は BQML の `ML.VALIDATE_DATA_SKEW()` 関数**ではなく**、カスタム mean-drift 実装 (`mean_drift_sigma`)
 - `FORCE_RELOAD=<ts>` は特殊な env ではなく、任意の env 変更で Cloud Run revision が再生成され lifespan が再ロードされる性質を利用した慣用。`make ops-reload-api` がラッパー
-- Doppler 連携は仕様 (Secret Manager → Cloud Run env) としては記述済みだが、deploy workflow は GitHub Secret 経由 (`secrets.DOPPLER_TOKEN_*`) で Doppler CLI を呼び、Secret Manager 容器は誰も読んでいない。当面は `--set-env-vars` 直書き運用
+- Secret Manager `meili-master-key` は Meilisearch Cloud Run には `value_source.secret_key_ref` で直接注入される。GKE side (search-api Pod) は Secret Manager → Kubernetes Secret の手動同期が必要 (ExternalSecrets Operator / CSI Secret Driver 未導入のため)。`env/secret/README.md` に手順あり
 - BigQuery `VECTOR_SEARCH` + `VECTOR INDEX` は Terraform google provider 未対応 (2026-04 時点)。INDEX は `docs/04_運用.md STEP 16` で手動 DDL
 - `/healthz` は Cloud Run の Knative frontend が予約 (HTML 404 を返して container に到達しない) ため、deploy 後の liveness 検査には **`/livez`** (alias) を使う。local の `make api-dev` 時は `/healthz` でも届く
 - GKE Deployment `search-api` の image は Manifest 上は `gcr.io/cloudrun/hello` placeholder で起動 (Artifact Registry が空のため)。real image は CI (`deploy-api.yml`) もしくは `make deploy-api` (= `kubectl set image`) で push + rollout する。Manifest を再 `kubectl apply` しても placeholder に戻らないよう、Kustomize overlay で `.spec.template.spec.containers[0].image` を patch せず運用する

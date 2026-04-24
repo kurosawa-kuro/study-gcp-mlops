@@ -11,13 +11,13 @@
   - `search-api p95 latency > 500ms over 10m`
 - 通知: `email` チャネル (placeholder, Terraform で差し替え)
 
-## Looker Studio
+## 可視化
 
-手動で作成 (Looker Studio は IaC 管理対象外)。データソース:
+BigQuery Studio / Vertex AI コンソールで参照。データソース:
 
-- `mlops.training_runs` — metrics 推移 (RMSE/MAE/R² by `started_at`)
-- `mlops.predictions_log` — 件数・分布 (feature の violin plot)
-- `mlops.validation_results` — skew 検出履歴 (`status = 'FAIL'` を赤でハイライト)
+- `mlops.training_runs` — metrics 推移 (NDCG@10 / MAP / Recall@20 by `started_at`)
+- `mlops.validation_results` — skew 検出履歴 (`status = 'FAIL'` を BigQuery Studio でフィルタ)
+- `mlops.ranking_log` / `mlops.feedback_events` — 検索ログ・フィードバック集計
 
 ## 精度追跡
 

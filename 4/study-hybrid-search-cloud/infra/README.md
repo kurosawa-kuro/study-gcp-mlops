@@ -54,7 +54,7 @@ terraform -chdir=infra apply
 | モジュール | 主要リソース |
 |---|---|
 | `iam` | 5 ランタイム SA (`sa-api` / `sa-job-train` / `sa-job-embed` / `sa-dataform` / `sa-scheduler`) + `sa-github-deployer` + WIF pool + provider |
-| `data` | BQ datasets (`mlops` / `feature_mart` / `predictions`) + tables (`training_runs` / `search_logs` / `ranking_log` / `feedback_events` / `validation_results` / `property_features_daily` / `property_embeddings`) + GCS (`mlops-dev-a-models` / `-artifacts`) + Artifact Registry (`mlops`) + Secret Manager (`doppler-service-token` / `wandb-api-key`) + Dataform repository + BQ/GCS/Secret ↔ SA IAM |
+| `data` | BQ datasets (`mlops` / `feature_mart` / `predictions`) + tables (`training_runs` / `search_logs` / `ranking_log` / `feedback_events` / `validation_results` / `property_features_daily` / `property_embeddings`) + GCS (`mlops-dev-a-models` / `-artifacts`) + Artifact Registry (`mlops`) + Secret Manager (`meili-master-key`) + Dataform repository + BQ/GCS/Secret ↔ SA IAM |
 | `runtime` | Cloud Run Service `search-api` + Job `training-job` + Pub/Sub topics (`ranking-log` / `search-feedback` / `retrain-trigger`) + BQ Subscriptions + Cloud Scheduler `check-retrain-daily` + Eventarc `retrain-trigger` + invoker IAM |
 | `monitoring` | log-based metrics (`search_api_5xx` / `search_api_latency_ms`) + email 通知チャネル + 2 alert policies + Scheduled Query `property_feature_skew_check` |
 

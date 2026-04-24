@@ -137,7 +137,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 
 - Phase 1–10d の実装 + scripts/tests 再編 + setting.yaml 集約が完了。California Housing 関連コード / Dataform / Python / Terraform / Scheduled Query は 10b/10c で完全削除済
 - `make check` 現行 231 tests (`tests/{arch,parity,infra}/` + workspace 別 `{app,common,ml/embed,ml/train}/tests/`)。全通過。
-- Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / `wandb` / 具象 adapter の直接 import を禁止)
+- Port / pure-logic ファイルの境界は `scripts/checks/layers.py::RULES` が canonical。`tests/arch/test_import_boundaries.py` は薄い pytest ラッパで、`make check-layers` でも CLI 単独実行できる (`google.cloud.*` / 具象 adapter の直接 import を禁止)
 - feature parity invariant (6 ファイル) は自動検知:
   - `tests/parity/test_feature_parity_sql_ranker.py` — monitoring SQL の UNPIVOT ↔ `FEATURE_COLS_RANKER` (property-side 7 列)
   - `tests/parity/test_feature_parity_ranking.py` — Python `build_ranker_features` ↔ `schema.py` ↔ infra `ranking_log.features` RECORD + Dataform SQLX のビヘイビア列チェック
@@ -148,9 +148,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 - `make tf-validate` PASS (offline)、`make tf-bootstrap` で Phase 0 半自動化済
 - **残タスク**:
   - **trainer fixture の `semantic_rank` 欠落解消済** — Phase 10e リファクタで `ml/train/tests/test_trainer.py` / `test_cli_run.py` は `FEATURE_COLS_RANKER` (`semantic_rank` 含む) を揃えた synthetic frame を生成済み
-  - Doppler → Cloud Run 環境変数注入は **配線されていない** (Secret Manager 容器は作るが誰も読まない、`--set-secrets` 未使用)。STEP 10 を skip しても動く
   - Monitoring 通知先差し替え (`oncall@example.com` placeholder)
-  - Looker Studio ダッシュボード (IaC 対象外)
   - VECTOR INDEX の IaC 化 (`google_bigquery_vector_index` provider 対応待ち、`docs/02_移行ロードマップ.md §14 R3`)
   - Phase 6 以降の LambdaRank booster 本番連携 (`/search` から `score` を出す rerank 組み込み)
 
@@ -161,7 +159,7 @@ CI path filters (`app/**` / `ml/embed/**` / `ml/train/**` / `ml/serve/**` / `def
 - **`.dockerignore` の包括パターンは container の起動直後クラッシュの温床** — 過去に `**/data/` が `ml/data/` (Python package) を巻き込み、`infra/` が `infra/run/jobs/*/sync_meili_job.py` を巻き込んで COPY 失敗 → `ModuleNotFoundError` / `stat: file does not exist` を発生。**方針: 新規イメージを通すフェーズでは `.dockerignore` を最小構成 (cache / tfstate / `.git` のみ) まで緩め、全段 PASS してから段階的に除外を追加する**。直感に反して「広く切り捨てる」が危険、「必要最小限の除外」を守る。`**/foo/` のように top-level wildcards を書くときは `ml/foo/` 等の Python package と衝突しないか事前にチェック
 - `monitoring/validate_feature_skew.sql` は BQML の `ML.VALIDATE_DATA_SKEW()` 関数**ではなく**、カスタム mean-drift 実装 (`mean_drift_sigma`)
 - `FORCE_RELOAD=<ts>` は特殊な env ではなく、任意の env 変更で Cloud Run revision が再生成され lifespan が再ロードされる性質を利用した慣用。`make ops-reload-api` がラッパー
-- Doppler 連携は仕様 (Secret Manager → Cloud Run env) としては記述済みだが、deploy workflow は GitHub Secret 経由 (`secrets.DOPPLER_TOKEN_*`) で Doppler CLI を呼び、Secret Manager 容器は誰も読んでいない。当面は `--set-env-vars` 直書き運用
+- Secret Manager の `meili-master-key` は `infra/modules/data/main.tf` で container を作成し、deploy workflow の `--set-secrets=MEILI_MASTER_KEY=meili-master-key:latest` で Cloud Run に注入する。値の投入は `gcloud secrets versions add meili-master-key --data-file=-` で行う
 - BigQuery `VECTOR_SEARCH` + `VECTOR INDEX` は Terraform google provider 未対応 (2026-04 時点)。INDEX は `docs/04_運用.md STEP 16` で手動 DDL
 - `/healthz` は Cloud Run の Knative frontend が予約 (HTML 404 を返して container に到達しない) ため、deploy 後の liveness 検査には **`/livez`** (alias) を使う。local の `make api-dev` 時は `/healthz` でも届く
 - Cloud Run image は初回 apply 時 `gcr.io/cloudrun/hello` placeholder で起動 (Artifact Registry が空のため)。real image は CI もしくは `make deploy-api-local` で push する。`lifecycle.ignore_changes = [... image ...]` により Terraform は real image を差し戻さない

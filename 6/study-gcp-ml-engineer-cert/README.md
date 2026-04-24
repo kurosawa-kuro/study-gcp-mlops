@@ -44,7 +44,7 @@
 ├── monitoring/          # feature skew SQL
 ├── env/                 # config/setting.yaml (semantic_backend / lexical_backend flag 追加)
 ├── tools/
-└── pyproject.toml / uv.lock / Makefile / doppler.yaml / .github/
+└── pyproject.toml / uv.lock / Makefile / .github/
 ```
 
 Phase 5 からの具体的な差分は [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) を各統合 PR で追記していく。
