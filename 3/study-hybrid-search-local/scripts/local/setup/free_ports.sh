@@ -4,7 +4,7 @@
 # 対象ポート: 8000 (api) / 5432 (postgres) / 5050 (pgadmin) / 7700 (meilisearch) / 6379 (redis)
 #
 # - 自分のコンテナ (real-estate-*) は docker compose 側で扱うので対象外
-# - それ以外のコンテナ (Phase 1 の `study-ml-foundations-api-1` / `ml-pipeline-postgres` 等) を停止する
+# - それ以外のコンテナは停止に加えて強制削除し、固定 container_name 衝突も残さない
 # - ホストプロセスがポートを掴んでいる場合はコンテナ起因ではないため警告のみ
 #
 # 使い方: `make ports-free` または直接 `./scripts/local/setup/free_ports.sh`
@@ -27,8 +27,8 @@ stop_conflicting_containers() {
       echo "[skip] port ${port}: own container '${name}' (docker compose が管理)"
       continue
     fi
-    echo "[stop] port ${port}: stopping '${name}' (${cid:0:12})"
-    docker stop "$cid" >/dev/null
+    echo "[remove] port ${port}: removing '${name}' (${cid:0:12})"
+    docker rm -f "$cid" >/dev/null
     stopped_any=1
   done <<< "$entries"
   return $stopped_any

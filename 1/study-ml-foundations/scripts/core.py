@@ -46,7 +46,7 @@ def run(command: list[str], *, cwd: Path | None = None, check: bool = True) -> i
 
 # Phase 1 のサービスが使う host ポート。外部の他プロジェクトに取られていたら自動停止する。
 HOST_PORTS = (5432,)
-OWN_CONTAINER_PREFIX = "ml-pipeline-"
+OWN_CONTAINER_PREFIX = "study-ml-foundations-"
 
 
 def free_host_ports(ports: tuple[int, ...] = HOST_PORTS) -> None:

@@ -44,7 +44,7 @@ def run(command: list[str], *, cwd: Path | None = None, check: bool = True) -> i
 
 
 HOST_PORTS = (5432, 8000)
-OWN_CONTAINER_PREFIX = "ml-pipeline-"
+OWN_CONTAINER_PREFIX = "study-ml-app-pipeline-"
 
 
 def free_host_ports(ports: tuple[int, ...] = HOST_PORTS) -> None:
@@ -63,8 +63,8 @@ def free_host_ports(ports: tuple[int, ...] = HOST_PORTS) -> None:
             if name and not name.startswith(OWN_CONTAINER_PREFIX)
         ]
         for name in names:
-            step(f"Freeing host :{port} (stopping {name})")
-            subprocess.run(["docker", "stop", name], check=False)
+            step(f"Freeing host :{port} (removing {name})")
+            subprocess.run(["docker", "rm", "-f", name], check=False)
 
 
 def compose(args: list[str], *, check: bool = True) -> int:

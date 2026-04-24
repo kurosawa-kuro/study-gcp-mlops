@@ -1,7 +1,9 @@
+name: study-ml-foundations
+
 services:
   postgres:
     image: postgres:16
-    container_name: ml-pipeline-postgres
+    container_name: study-ml-foundations-postgres
     restart: unless-stopped
     # 非機密: env/config/setting.yaml と一致。機密: core.py → process env 経由
     environment:

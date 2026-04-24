@@ -3,7 +3,7 @@
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 MONITOR_LOG_DIR ?= logs/run-all-monitor
 
-.PHONY: help build seed train serve test test-e2e install-browsers all run-all-core run-all ops-run-all-monitor down clean free-ports
+.PHONY: help build seed train serve test test-e2e install-browsers run-all-core run-all ops-run-all-monitor down clean free-ports
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -31,9 +31,7 @@ test-e2e: ## Run Playwright E2E tests (要 install-browsers)
 install-browsers: ## Playwright 用の Chromium などブラウザをインストール
 	$(PYTHON) -m playwright install chromium
 
-all: build seed train ## build → seed → train
-
-run-all-core: all test ## Core flow (build → seed → train → test)
+run-all-core: build seed train test ## Core flow (build → seed → train → test)
 
 ops-run-all-monitor: ## Monitor run-all progress and save logs
 	@mkdir -p "$(MONITOR_LOG_DIR)"

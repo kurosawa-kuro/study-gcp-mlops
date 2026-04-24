@@ -1,7 +1,9 @@
+name: study-ml-app-pipeline
+
 services:
   postgres:
     image: postgres:16
-    container_name: ml-pipeline-postgres
+    container_name: study-ml-app-pipeline-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: mlpipeline

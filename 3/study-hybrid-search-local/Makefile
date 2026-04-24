@@ -184,7 +184,7 @@ verify-pipeline: ## Representative end-to-end smoke checks (auto-clean conflicts
 	$(MAKE) eval-compare
 	$(MAKE) eval-offline
 
-run-all-core: ## Core local validation flow (includes component + accuracy report)
+run-all-core: ports-free ## Core local validation flow (includes component + accuracy report)
 	$(MAKE) verify-pipeline
 
 ops-run-all-monitor: ## Monitor run-all progress and save logs

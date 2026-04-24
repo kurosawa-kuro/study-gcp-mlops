@@ -3,7 +3,7 @@
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 MONITOR_LOG_DIR ?= logs/run-all-monitor
 
-.PHONY: help build seed train test all run-all-core run-all ops-run-all-monitor down clean free-ports
+.PHONY: help build seed train test run-all-core run-all ops-run-all-monitor down clean free-ports
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -22,9 +22,7 @@ train: ## Run LightGBM training → ml/registry/artifacts/{run_id}/
 test: ## Run pytest (local)
 	$(PYTHON) scripts/local/ops/test.py
 
-all: build seed train ## build → seed → train
-
-run-all-core: all test ## Core flow (build → seed → train → test)
+run-all-core: build seed train test ## Core flow (build → seed → train → test)
 
 ops-run-all-monitor: ## Monitor run-all progress and save logs
 	@mkdir -p "$(MONITOR_LOG_DIR)"

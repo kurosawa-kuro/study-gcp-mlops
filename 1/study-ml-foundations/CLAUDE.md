@@ -58,7 +58,7 @@ make build          # Docker イメージビルド
 make seed           # sklearn データを PostgreSQL に投入 (Docker)
 make train          # LightGBM 学習 → ml/registry/artifacts/{run_id}/ に保存 (Docker)
 make test           # pytest 全テスト実行 (ローカル)
-make all            # build → seed → train
+make run-all        # build → seed → train → test (monitor 付き)
 make down           # Docker Compose 停止
 make clean          # Docker 停止 + 生成ファイル削除
 
