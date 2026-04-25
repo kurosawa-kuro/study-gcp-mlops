@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
+from scripts._common import fail, http_json, print_pretty, resolve_api_target
 
 
 def _diagnose_semantic_zero(results: list[dict], *, readyz_payload: dict | None) -> str:
@@ -40,16 +40,13 @@ def main() -> int:
     query = os.environ.get("QUERY", "新宿区西新宿 1LDK")
     top_k = int(os.environ.get("TOP_K", "20"))
     max_rent = int(os.environ.get("MAX_RENT", "150000"))
-    target = os.environ.get("TARGET", "gcp").strip().lower()
 
-    if target == "local":
-        url = os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/")
-        token = None
-    elif target == "gcp":
-        url = cloud_run_url()
-        token = identity_token()
-    else:
-        return fail("component-check config error: TARGET must be either 'local' or 'gcp'")
+    try:
+        resolved = resolve_api_target()
+    except Exception as exc:
+        return fail(f"component-check config error: {exc}")
+    url = resolved.url
+    token = resolved.token
 
     payload = {"query": query, "filters": {"max_rent": max_rent}, "top_k": top_k}
     status, body = http_json("POST", f"{url}/search", token=token, payload=payload)

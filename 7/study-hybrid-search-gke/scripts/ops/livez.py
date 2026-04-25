@@ -5,13 +5,15 @@ so we use the /livez alias registered in app/src/app/entrypoints/api.py.
 
 from __future__ import annotations
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token
+from scripts._common import fail, http_json, resolve_api_target
 
 
 def main() -> int:
-    url = cloud_run_url()
-    token = identity_token()
-    status, body = http_json("GET", f"{url}/livez", token=token)
+    try:
+        target = resolve_api_target()
+    except Exception as exc:
+        return fail(f"livez config error: {exc}")
+    status, body = http_json("GET", f"{target.url}/livez", token=target.token)
     if status != 200:
         return fail(f"livez returned HTTP {status}: {body}")
     print(body)

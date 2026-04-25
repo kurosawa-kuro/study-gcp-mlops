@@ -12,7 +12,7 @@ import json
 import os
 import time
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token
+from scripts._common import fail, http_json, resolve_api_target
 
 ACTIONS = ("click", "favorite", "inquiry")
 
@@ -21,14 +21,21 @@ def main() -> int:
     query = os.environ.get("QUERY", "札幌 ペット可 2LDK")
     n_per_action = int(os.environ.get("N_PER_ACTION", "5"))
 
-    url = cloud_run_url()
-    token = identity_token()
+    try:
+        target = resolve_api_target()
+    except Exception as exc:
+        return fail(f"label-seed config error: {exc}")
     search_payload = {"query": query, "top_k": 5}
 
     posted = 0
     for action in ACTIONS:
         for _ in range(n_per_action):
-            status, body = http_json("POST", f"{url}/search", token=token, payload=search_payload)
+            status, body = http_json(
+                "POST",
+                f"{target.url}/search",
+                token=target.token,
+                payload=search_payload,
+            )
             if status != 200:
                 time.sleep(1)
                 continue
@@ -39,8 +46,8 @@ def main() -> int:
             if rid and pid:
                 http_json(
                     "POST",
-                    f"{url}/feedback",
-                    token=token,
+                    f"{target.url}/feedback",
+                    token=target.token,
                     payload={"request_id": rid, "property_id": pid, "action": action},
                 )
                 posted += 1

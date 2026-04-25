@@ -21,6 +21,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 _SETTINGS_PATH = Path(__file__).resolve().parent.parent / "env" / "config" / "setting.yaml"
@@ -143,6 +144,48 @@ def cloud_run_url(service: str | None = None) -> str:
 def identity_token() -> str:
     """Mint an OIDC token for IAM-gated Cloud Run calls."""
     return gcloud("auth", "print-identity-token", capture=True)
+
+
+@dataclass(frozen=True)
+class ResolvedApiTarget:
+    """Resolved API endpoint + auth mode for ops scripts."""
+
+    url: str
+    token: str | None
+    mode: str
+
+
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_api_target() -> ResolvedApiTarget:
+    """Resolve the target API base URL + optional Bearer token.
+
+    Supported modes:
+    - explicit ``API_URL``: use it as-is. Mint a token only when
+      ``API_REQUIRE_TOKEN=true``. This path wins over ``TARGET``.
+    - ``TARGET=local``: use ``LOCAL_API_URL`` and no token
+    - ``TARGET=gcp`` (default): resolve the Phase 7 deployed URL via
+      ``cloud_run_url()`` and mint an identity token
+    """
+    target = os.environ.get("TARGET", "gcp").strip().lower()
+    explicit_url = os.environ.get("API_URL", "").strip().rstrip("/")
+    if explicit_url:
+        token = identity_token() if _env_flag("API_REQUIRE_TOKEN") else None
+        return ResolvedApiTarget(url=explicit_url, token=token, mode="explicit")
+    if target == "local":
+        return ResolvedApiTarget(
+            url=os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/"),
+            token=None,
+            mode="local",
+        )
+    if target == "gcp":
+        return ResolvedApiTarget(url=cloud_run_url(), token=identity_token(), mode="gcp")
+    raise ValueError("TARGET must be either 'local' or 'gcp'")
 
 
 def http_json(

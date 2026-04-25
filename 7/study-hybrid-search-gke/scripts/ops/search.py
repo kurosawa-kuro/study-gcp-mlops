@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
+from scripts._common import fail, http_json, print_pretty, resolve_api_target
 
 
 def main() -> int:
@@ -15,10 +15,12 @@ def main() -> int:
     top_k = int(os.environ.get("TOP_K", "20"))
     max_rent = int(os.environ.get("MAX_RENT", "150000"))
 
-    url = cloud_run_url()
-    token = identity_token()
+    try:
+        target = resolve_api_target()
+    except Exception as exc:
+        return fail(f"search config error: {exc}")
     payload = {"query": query, "filters": {"max_rent": max_rent}, "top_k": top_k}
-    status, body = http_json("POST", f"{url}/search", token=token, payload=payload)
+    status, body = http_json("POST", f"{target.url}/search", token=target.token, payload=payload)
     if status != 200:
         return fail(f"search returned HTTP {status}: {body}")
     print_pretty(body)

@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token
+from scripts._common import fail, http_json, resolve_api_target
 
 
 @dataclass(frozen=True)
@@ -107,16 +107,6 @@ def _mrr_at_k_binary(relevance: list[int], *, k: int) -> float:
     return 0.0
 
 
-def _resolve_target() -> tuple[str, str, str | None]:
-    target = os.environ.get("TARGET", "gcp").strip().lower()
-    if target == "local":
-        api_url = os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/")
-        return target, api_url, None
-    if target == "gcp":
-        return target, cloud_run_url(), identity_token()
-    raise ValueError("TARGET must be either 'local' or 'gcp'")
-
-
 def main() -> int:
     cases_file = Path(os.environ.get("EVAL_CASES_FILE", str(_default_cases_path())))
     k = int(os.environ.get("EVAL_K", "10"))
@@ -125,9 +115,11 @@ def main() -> int:
         return fail("EVAL_K must be > 0")
     try:
         cases = _load_cases(cases_file)
-        target, api_url, token = _resolve_target()
+        resolved = resolve_api_target()
     except Exception as exc:
         return fail(f"accuracy-report config error: {exc}")
+    api_url = resolved.url
+    token = resolved.token
 
     per_case: list[dict] = []
     ndcgs: list[float] = []
@@ -182,7 +174,7 @@ def main() -> int:
         f"mrr_at_{k}": round(sum(mrrs) / len(mrrs), 4),
     }
     report = {
-        "target": target,
+        "target": resolved.mode,
         "api_url": api_url,
         "cases_file": str(cases_file),
         "num_cases": len(cases),
