@@ -15,16 +15,10 @@ property-side subset of ``FEATURE_COLS_RANKER`` exactly:
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
-from ml.data.feature_engineering import FEATURE_COLS_RANKER
+from tests.integration.parity.parity_invariant import PROPERTY_SIDE_COLS, REPO_ROOT
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 VERTEX_MODULE_PATH = REPO_ROOT / "infra" / "terraform" / "modules" / "vertex" / "main.tf"
-
-PROPERTY_SIDE_COLS: list[str] = [
-    col for col in FEATURE_COLS_RANKER if col not in {"me5_score", "lexical_rank", "semantic_rank"}
-]
 
 _FEATURE_GROUP_BLOCK_RE = re.compile(
     r"feature_group_property_features\s*=\s*\[(?P<body>.*?)\n\s*\]",

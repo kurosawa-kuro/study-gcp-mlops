@@ -1,8 +1,8 @@
 """Test doubles for Port Protocols.
 
-Distinction from ``app/services/fakes/`` (production noop / in-memory):
+Distinction from ``app/services/noop_adapters/`` (production noop / in-memory):
 
-- ``app/services/fakes/`` ships to production when feature flags disable
+- ``app/services/noop_adapters/`` ships to production when feature flags disable
   a backend (e.g. ``Noop*`` when a Pub/Sub topic is empty).
 - ``tests/fakes/`` lives only in the test tree; classes here are
   deterministic stubs / call-recorders intended for asserting service-

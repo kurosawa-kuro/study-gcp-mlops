@@ -22,7 +22,7 @@ from app.api.handlers import (
 )
 from app.api.middleware import RequestLoggingMiddleware
 from app.domain.candidate import Candidate
-from app.services.fakes import InMemoryTTLCacheStore
+from app.services.noop_adapters import InMemoryTTLCacheStore
 from ml.common.logging import get_logger
 
 

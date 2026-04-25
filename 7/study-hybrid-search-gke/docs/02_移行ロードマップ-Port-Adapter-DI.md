@@ -1,10 +1,10 @@
 # Phase 7 Port-Adapter-DI 移行ロードマップ (残作業のみ)
 
-> **状態**: ✅ **移行完了**。Phase A〜G の全タスクは終了済 (Composition root 分離 / FastAPI Depends 化 / Port-Adapter ファイル分割 / fakes 分離 / Service 層抽出 / Handler 分割 / tests/fakes/ 整備 / `make check-layers` 自動化 / 関連 docs 更新)。
+> **状態**: ✅ **移行完了**。Phase A〜G の全タスクは終了済 (Composition root 分離 / FastAPI Depends 化 / Port-Adapter ファイル分割 / noop adapter 分離 / Service 層抽出 / Handler 分割 / tests/fakes/ 整備 / `make check-layers` 自動化 / 関連 docs 更新)。
 >
 > 現行構造の説明は本ドキュメントには残さない。canonical な仕様は実装と test に集約:
 > - 全体構造: `docs/01_仕様と設計.md §4` (Port / Adapter / DI 境界)
-> - ディレクトリレイアウト: `docs/03_実装カタログ.md §2` (`app/services/protocols` / `app/services/adapters` / `app/services/fakes` / `app/container` / `app/api/handlers` / `app/api/mappers` / `ml/*/ports` / `ml/*/adapters` / `pipeline/*/ports`)
+> - ディレクトリレイアウト: `docs/03_実装カタログ.md §2` (`app/services/protocols` / `app/services/adapters` / `app/services/noop_adapters` / `app/container` / `app/api/handlers` / `app/api/mappers` / `ml/*/ports` / `ml/*/adapters` / `pipeline/*/ports`)
 > - 境界違反検出: `scripts/ci/layers.py::DIRECTORY_RULES` + `make check-layers` (現状 53 files clean)
 > - DI 配線: `app/composition_root.py::Container` + `ContainerBuilder.build()` (search / ml / infra builder 分割済 — Issue 1 解決)
 >

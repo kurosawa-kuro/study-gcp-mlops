@@ -27,7 +27,7 @@ from typing import Any
 
 import httpx
 
-from app.services.adapters._kserve_common import (
+from app.services.adapters.internal.kserve_common import (
     extract_predictions,
     is_v2_inference_url,
     log_http_error_response,

@@ -12,19 +12,12 @@ via separate sentinels in the same SQL).
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
-from ml.data.feature_engineering import FEATURE_COLS_RANKER
+from tests.integration.parity.parity_invariant import PROPERTY_SIDE_COLS, REPO_ROOT
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 SQL_PATH = REPO_ROOT / "monitoring" / "validate_feature_skew.sql"
-
-# 7 property-side columns monitored via UNPIVOT (order must match SQL).
-PROPERTY_SIDE_COLS: list[str] = [
-    c for c in FEATURE_COLS_RANKER if c not in {"me5_score", "lexical_rank", "semantic_rank"}
-]
 
 _UNPIVOT_RE = re.compile(
     r"UNPIVOT\s*\(\s*value\s+FOR\s+feature_name\s+IN\s*\((?P<cols>[^)]+)\)\s*\)",

@@ -79,7 +79,7 @@ DIRECTORY_RULES: dict[str, frozenset[str]] = {
     # app/ Ports + Domain + pure-logic services
     "app/domain/": ADAPTER_BANS | frozenset({"lightgbm"}),
     "app/services/protocols/": ADAPTER_BANS | frozenset({"lightgbm"}),
-    "app/services/fakes/": ADAPTER_BANS,
+    "app/services/noop_adapters/": ADAPTER_BANS,
     # app/api/ — handlers + mappers + middleware + DI resolvers (no SDK)
     "app/api/handlers/": ADAPTER_BANS,
     "app/api/mappers/": ADAPTER_BANS,

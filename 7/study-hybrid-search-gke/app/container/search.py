@@ -16,7 +16,7 @@ from app.services.adapters import (
     KServeReranker,
     MeilisearchLexical,
 )
-from app.services.fakes import InMemoryTTLCacheStore, NoopCacheStore, NoopLexicalSearch
+from app.services.noop_adapters import InMemoryTTLCacheStore, NoopCacheStore, NoopLexicalSearch
 from app.services.protocols import CacheStore, CandidateRetriever, EncoderClient, LexicalSearchPort
 from app.services.protocols.reranker_client import RerankerClient
 from app.settings import ApiSettings
@@ -66,7 +66,7 @@ class SearchBuilder:
 
     def build(self) -> SearchComponents:
         settings = self._settings
-        if settings.enable_search:
+        if settings.feature_flags.enable_search:
             encoder_client, encoder_model_path = self.build_encoder_client()
             candidate_retriever = self.build_candidate_retriever()
         else:
@@ -132,23 +132,25 @@ class SearchBuilder:
         return NoopLexicalSearch()
 
     def build_search_cache(self) -> CacheStore:
-        settings = self._settings
-        if settings.search_cache_ttl_seconds <= 0:
+        kserve = self._settings.kserve
+        if kserve.search_cache_ttl_seconds <= 0:
             return NoopCacheStore()
         return InMemoryTTLCacheStore(
-            maxsize=settings.search_cache_maxsize,
-            default_ttl_seconds=settings.search_cache_ttl_seconds,
+            maxsize=kserve.search_cache_maxsize,
+            default_ttl_seconds=kserve.search_cache_ttl_seconds,
         )
 
     def build_encoder_client(self) -> tuple[EncoderClient | None, str | None]:
         settings = self._settings
+        flags = settings.feature_flags
+        kserve = settings.kserve
         self._logger.info(
             "build_encoder_client enable_search=%s kserve_encoder_url=%r timeout=%.1fs",
-            settings.enable_search,
-            settings.kserve_encoder_url,
-            settings.kserve_predict_timeout_seconds,
+            flags.enable_search,
+            kserve.encoder_url,
+            kserve.predict_timeout_seconds,
         )
-        if not settings.kserve_encoder_url:
+        if not kserve.encoder_url:
             self._logger.warning(
                 "ENABLE_SEARCH=true but KSERVE_ENCODER_URL is empty — encoder client DISABLED. "
                 "Check infra/manifests/search-api/deployment.yaml env `KSERVE_ENCODER_URL`. "
@@ -158,13 +160,13 @@ class SearchBuilder:
             return None, None
         try:
             client = KServeEncoder(
-                endpoint_url=settings.kserve_encoder_url,
-                timeout_seconds=settings.kserve_predict_timeout_seconds,
+                endpoint_url=kserve.encoder_url,
+                timeout_seconds=kserve.predict_timeout_seconds,
             )
         except Exception:
             self._logger.exception(
                 "Failed to initialize KServe encoder client url=%r",
-                settings.kserve_encoder_url,
+                kserve.encoder_url,
             )
             return None, None
         self._logger.info("encoder client READY endpoint_name=%s", client.endpoint_name)
@@ -172,16 +174,18 @@ class SearchBuilder:
 
     def build_reranker_client(self) -> tuple[RerankerClient | None, str | None]:
         settings = self._settings
+        flags = settings.feature_flags
+        kserve = settings.kserve
         self._logger.info(
             "build_reranker_client enable_rerank=%s kserve_reranker_url=%r timeout=%.1fs",
-            settings.enable_rerank,
-            settings.kserve_reranker_url,
-            settings.kserve_predict_timeout_seconds,
+            flags.enable_rerank,
+            kserve.reranker_url,
+            kserve.predict_timeout_seconds,
         )
-        if not settings.enable_rerank:
+        if not flags.enable_rerank:
             self._logger.info("ENABLE_RERANK=false — reranker client DISABLED (intentional)")
             return None, None
-        if not settings.kserve_reranker_url:
+        if not kserve.reranker_url:
             self._logger.warning(
                 "ENABLE_RERANK=true but KSERVE_RERANKER_URL is empty — reranker client DISABLED. "
                 "Expected cluster-local: %s",
@@ -190,14 +194,14 @@ class SearchBuilder:
             return None, None
         try:
             client = KServeReranker(
-                endpoint_url=settings.kserve_reranker_url,
-                explain_url=settings.kserve_reranker_explain_url or None,
-                timeout_seconds=settings.kserve_predict_timeout_seconds,
+                endpoint_url=kserve.reranker_url,
+                explain_url=kserve.reranker_explain_url or None,
+                timeout_seconds=kserve.predict_timeout_seconds,
             )
         except Exception:
             self._logger.exception(
                 "Failed to initialize KServe reranker client url=%r",
-                settings.kserve_reranker_url,
+                kserve.reranker_url,
             )
             return None, None
         self._logger.info("reranker client READY endpoint_name=%s", client.endpoint_name)

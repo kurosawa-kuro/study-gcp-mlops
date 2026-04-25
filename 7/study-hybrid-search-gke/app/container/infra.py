@@ -15,7 +15,7 @@ from app.services.adapters import (
     PubSubPublisher,
     PubSubRankingLogPublisher,
 )
-from app.services.fakes import NoopFeedbackRecorder, NoopRankingLogPublisher
+from app.services.noop_adapters import NoopFeedbackRecorder, NoopRankingLogPublisher
 from app.services.protocols import FeedbackRecorder, PredictionPublisher, RankingLogPublisher
 from app.services.protocols.retrain_queries import RetrainQueries
 from app.settings import ApiSettings
@@ -62,24 +62,27 @@ class InfraBuilder:
 
     def build_retrain_publisher(self) -> PredictionPublisher | None:
         settings = self._settings
-        if not settings.retrain_topic:
+        messaging = settings.messaging
+        if not messaging.retrain_topic:
             return None
-        return PubSubPublisher(project_id=settings.project_id, topic=settings.retrain_topic)
+        return PubSubPublisher(project_id=settings.project_id, topic=messaging.retrain_topic)
 
     def build_ranking_log_publisher(self) -> RankingLogPublisher:
         settings = self._settings
-        if not settings.ranking_log_topic:
+        messaging = settings.messaging
+        if not messaging.ranking_log_topic:
             return NoopRankingLogPublisher()
         return PubSubRankingLogPublisher(
             project_id=settings.project_id,
-            topic=settings.ranking_log_topic,
+            topic=messaging.ranking_log_topic,
         )
 
     def build_feedback_recorder(self) -> FeedbackRecorder:
         settings = self._settings
-        if not settings.feedback_topic:
+        messaging = settings.messaging
+        if not messaging.feedback_topic:
             return NoopFeedbackRecorder()
         return PubSubFeedbackRecorder(
             project_id=settings.project_id,
-            topic=settings.feedback_topic,
+            topic=messaging.feedback_topic,
         )

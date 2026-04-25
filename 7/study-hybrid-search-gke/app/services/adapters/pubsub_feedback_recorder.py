@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from app.services.adapters._pubsub_diagnostics import (
+from app.services.adapters.internal.pubsub_diagnostics import (
     log_publish_failure,
     logger,
     runtime_sa_hint,

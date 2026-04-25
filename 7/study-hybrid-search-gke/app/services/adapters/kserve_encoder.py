@@ -16,7 +16,7 @@ from typing import Literal
 
 import httpx
 
-from app.services.adapters._kserve_common import (
+from app.services.adapters.internal.kserve_common import (
     EXPECTED_EMBEDDING_DIM,
     coerce_float_list,
     extract_predictions,

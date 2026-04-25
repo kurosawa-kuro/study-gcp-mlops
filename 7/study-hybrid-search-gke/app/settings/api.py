@@ -1,8 +1,45 @@
 """API settings."""
 
-from pydantic import SecretStr
+from __future__ import annotations
+
+from functools import cached_property
+
+from pydantic import BaseModel, SecretStr
 
 from ml.common.config import BaseAppSettings
+
+
+class FeatureFlags(BaseModel):
+    enable_search: bool
+    enable_rerank: bool
+    enable_rag: bool
+
+
+class MessagingSettings(BaseModel):
+    ranking_log_topic: str
+    feedback_topic: str
+    retrain_topic: str
+
+
+class KServeSettings(BaseModel):
+    encoder_url: str
+    reranker_url: str
+    reranker_explain_url: str
+    predict_timeout_seconds: float
+    search_cache_ttl_seconds: int
+    search_cache_maxsize: int
+
+
+class RagSettings(BaseModel):
+    enabled: bool
+    model_name: str
+    temperature: float
+    max_output_tokens: int
+
+
+class PopularitySettings(BaseModel):
+    enabled: bool
+    model_fqn: str
 
 
 class ApiSettings(BaseAppSettings):
@@ -49,3 +86,46 @@ class ApiSettings(BaseAppSettings):
     # --- Phase 6 T1 — BQML popularity scorer --------------------------------
     bqml_popularity_enabled: bool = False
     bqml_popularity_model_fqn: str = ""
+
+    @cached_property
+    def feature_flags(self) -> FeatureFlags:
+        return FeatureFlags(
+            enable_search=self.enable_search,
+            enable_rerank=self.enable_rerank,
+            enable_rag=self.enable_rag,
+        )
+
+    @cached_property
+    def messaging(self) -> MessagingSettings:
+        return MessagingSettings(
+            ranking_log_topic=self.ranking_log_topic,
+            feedback_topic=self.feedback_topic,
+            retrain_topic=self.retrain_topic,
+        )
+
+    @cached_property
+    def kserve(self) -> KServeSettings:
+        return KServeSettings(
+            encoder_url=self.kserve_encoder_url,
+            reranker_url=self.kserve_reranker_url,
+            reranker_explain_url=self.kserve_reranker_explain_url,
+            predict_timeout_seconds=self.kserve_predict_timeout_seconds,
+            search_cache_ttl_seconds=self.search_cache_ttl_seconds,
+            search_cache_maxsize=self.search_cache_maxsize,
+        )
+
+    @cached_property
+    def rag(self) -> RagSettings:
+        return RagSettings(
+            enabled=self.enable_rag,
+            model_name=self.gemini_model_name,
+            temperature=self.gemini_temperature,
+            max_output_tokens=self.gemini_max_output_tokens,
+        )
+
+    @cached_property
+    def popularity(self) -> PopularitySettings:
+        return PopularitySettings(
+            enabled=self.bqml_popularity_enabled,
+            model_fqn=self.bqml_popularity_model_fqn,
+        )

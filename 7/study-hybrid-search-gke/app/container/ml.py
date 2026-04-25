@@ -49,6 +49,7 @@ class MlBuilder:
 
     def build_rag_summarizer(self) -> RagSummarizer | None:
         settings = self._settings
+        rag = settings.rag
 
         def _factory() -> RagSummarizer:
             from app.services.adapters.gemini_generator import GeminiGenerator
@@ -56,26 +57,27 @@ class MlBuilder:
             adapter = GeminiGenerator(
                 project_id=settings.project_id,
                 location=settings.vertex_location,
-                model_name=settings.gemini_model_name,
-                temperature=settings.gemini_temperature,
+                model_name=rag.model_name,
+                temperature=rag.temperature,
             )
             adapter.prepare()
             generator: Generator = adapter
             return RagSummarizer(
                 generator=generator,
-                max_output_tokens=settings.gemini_max_output_tokens,
+                max_output_tokens=rag.max_output_tokens,
             )
 
         return resolve_optional_adapter(
             name="Gemini generator for /rag",
-            enabled=settings.enable_rag,
+            enabled=rag.enabled,
             factory=_factory,
             logger=self._logger,
         )
 
     def build_popularity_scorer(self) -> PopularityScorer | None:
         settings = self._settings
-        model_fqn = settings.bqml_popularity_model_fqn or (
+        popularity = settings.popularity
+        model_fqn = popularity.model_fqn or (
             f"{settings.project_id}.{settings.bq_dataset_mlops}.property_popularity"
         )
         properties_table = (
@@ -100,7 +102,7 @@ class MlBuilder:
 
         return resolve_optional_adapter(
             name="BQML popularity scorer",
-            enabled=settings.bqml_popularity_enabled,
+            enabled=popularity.enabled,
             factory=_factory,
             logger=self._logger,
         )

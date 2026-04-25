@@ -10,7 +10,7 @@ from app.services.protocols.cache_store import CacheStore
 class InMemoryCacheStore(CacheStore):
     """Deterministic dict-backed cache; ignores TTL.
 
-    Differs from ``app.services.fakes.in_memory_cache_store.InMemoryTTLCacheStore``
+    Differs from ``app.services.noop_adapters.in_memory_cache_store.InMemoryTTLCacheStore``
     (production) in that this one is dead simple — no eviction, no
     threading. Test code wants ``set / get`` round-trip and call
     inspection.

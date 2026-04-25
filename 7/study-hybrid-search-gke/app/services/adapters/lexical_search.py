@@ -1,6 +1,6 @@
 """Production ``LexicalSearchPort`` adapter — Meilisearch.
 
-Phase B-3 moved ``NoopLexicalSearch`` to ``app/services/fakes/``. The
+Phase B-3 moved ``NoopLexicalSearch`` to ``app/services/noop_adapters/``. The
 This is the only lexical adapter — Phase 7 dropped the Discovery Engine variant.
 """
 
