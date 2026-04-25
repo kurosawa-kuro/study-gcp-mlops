@@ -1,11 +1,8 @@
-"""Legacy HTTP fixtures adapted to the Phase A DI container model.
+"""HTTP-level fixtures for ``tests/unit/app/``.
 
-Older tests under ``tests/unit/app/`` still expect an app fixture named
-``app_with_search_stub`` plus a ``search_client`` built from the full
-``create_app()`` entrypoint (middleware included). Phase A moved runtime
-state under ``app.state.container``; this conftest now composes a fake
-Container via the root fixtures and mirrors a few fields back onto
-``app.state`` for backward compatibility with those older assertions.
+Builds a FastAPI app whose handler stack mirrors ``create_app()`` but
+runs against a fake Container (no real GCP / KServe). Tests reach the
+container via ``request.app.state.container`` like production handlers.
 """
 
 from __future__ import annotations
@@ -67,15 +64,6 @@ def app_with_search_stub(
     app.include_router(rag_router)
     app.include_router(feedback_router)
     app.include_router(retrain_router)
-    # Backward-compat mirrors for older tests that still inspect app.state.*.
-    app.state.encoder_client = container.encoder_client
-    app.state.candidate_retriever = container.candidate_retriever
-    app.state.ranking_log_publisher = container.ranking_log_publisher
-    app.state.feedback_recorder = container.feedback_recorder
-    app.state.search_cache = container.search_cache
-    app.state.settings = container.settings
-    app.state.reranker_client = container.reranker_client
-    app.state.model_path = container.model_path
     return app
 
 

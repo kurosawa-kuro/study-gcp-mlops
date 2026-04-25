@@ -48,7 +48,7 @@ resource "google_logging_metric" "api_p95_latency" {
 
 # =========================================================================
 # Notification channel — email supplied via var.oncall_email
-# (env/config/setting.yaml::oncall_email, forwardable to PagerDuty).
+# (env/config/setting.yaml::oncall_email).
 # =========================================================================
 
 resource "google_monitoring_notification_channel" "email" {

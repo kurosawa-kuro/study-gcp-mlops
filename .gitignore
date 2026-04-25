@@ -18,9 +18,10 @@
 **/.nox/
 **/.ipynb_checkpoints/
 
-# ----- 仮想環境 -----
+# ----- 仮想環境 / uv -----
 **/.venv/
 **/venv/
+**/.uv/
 
 # ----- カバレッジ / テスト生成物 -----
 **/.coverage
@@ -34,21 +35,39 @@
 **/logs/
 **/artifacts/
 **/*.log
+**/.cache/
+
+# ----- ML artifact / モデル / 実験トラッキング -----
+**/models/
+**/wandb/
+**/mlruns/
 
 # ----- 環境変数 / シークレット (commit 厳禁) -----
 **/.env
 **/.env.*
 !**/.env.example
+**/.envrc
 **/credential.yaml
 **/credentials.json
 **/service-account*.json
+# Defense-in-depth: WIF 採用のため SA key は本来存在しないが、誤投下対策として弾く
+**/*-credentials.json
+**/*-credentials-*.json
+**/*.sa-key.json
+**/.df-credentials.json
+# env/secret/ はローカル開発用クレデンシャル置き場。README のみコミットする
+**/env/secret/*
+!**/env/secret/README.md
 
-# ----- Terraform 個別 state / plan -----
+# ----- Terraform 個別 state / plan / vars -----
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
 **/*.tfplan
 **/tfplan
+# tfvars は project ID / IP / secret を含むことがあるので必ずローカル限定
+**/*.tfvars
+**/*.tfvars.json
 # ※ infra/.terraform.lock.hcl は commit 必須なので ignore しない
 
 # ----- IDE / OS -----

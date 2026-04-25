@@ -44,13 +44,13 @@ terraform -chdir=infra fmt -check -diff
 scripts/
   README.md                          ← 本ファイル
   _common.py                         ← 共通 helper
-  ci/                                ← 静的検査・境界チェック
-    layers.py
-  local/
-    setup/                           ← doctor / terraform bootstrap / pipeline setup
-    deploy/                          ← api / training-job のローカル deploy
-    ops/                             ← livez/search/ranking/feedback 等の運用コマンド
-    sql/                             ← BQ クエリ (`bq query < scripts/local/sql/X.sql`)
+  ci/                                ← 静的検査・境界チェック (layers.py / sync_dataform.py)
+  setup/                             ← doctor / terraform bootstrap / pipeline setup
+  deploy/                            ← api_gke / kserve_models / monitor 等の deploy 系
+  ops/                               ← livez/search/ranking/feedback/promote 等の運用コマンド
+  bqml/                              ← BQML モデル学習 (Phase 6 T1)
+  enrichment/                        ← Gemini description 構造化 (Phase 6 T8)
+  sql/                               ← BQ クエリ (`bq query < scripts/sql/X.sql`)
 ```
 
 サブフォルダの役割境界:
@@ -72,7 +72,7 @@ scripts/
 
 - ターゲットは **1 行で script を呼ぶだけ** (`uv run python scripts/X.py` / `bash scripts/X.sh` / `bq query --project_id=$(PROJECT_ID) < scripts/sql/X.sql`)。
 - Makefile に inline shell / heredoc / SQL define ブロックを書かない (出てきたら `scripts/` に移動)。
-- ターゲット名と script ファイル名は対応させる (`make ops-livez` → `scripts/local/ops/livez_check.py`)。
+- ターゲット名と script ファイル名は対応させる (`make ops-livez` → `scripts/ops/livez.py`)。
 - export しているのは `PROJECT_ID` / `REGION` / `API_SERVICE` / `TRAINING_JOB` / `ARTIFACT_REPO` の 5 変数。script 側はこれらを env から受け取り、未指定時の既定値は `env/config/setting.yaml` から読む。
 - これら 5 つの値は **`env/config/setting.yaml` が single source of truth**。Make は awk で、Python は `scripts/_common.py::_load_settings()` でその yaml を読む。yaml を編集すれば両者に反映される (どちらか一方をハードコードで上書きしないこと)。
 
@@ -121,9 +121,10 @@ scripts/
 
 1. **言語を決める**: 文字列展開が 1 つでもあれば Python、ゼロなら shell。
 2. **置き場所を決める**:
-   - 開発環境セットアップ / Terraform → `scripts/local/setup/X.py`
-   - デプロイ後の運用 / API smoke → `scripts/local/ops/X.py`
-   - BQ クエリだけ → `scripts/local/sql/X.sql`
+   - 開発環境セットアップ / Terraform → `scripts/setup/X.py`
+   - デプロイ系 (Cloud Build → GKE rollout / KServe patch 等) → `scripts/deploy/X.py`
+   - デプロイ後の運用 / API smoke → `scripts/ops/X.py`
+   - BQ クエリだけ → `scripts/sql/X.sql`
 3. 上記言語別規約に従って書く。
 4. `Makefile` に対応するターゲットを **1 行で** 追加 (`X: ## description\n\tuv run python scripts/.../X.py`)。
 5. `.PHONY` リストにターゲット名を追加。

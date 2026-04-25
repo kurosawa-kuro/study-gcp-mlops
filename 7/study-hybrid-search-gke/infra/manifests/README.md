@@ -26,10 +26,10 @@ gcloud container clusters get-credentials hybrid-search \
 kubectl apply -k infra/manifests/
 
 # 4. encoder / reranker モデルは Vertex Model Registry から同期
-uv run python scripts/local/deploy/kserve_models.py
+uv run python scripts/deploy/kserve_models.py
 
-# 5. search-api イメージは scripts/local/deploy/api_gke.py で差し替え
-uv run python scripts/local/deploy/api_gke.py
+# 5. search-api イメージは scripts/deploy/api_gke.py で差し替え
+uv run python scripts/deploy/api_gke.py
 ```
 
 ## overlay が必要な箇所
@@ -37,4 +37,4 @@ uv run python scripts/local/deploy/api_gke.py
 - `search-api/gateway.yaml` の `hostname` (実際の DNS 名)
 - `search-api/configmap.example.yaml` の `meili_base_url` (Meilisearch の Cloud Run URL)
 - `kserve/encoder.yaml` / `kserve/reranker.yaml` の `storageUri` / `image`
-  (scripts/local/deploy/kserve_models.py が自動更新)
+  (scripts/deploy/kserve_models.py が自動更新)

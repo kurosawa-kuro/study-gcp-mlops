@@ -46,7 +46,6 @@ def _args(**kwargs: Any) -> argparse.Namespace:
         "version_alias": None,
         "version_id": None,
         "model_id": None,
-        "mode": "alias",
         "bst_rename": False,
         "apply": True,
     }

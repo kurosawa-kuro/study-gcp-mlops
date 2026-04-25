@@ -3,7 +3,7 @@
 # Provisions the Service Account (sa-dataflow) + IAM plumbing for a Flex
 # Template streaming job that aggregates ranking-log events into hourly
 # CTR rows. The actual template image + spec JSON is built out-of-band
-# (scripts/local/setup/build_streaming_template.py) so Terraform does
+# (scripts/setup/build_streaming_template.py) so Terraform does
 # not block on Docker builds.
 #
 # The google_dataflow_flex_template_job resource is gated behind

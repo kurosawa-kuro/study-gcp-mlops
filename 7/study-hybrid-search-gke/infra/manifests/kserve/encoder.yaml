@@ -6,7 +6,7 @@
 # - GPU の要否は P95 latency 実測で判断。Autopilot で GPU は `nvidia-l4` 等の
 #   acceleratorClass を `spec.predictor.acceleratorClass` に指定する。
 #
-# `storageUri` は scripts/local/deploy/kserve_models.py が Vertex Model Registry から
+# `storageUri` は scripts/deploy/kserve_models.py が Vertex Model Registry から
 # 引いて書き戻す (初期値は Phase 5 の encoder artifact を指す placeholder)。
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
@@ -30,7 +30,7 @@ spec:
       - name: kserve-container
         # Artifact Registry に push する自前イメージ
         # (ml/embed/container/Dockerfile を KServe Python predictor 仕様で
-        # 書き直したもの、`scripts/local/deploy/kserve_models.py` が更新)
+        # 書き直したもの、`scripts/deploy/kserve_models.py` が更新)
         image: gcr.io/cloudrun/hello
         ports:
           - containerPort: 8080

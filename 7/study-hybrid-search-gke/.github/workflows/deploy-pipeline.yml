@@ -16,8 +16,8 @@ on:
       - pipeline/evaluation_job/**
       - pipeline/batch_serving_job/**
       - pipeline/workflow/**
-      - scripts/local/setup/create_schedule.py
-      - scripts/local/setup/setup_model_monitoring.py
+      - scripts/setup/create_schedule.py
+      - scripts/setup/setup_model_monitoring.py
       - pyproject.toml
       - uv.lock
       - .github/workflows/deploy-pipeline.yml
@@ -66,8 +66,8 @@ jobs:
 
       - name: Ensure Model Monitoring job
         run: |
-          uv run python -m scripts.local.setup.setup_model_monitoring
+          uv run python -m scripts.setup.setup_model_monitoring
 
       - name: Ensure PipelineJobSchedule (daily embed + weekly train)
         run: |
-          uv run python -m scripts.local.setup.create_schedule
+          uv run python -m scripts.setup.create_schedule

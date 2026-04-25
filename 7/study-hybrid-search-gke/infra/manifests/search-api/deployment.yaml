@@ -20,7 +20,7 @@ spec:
       serviceAccountName: search-api
       containers:
         - name: search-api
-          # CI / scripts/local/deploy/api_gke.py が Artifact Registry イメージへ差し替える
+          # CI / scripts/deploy/api_gke.py が Artifact Registry イメージへ差し替える
           image: gcr.io/cloudrun/hello
           ports:
             - name: http

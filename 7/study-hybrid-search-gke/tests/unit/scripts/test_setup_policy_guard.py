@@ -18,10 +18,8 @@ def test_setup_scripts_use_canonical_and_ci_import_paths() -> None:
     assert "from scripts.setup.tf_bootstrap import main as tf_bootstrap_main" in deploy_all
     assert "from scripts.setup.tf_init import main as tf_init_main" in deploy_all
     assert "from scripts.setup.tf_plan import main as tf_plan_main" in deploy_all
-    assert "scripts.local.setup" not in deploy_all
 
     assert "from scripts.setup.seed_minimal_clean import main as seed_clean_main" in destroy_all
-    assert "scripts.local.setup.seed_minimal_clean" not in destroy_all
 
 
 def test_setup_scripts_target_dev_terraform_environment() -> None:

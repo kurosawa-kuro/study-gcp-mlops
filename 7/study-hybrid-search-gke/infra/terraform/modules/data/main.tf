@@ -281,7 +281,7 @@ resource "google_bigquery_table" "model_monitoring_alerts" {
 }
 
 # Phase 6 T8 — Gemini enrichment sink. Populated by
-# scripts/local/enrichment/run_enrichment.py (optionally as a KFP
+# scripts/enrichment/run_enrichment.py (optionally as a KFP
 # pre-process component in embed_pipeline). Kept beside raw.properties
 # in the feature_mart dataset so downstream consumers can JOIN by
 # property_id without dataset hops.

@@ -150,7 +150,7 @@ variable "enable_streaming_job" {
 }
 
 variable "streaming_flex_template_gcs_path" {
-  description = "GCS path to the compiled Flex Template spec JSON (built out-of-band by scripts/local/setup/build_streaming_template.py). Empty suppresses the Dataflow job resource."
+  description = "GCS path to the compiled Flex Template spec JSON (built out-of-band by scripts/setup/build_streaming_template.py). Empty suppresses the Dataflow job resource."
   type        = string
   default     = ""
 }

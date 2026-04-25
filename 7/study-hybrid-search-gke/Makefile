@@ -37,7 +37,7 @@ NA_TARGETS := up down wait-db free-ports build seed serve test-e2e install-brows
 	ops-sync ops-embed ops-train-build ops-train-fit ops-ranking-verbose \
 	ops-weekly \
 	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
-	deploy-training-job-local deploy-api-local \
+	deploy-api-local \
 	api-dev-search-rerank setup-encoder-endpoint setup-reranker-endpoint \
 	ops-monitor ops-monitor-lro ops-enable-search destroy-phase6-learning
 
@@ -213,19 +213,19 @@ ops-api-url: ## Print the search-api Gateway external URL
 ops-daily: ops-skew-latest ops-search-volume ops-runs-recent ## Run the 3 core daily checks
 
 ops-skew-latest: ## Today's per-feature skew detection results (validation_results)
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/skew_latest.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/skew_latest.sql
 
 ops-search-volume: ## /search request volume over the last 24h
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/search_volume.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/search_volume.sql
 
 ops-runs-recent: ## Last 5 LightGBM LambdaRank training runs
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/runs_recent.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/runs_recent.sql
 
 ops-skew-run: ## Ad-hoc execution of monitoring/validate_feature_skew.sql
 	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < monitoring/validate_feature_skew.sql
 
 ops-bq-scan-top: ## Top 20 BQ scans in the last 7 days (cost audit)
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/local/sql/bq_scan_top.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/bq_scan_top.sql
 
 ops-train-now: ## Submit train pipeline to Vertex AI
 	uv run python -m pipeline.workflow.compile --target train --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com
@@ -235,19 +235,17 @@ ops-pipeline-run: ## Submit a pipeline manually: TARGET=embed|train PARAM='key=v
 
 ops-promote-reranker: ## Promote a reranker to `production` alias. Usage: MODEL_ID=N or VERSION_ID=N [BST_RENAME=1] [APPLY=1].
 	uv run python -m scripts.ops.promote reranker \
-	  $${MODE:+--mode=$${MODE}} \
 	  $${MODEL_ID:+--model-id=$${MODEL_ID}} \
 	  $${VERSION_ID:+--version-id=$${VERSION_ID}} \
-	  $${VERSION:+$${VERSION}} \
+	  $${VERSION_ALIAS:+--version-alias=$${VERSION_ALIAS}} \
 	  $${BST_RENAME:+--bst-rename} \
 	  $${APPLY:+--apply}
 
 ops-promote-encoder: ## Promote an encoder to `production` alias. Usage: MODEL_ID=N or VERSION_ID=N [APPLY=1].
 	uv run python -m scripts.ops.promote encoder \
-	  $${MODE:+--mode=$${MODE}} \
 	  $${MODEL_ID:+--model-id=$${MODEL_ID}} \
 	  $${VERSION_ID:+--version-id=$${VERSION_ID}} \
-	  $${VERSION:+$${VERSION}} \
+	  $${VERSION_ALIAS:+--version-alias=$${VERSION_ALIAS}} \
 	  $${APPLY:+--apply}
 
 ops-reload-api: ## Trigger a rolling restart of search-api Pods to re-read ConfigMap / model URIs

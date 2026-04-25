@@ -3,7 +3,7 @@
 # ランタイム選定メモ:
 # - 第一候補: MLServer LightGBM runtime (公式 KServe supported)
 # - 出力形状 (ranker score の配列) と Phase 5 reranker 契約の整合性は
-#   `scripts/local/deploy/kserve_models.py` のデプロイ後に疎通で確認
+#   `scripts/deploy/kserve_models.py` のデプロイ後に疎通で確認
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:

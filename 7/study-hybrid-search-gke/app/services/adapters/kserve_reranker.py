@@ -136,10 +136,11 @@ class KServeReranker:
         if not instances:
             logger.warning("reranker.predict called with empty instances")
             return []
-        # KServe MLServer (LightGBM stock runtime) は v2 protocol のみサポート →
-        # endpoint URL が ``/v2/models/<name>/infer`` の場合は v2 payload で送る。
-        # ``/v1/models/<name>:predict`` の場合は v1 payload (Vertex CPR custom
-        # サーバ向け、Phase 6 ml/serving/reranker.py の互換性維持)。
+        # endpoint URL のパターンで protocol を切り替える:
+        # - ``/v2/models/<name>/infer`` → KServe MLServer LightGBM stock runtime (v2)
+        # - ``/v1/models/<name>:predict`` → Vertex CPR custom container (v1)。
+        #   Phase 7 では `property-reranker-explain` Pod (TreeSHAP 付き) が v1 を
+        #   採用しているので、v1 path は active な分岐 (legacy ではない)。
         is_v2 = "/v2/models/" in self.endpoint_url
         if is_v2:
             n_rows = len(instances)

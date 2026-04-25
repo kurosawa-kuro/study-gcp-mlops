@@ -89,11 +89,10 @@ DIRECTORY_RULES: dict[str, frozenset[str]] = {
     "ml/registry/ports/": ADAPTER_BANS,
     "ml/serving/ports/": ADAPTER_BANS,
     "ml/streaming/ports/": ADAPTER_BANS,
-    # pipeline/<job>/ports/ — same deal
-    "pipeline/data_job/ports/": ADAPTER_BANS | frozenset({"kfp"}),
+    # pipeline/<job>/ports/ — canonical lives under ``pipeline/training_job/ports``.
+    # data/eval/batch_serving jobs pull Ports via direct
+    # ``from pipeline.training_job.ports import ...``.
     "pipeline/training_job/ports/": ADAPTER_BANS | frozenset({"kfp"}),
-    "pipeline/evaluation_job/ports/": ADAPTER_BANS | frozenset({"kfp"}),
-    "pipeline/batch_serving_job/ports/": ADAPTER_BANS | frozenset({"kfp"}),
     # app/services/* (top-level files only — adapters/protocols/fakes are
     # carved out below). Protocol Ports never import google.cloud, plain
     # services delegate to Ports. Composition root is the explicit

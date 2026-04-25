@@ -1,18 +1,9 @@
-"""Promote a Vertex Model Registry version.
+"""Promote a Vertex Model Registry version (Phase 7 / KServe alias mode).
 
-Two modes are supported:
-
-- ``--mode=alias`` (default, Phase 7 / KServe) — assigns the
-  ``production`` alias to a target Model version. This is what
-  ``scripts.deploy.kserve_models`` reads (via the ``production`` alias)
-  to pick which artifact_uri to wire into the InferenceService. No
-  Vertex Endpoint is deployed.
-
-- ``--mode=endpoint`` (legacy, Phase 5/6) — also deploys the targeted
-  Model version to the configured Vertex AI Endpoint via
-  ``Model.deploy(endpoint=...)``. Phase 7 does not use Vertex
-  Endpoints (KServe handles serving), so this mode is kept only for
-  backward compatibility with Phase 5/6 ops.
+Assigns the ``production`` alias to a target Model version. This is what
+``scripts.deploy.kserve_models`` reads to pick which artifact_uri to wire
+into the InferenceService. No Vertex Endpoint is deployed (Phase 7
+serves via KServe).
 
 Reranker artifact compatibility (Phase 7 KServe LGBServer note)
 ---------------------------------------------------------------
@@ -35,15 +26,11 @@ Usage
 -----
 ::
 
-    # Phase 7 (default — KServe alias only)
     PROJECT_ID=mlops-dev-a make ops-promote-reranker VERSION_ID=1 APPLY=1
     PROJECT_ID=mlops-dev-a make ops-promote-encoder  VERSION_ID=1 APPLY=1
 
     # With .bst rename for reranker (run once after a fresh train)
     PROJECT_ID=mlops-dev-a make ops-promote-reranker VERSION_ID=1 BST_RENAME=1 APPLY=1
-
-    # Legacy Phase 5/6 (Vertex Endpoint deploy)
-    MODE=endpoint VERSION=v1 APPLY=1 make ops-promote-reranker
 """
 
 from __future__ import annotations
@@ -229,7 +216,6 @@ def _run_alias(args: argparse.Namespace) -> dict[str, Any]:
         _log("DRY RUN — pass --apply to commit changes")
 
     return {
-        "mode": "alias",
         "model_kind": args.model_kind,
         "display_name": display_name,
         "selected_version_id": target.version_id,
@@ -244,86 +230,18 @@ def _run_alias(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def _run_endpoint_legacy(args: argparse.Namespace) -> dict[str, Any]:
-    """Phase 5/6 backward-compat: deploy registered version to a Vertex Endpoint."""
-    project_id = env("PROJECT_ID")
-    location = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
-    endpoint_name = env(
-        "VERTEX_RERANKER_ENDPOINT_ID"
-        if args.model_kind == "reranker"
-        else "VERTEX_ENCODER_ENDPOINT_ID"
-    )
-    display_name = _resolve_display_name(args.model_kind)
-    if not endpoint_name:
-        raise RuntimeError(
-            "endpoint mode requires VERTEX_*_ENDPOINT_ID env. "
-            "Phase 7 uses KServe — drop --mode=endpoint."
-        )
-
-    from google.cloud import aiplatform
-
-    aiplatform.init(project=project_id, location=location)
-
-    selector = args.version_alias or args.version_id
-    if not selector:
-        raise RuntimeError("endpoint mode requires --version-alias or --version-id")
-    models = _list_versions(display_name)
-    matched = None
-    for m in models:
-        vid = str(getattr(m, "version_id", ""))
-        aliases = list(getattr(m, "version_aliases", []) or [])
-        if selector in aliases or vid == str(selector) or m.display_name.endswith(str(selector)):
-            matched = m
-            break
-    if matched is None:
-        raise RuntimeError(f"model alias not found: {selector!r}")
-
-    if not args.apply:
-        return {
-            "mode": "endpoint",
-            "model_kind": args.model_kind,
-            "display_name": display_name,
-            "endpoint": endpoint_name,
-            "matched_version_id": matched.version_id,
-            "applied": False,
-            "next_step": "rerun with APPLY=1",
-        }
-
-    import os as _os
-
-    max_replicas = int(_os.environ.get("PROMOTE_MAX_REPLICAS", "1"))
-    endpoint = aiplatform.Endpoint(endpoint_name=endpoint_name)
-    matched.deploy(
-        endpoint=endpoint,
-        deployed_model_display_name=display_name,
-        machine_type=_os.environ.get("PROMOTE_MACHINE_TYPE", "n1-standard-2"),
-        min_replica_count=1,
-        max_replica_count=max_replicas,
-        traffic_percentage=100,
-        sync=True,
-    )
-    return {
-        "mode": "endpoint",
-        "model_kind": args.model_kind,
-        "promoted_model": matched.resource_name,
-        "endpoint": endpoint_name,
-        "applied": True,
-    }
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Promote a Vertex Model Registry version")
     parser.add_argument("model_kind", choices=["reranker", "encoder"])
     parser.add_argument(
-        "version_alias",
-        nargs="?",
-        default=None,
-        help="legacy positional alias selector (Phase 5/6 backward compat)",
-    )
-    parser.add_argument(
         "--version-id",
         default=None,
-        help="explicit Vertex Model Registry version_id (preferred for Phase 7)",
+        help="explicit Vertex Model Registry version_id (preferred selector)",
+    )
+    parser.add_argument(
+        "--version-alias",
+        default=None,
+        help="select by an existing version alias (e.g. 'staging')",
     )
     parser.add_argument(
         "--model-id",
@@ -336,12 +254,6 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "--mode",
-        choices=["alias", "endpoint"],
-        default="alias",
-        help="alias = Phase 7 KServe; endpoint = Phase 5/6 Vertex Endpoint deploy",
-    )
-    parser.add_argument(
         "--bst-rename",
         action="store_true",
         help="reranker only: copy model.txt → model.bst in artifact_uri (KServe LGBServer)",
@@ -350,30 +262,12 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        result = _run_alias(args) if args.mode == "alias" else _run_endpoint_legacy(args)
+        result = _run_alias(args)
     except Exception as exc:
         return fail(f"promote failed: {exc}")
 
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
     return 0
-
-
-# Phase 5 / 6 / Phase 7 共通の plan 構築 helper (test fixture から参照しやすいよう
-# モジュールレベルに保持)
-def build_promotion_plan(model_kind: str, version_alias: str) -> dict[str, str]:
-    project_id = env("PROJECT_ID")
-    location = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
-    endpoint = env(
-        "VERTEX_RERANKER_ENDPOINT_ID" if model_kind == "reranker" else "VERTEX_ENCODER_ENDPOINT_ID"
-    )
-    display_name = _resolve_display_name(model_kind)
-    return {
-        "project_id": project_id,
-        "location": location,
-        "endpoint": endpoint,
-        "display_name": display_name,
-        "version_alias": version_alias,
-    }
 
 
 if __name__ == "__main__":

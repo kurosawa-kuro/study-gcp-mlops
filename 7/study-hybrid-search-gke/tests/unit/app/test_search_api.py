@@ -55,7 +55,7 @@ def test_search_emits_ranking_log(app_with_search_stub) -> None:
     with TestClient(app_with_search_stub) as client:
         r = client.post("/search", json=_search_payload())
     assert r.status_code == 200
-    publisher = app_with_search_stub.state.ranking_log_publisher
+    publisher = app_with_search_stub.state.container.ranking_log_publisher
     assert len(publisher.calls) == 1
     call = publisher.calls[0]
     assert len(call.candidates) == 3
@@ -81,7 +81,7 @@ def test_search_cache_hit_skips_second_retrieval(app_with_search_stub) -> None:
         r2 = client.post("/search", json=payload)
         assert r2.status_code == 200
 
-    retriever = app_with_search_stub.state.candidate_retriever
+    retriever = app_with_search_stub.state.container.candidate_retriever
     assert len(retriever.calls) == 1
 
 
@@ -111,7 +111,7 @@ def test_feedback_accepts_click(app_with_search_stub) -> None:
         )
     assert r.status_code == 200
     assert r.json() == {"accepted": True}
-    recorder = app_with_search_stub.state.feedback_recorder
+    recorder = app_with_search_stub.state.container.feedback_recorder
     assert len(recorder.events) == 1
     assert recorder.events[0].request_id == "abc"
     assert recorder.events[0].property_id == "P-001"
@@ -239,7 +239,7 @@ def test_ranking_log_receives_scores_when_reranker_loaded(app_with_search_stub) 
     )
     with TestClient(app_with_search_stub) as client:
         client.post("/search", json=_search_payload())
-    publisher = app_with_search_stub.state.ranking_log_publisher
+    publisher = app_with_search_stub.state.container.ranking_log_publisher
     call = publisher.calls[-1]
     assert all(isinstance(s, float) for s in call.scores)
     assert call.model_path == "projects/p/locations/l/endpoints/789"
