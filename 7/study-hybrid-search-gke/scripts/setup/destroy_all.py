@@ -30,7 +30,18 @@ Steps:
    `deleted:serviceaccount:...?uid=...` in dataset IAM policies). Limiting
    apply to the 8 BQ tables guarantees this state-flip is a pure attribute
    change, no resource (re)creation.
-5. `terraform destroy -auto-approve` — actually tears infra down. The
+5. `terraform destroy -target=module.kserve` — K8s / Helm リソース
+   (`helm_release.{cert_manager,external_secrets}` / `kubernetes_namespace.*`
+   / `kubernetes_service_account.*`) を **GKE cluster より先に** 個別 destroy。
+   `provider.tf` の `kubernetes` / `helm` provider が
+   `data.google_container_cluster.hybrid_search` の endpoint / token に
+   依存しているため、cluster が destroy 過程で先に消えると provider が
+   `http://localhost:80` に fallback して
+   `connection refused` で fail する。先に K8s リソースを片付ければ
+   step 6 の本体 destroy 時には provider が一切 cluster API を叩かない。
+   targeted destroy 自体が fail した場合 (= cluster が既に消滅していた場合)
+   は `terraform state rm` で K8s 系の state を剥がして次に進む。
+6. `terraform destroy -auto-approve` — actually tears infra down. The
    var is passed again so Terraform's destroy-time guard sees
    deletion_protection=false.
 
@@ -53,17 +64,24 @@ from scripts.setup.seed_minimal_clean import main as seed_clean_main
 
 INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
 
-# Resource addresses for the 10 BQ tables that carry deletion_protection.
-# Kept in sync with infra/terraform/modules/data/main.tf — if a new protected table
-# is added, append it here.
+# Resource addresses that carry **server-side `deletion_protection`** —
+# Terraform refuses to destroy these while the attribute is `true`. Step
+# `[4/6]` runs `terraform apply -var=enable_deletion_protection=false
+# -target=<each>` to flip the attribute server-side **before** the body
+# destroy. Kept in sync with the corresponding Terraform module sources;
+# if a new resource that has its own `deletion_protection` is added,
+# append it here.
 #
-# Phase 6 Run 2 で `properties_enriched` (T8 Gemini enrichment) と
-# `ranking_log_hourly_ctr` (T2 Dataflow sink) の 2 つが追加されたが
-# PROTECTED_TABLE_TARGETS に反映されておらず、destroy-all の step 5
-# (terraform destroy) で
-#   Error: cannot destroy table ... without setting deletion_protection=false
-# で fail していた。Phase 6 対応で 8 → 10 に拡張する。
-PROTECTED_TABLE_TARGETS = [
+# 履歴:
+# - Phase 6 Run 2 で BQ table 2 件 (`properties_enriched` T8、
+#   `ranking_log_hourly_ctr` T2) を追加 → 8 → 10
+# - Phase 7 Run 4 で **GKE cluster** を追加 (root TF var
+#   `enable_deletion_protection` は `infra/terraform/modules/gke/main.tf` の
+#   `deletion_protection = var.deletion_protection` に配線済だが、`-target`
+#   で flip しないと server-side が `true` のまま残り、本体 destroy が
+#   `Cannot destroy cluster because deletion_protection is set to true.`
+#   で fail していた)。10 → 11
+PROTECTED_TARGETS = [
     "module.data.google_bigquery_table.training_runs",
     "module.data.google_bigquery_table.search_logs",
     "module.data.google_bigquery_table.ranking_log",
@@ -74,6 +92,7 @@ PROTECTED_TABLE_TARGETS = [
     "module.data.google_bigquery_table.model_monitoring_alerts",
     "module.data.google_bigquery_table.properties_enriched",
     "module.data.google_bigquery_table.ranking_log_hourly_ctr",
+    "module.gke.google_container_cluster.hybrid_search",
 ]
 
 # Vertex AI Endpoint resource IDs — these match the `name` fields in
@@ -97,6 +116,74 @@ BUCKET_SUFFIXES = [
     "pipeline-root",
     "meili-data",
 ]
+
+# `module.kserve` 配下の K8s / Helm リソースを `terraform destroy` 本体より
+# **先に** 個別 destroy するための target。`infra/terraform/environments/dev/provider.tf`
+# の `kubernetes` / `helm` provider は `data.google_container_cluster.hybrid_search`
+# (GKE cluster の endpoint / token) に依存しており、cluster が destroy 過程で
+# 先に消えると provider が `localhost:80` に fallback して
+#   Error: Get "http://localhost/api/v1/namespaces/...": connection refused
+#   Error: Kubernetes cluster unreachable: invalid configuration
+# で fail する。`-target=module.kserve` (module 全体) を先に destroy して
+# K8s/Helm 系を状態から消し、本体 destroy 時に provider が一切 cluster API を
+# 叩かない (state に対象が残っていない) 状態にしてから cluster を削除する。
+#
+# `module.kserve` を **module 単位で指定** することで、新規に
+# `helm_release.<name>` / `kubernetes_*` を追加した時の取りこぼしを防ぐ
+# (Phase 7 Run 4 で `helm_release.kserve_crd` / `helm_release.kserve` が
+# 個別列挙から漏れて step 5/6 が no-op になり step 6/6 で fail した教訓)。
+KSERVE_MODULE_TARGET = "module.kserve"
+
+
+def _kserve_state_remaining(infra_dir: Path) -> list[str]:
+    """Return module.kserve に紐づく state アドレスの list (空なら片付け済)。
+
+    `terraform state list` が module 配下のすべての resource address を行単位で
+    返すので、それを `module.kserve.` prefix で grep する。`-target` destroy が
+    exit 0 でも cluster unreachable で実は何も消えなかったケース (Phase 7
+    Run 4 の `helm_release.kserve_crd` 取りこぼし) を **exit code でなく
+    state そのもの** で検知するための後方確認に使う。
+    """
+    proc = subprocess.run(
+        ["terraform", f"-chdir={infra_dir}", "state", "list"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return []
+    prefix = f"{KSERVE_MODULE_TARGET}."
+    return [line for line in proc.stdout.splitlines() if line.startswith(prefix)]
+
+
+def _state_rm_kserve_resources(infra_dir: Path) -> None:
+    """Remove **all** module.kserve entries from state.
+
+    Used as a fallback when targeted destroy could not actually clear the
+    K8s/Helm resources (cluster unreachable, or new resource added that we
+    forgot to enumerate). `terraform state rm` accepts a module address so
+    we can wipe everything under `module.kserve` in one shot — the next
+    full destroy will not try to call the K8s API.
+    """
+    remaining = _kserve_state_remaining(infra_dir)
+    if not remaining:
+        print("    module.kserve in state: empty (nothing to rm)")
+        return
+    print(f"    module.kserve in state: {len(remaining)} address(es) → state rm")
+    for address in remaining:
+        print(f"      {address}")
+    proc = subprocess.run(
+        ["terraform", f"-chdir={infra_dir}", "state", "rm", KSERVE_MODULE_TARGET],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode == 0:
+        print("    state rm module.kserve: OK")
+    else:
+        # tail of stderr is enough — full output spams the destroy log.
+        tail = (proc.stderr or "").strip().splitlines()[-3:]
+        print(f"    state rm module.kserve: failed — {' / '.join(tail)}")
 
 
 def _undeploy_endpoint_models(project_id: str, region: str, endpoint: str) -> None:
@@ -186,25 +273,25 @@ def main() -> int:
 
     print(f"==> destroy-all on project {project_id!r}")
 
-    print("==> [1/5] seed-test-clean (drop out-of-TF tables that block dataset destroy)")
+    print("==> [1/6] seed-test-clean (drop out-of-TF tables that block dataset destroy)")
     seed_clean_main()
 
     print(
-        f"==> [2/5] undeploy Vertex endpoint deployed_models "
+        f"==> [2/6] undeploy Vertex endpoint deployed_models "
         f"(region={region}, endpoints={VERTEX_ENDPOINTS})"
     )
     for endpoint in VERTEX_ENDPOINTS:
         _undeploy_endpoint_models(project_id, region, endpoint)
 
     print(
-        f"==> [3/5] wipe GCS buckets (force_destroy=false blockers): "
+        f"==> [3/6] wipe GCS buckets (force_destroy=false blockers): "
         f"{[f'{project_id}-{s}' for s in BUCKET_SUFFIXES]}"
     )
     for suffix in BUCKET_SUFFIXES:
         _wipe_bucket(project_id, f"{project_id}-{suffix}")
 
     print(
-        "==> [4/5] terraform apply -target=<8 BQ tables> "
+        "==> [4/6] terraform apply -target=<10 BQ tables> "
         "-var=enable_deletion_protection=false (state-flip only, no recreate)"
     )
     targets = [arg for tgt in PROTECTED_TABLE_TARGETS for arg in ("-target", tgt)]
@@ -219,7 +306,38 @@ def main() -> int:
         ]
     )
 
-    print("==> [5/5] terraform destroy -auto-approve")
+    print(
+        "==> [5/6] terraform destroy -target=module.kserve "
+        "(K8s/Helm を GKE cluster より先に削除 — provider が cluster endpoint に依存するため)"
+    )
+    proc = subprocess.run(
+        [
+            "terraform",
+            f"-chdir={INFRA}",
+            "destroy",
+            "-auto-approve",
+            *common_vars,
+            f"-target={KSERVE_MODULE_TARGET}",
+        ],
+        check=False,
+    )
+    # exit code が 0 でも、cluster unreachable で何も消せなかった ↔ state には
+    # 残ってる、というケースが起きうる (Phase 7 Run 4 で観測)。
+    # 後方確認として `terraform state list` で残存を直接見る。
+    remaining = _kserve_state_remaining(INFRA)
+    if proc.returncode != 0 or remaining:
+        reason = (
+            "exit code 非 0"
+            if proc.returncode != 0
+            else f"exit 0 だが state に {len(remaining)} 件残存"
+        )
+        print(
+            f"    targeted destroy で K8s/Helm を片付けきれず ({reason}) — "
+            "GKE cluster 既消滅の可能性。state rm で fallback 後、本体 destroy へ進む。"
+        )
+        _state_rm_kserve_resources(INFRA)
+
+    print("==> [6/6] terraform destroy -auto-approve (本体)")
     run(
         [
             "terraform",
