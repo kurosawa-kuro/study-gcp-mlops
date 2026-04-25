@@ -1,6 +1,4 @@
 """API-side Ports — Protocols consumed by services / handlers."""
-
-from ._types import LexicalResult, SemanticResult
 from .cache_store import CacheStore
 from .candidate_retriever import CandidateRetriever
 from .encoder_client import EncoderClient
@@ -18,7 +16,6 @@ __all__ = [
     "CandidateRetriever",
     "EncoderClient",
     "FeedbackRecorder",
-    "LexicalResult",
     "LexicalSearchPort",
     "NoopPublisher",
     "PopularityScorer",
@@ -27,6 +24,5 @@ __all__ = [
     "RerankerClient",
     "RerankerExplainer",
     "RetrainQueries",
-    "SemanticResult",
     "SemanticSearchPort",
 ]

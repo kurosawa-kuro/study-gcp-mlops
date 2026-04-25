@@ -39,7 +39,7 @@ NA_TARGETS := up down wait-db free-ports build seed serve test-e2e install-brows
 	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
 	deploy-api-local \
 	api-dev-search-rerank setup-encoder-endpoint setup-reranker-endpoint \
-	ops-monitor ops-monitor-lro ops-enable-search
+	ops-monitor ops-monitor-lro ops-enable-search destroy-phase7-learning
 
 include ../../mk/base.mk
 
@@ -171,6 +171,10 @@ verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.setup.destroy_all
+
+destroy-phase7-learning: ## Coast-down placeholder: Dataflow Job / Feature Online Store / KServe explain pod
+	@echo "Not implemented yet. See docs/04_運用.md for current manual coast-down guidance."
+	@exit 1
 
 seed-test: ## Insert 5 test properties for PDCA smoke
 	uv run python -m scripts.setup.seed_minimal

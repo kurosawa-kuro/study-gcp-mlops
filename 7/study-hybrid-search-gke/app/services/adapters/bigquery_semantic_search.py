@@ -11,7 +11,7 @@ from __future__ import annotations
 from google.cloud import bigquery
 
 from app.domain.search import SearchFilters
-from app.services.protocols._types import SemanticResult
+from app.domain.retrieval import SemanticResult
 
 
 class BigQuerySemanticSearch:

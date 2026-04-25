@@ -2,7 +2,7 @@
 
 This module is the **HTTP server entrypoint only**. DI wiring lives in
 ``app/composition_root.py``; endpoint logic lives in
-``app/api/handlers/``; mapping in ``app/api/mappers/``; business logic in
+``app/api/routers/``; mapping in ``app/api/mappers/``; business logic in
 ``app/services/``.
 
 Route surfaces (kept disjoint to avoid cross-concern collision):
@@ -35,7 +35,7 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.handlers import (
+from app.api.routers import (
     build_ui_router,
     feedback_router,
     health_router,

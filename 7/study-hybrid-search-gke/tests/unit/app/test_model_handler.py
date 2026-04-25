@@ -21,7 +21,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.handlers import model_router
+from app.api.routers import model_router
 from app.composition_root import Container
 from app.domain.candidate import Candidate
 from app.services.model_metrics_service import ModelMetricsService

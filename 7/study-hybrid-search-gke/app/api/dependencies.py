@@ -1,7 +1,7 @@
 """FastAPI ``Depends`` resolvers for the hybrid-search API.
 
 Phase A-2 replaced the ``request.app.state.<attribute>`` ``getattr`` pattern
-with explicit ``Depends`` injection. Handlers in ``app/api/handlers/`` now
+with explicit ``Depends`` injection. Routers in ``app/api/routers/`` now
 accept their collaborators by parameter, with type-safe resolution via
 ``get_container`` (the Container is built once at startup by
 ``ContainerBuilder``; see ``app/composition_root.py``).

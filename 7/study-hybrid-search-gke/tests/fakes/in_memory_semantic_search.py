@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.protocols._types import SemanticResult
+from app.domain.retrieval import SemanticResult
 from app.services.protocols.semantic_search import SemanticSearchPort
 
 

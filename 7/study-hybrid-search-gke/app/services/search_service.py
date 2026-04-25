@@ -1,7 +1,7 @@
 """``SearchService`` — orchestrates /search and /rag retrieval.
 
 Pure-logic service depending only on Ports. The HTTP layer
-(`app/api/handlers/search_handler.py`) builds a :class:`SearchInput` from
+(`app/api/routers/search_router.py`) builds a :class:`SearchInput` from
 the FastAPI request, delegates to ``SearchService.search``, then maps the
 returned :class:`SearchOutput` back to a Pydantic response.
 

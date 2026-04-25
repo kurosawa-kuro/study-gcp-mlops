@@ -20,10 +20,13 @@ from app.domain.search import (
     SearchOutput,
     SearchResultItem,
 )
+from app.domain.retrieval import LexicalResult, SemanticResult
 
 __all__ = [
     "Candidate",
+    "LexicalResult",
     "RankedCandidate",
+    "SemanticResult",
     "SearchFilters",
     "SearchInput",
     "SearchOutput",

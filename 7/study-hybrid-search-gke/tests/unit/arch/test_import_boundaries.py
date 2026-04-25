@@ -7,7 +7,7 @@ cleanly at the offending file.
 
 Phase F-2 added directory-level auto-discovery: every ``.py`` file under
 ``app/services/protocols/``, ``app/services/noop_adapters/``, ``app/domain/``,
-``app/api/handlers``/``mappers``/``middleware``, ``app/services/``
+``app/api/routers``/``mappers``/``middleware``, ``app/services/``
 (top-level), ``ml/<feature>/ports/`` and ``pipeline/<job>/ports/``
 becomes a test case automatically. To add a per-file override that
 diverges from the directory default, edit

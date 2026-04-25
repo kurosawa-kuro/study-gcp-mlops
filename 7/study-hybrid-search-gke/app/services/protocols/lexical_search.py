@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.domain.retrieval import LexicalResult
 from app.domain.search import SearchFilters
-from app.services.protocols._types import LexicalResult
 
 
 class LexicalSearchPort(Protocol):

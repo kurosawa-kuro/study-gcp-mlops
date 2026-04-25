@@ -13,7 +13,7 @@ from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
 from app.domain.search import SearchFilters
-from app.services.protocols._types import LexicalResult
+from app.domain.retrieval import LexicalResult
 from app.services.protocols.lexical_search import LexicalSearchPort
 from ml.common import get_logger
 

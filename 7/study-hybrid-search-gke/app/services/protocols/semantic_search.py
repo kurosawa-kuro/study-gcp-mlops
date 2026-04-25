@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.domain.retrieval import SemanticResult
 from app.domain.search import SearchFilters
-from app.services.protocols._types import SemanticResult
 
 
 class SemanticSearchPort(Protocol):

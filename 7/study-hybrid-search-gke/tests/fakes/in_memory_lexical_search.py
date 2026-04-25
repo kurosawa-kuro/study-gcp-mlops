@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.protocols._types import LexicalResult
+from app.domain.retrieval import LexicalResult
 from app.services.protocols.lexical_search import LexicalSearchPort
 
 
