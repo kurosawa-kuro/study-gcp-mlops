@@ -101,7 +101,7 @@ resource "google_bigquery_table" "training_runs" {
 #   ml/data/feature_engineering/ranker_features.py::build_ranker_features
 #   ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER
 #   THIS file (ranking_log.features RECORD)
-#   monitoring/validate_feature_skew.sql
+#   infra/sql/monitoring/validate_feature_skew.sql
 # =========================================================================
 
 resource "google_bigquery_table" "property_features_daily" {

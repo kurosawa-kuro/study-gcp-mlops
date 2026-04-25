@@ -232,8 +232,8 @@ ops-search-volume: ## /search request volume over the last 24h
 ops-runs-recent: ## Last 5 LightGBM LambdaRank training runs
 	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/runs_recent.sql
 
-ops-skew-run: ## Ad-hoc execution of monitoring/validate_feature_skew.sql
-	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < monitoring/validate_feature_skew.sql
+ops-skew-run: ## Ad-hoc execution of infra/sql/monitoring/validate_feature_skew.sql
+	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < infra/sql/infra/sql/monitoring/validate_feature_skew.sql
 
 ops-bq-scan-top: ## Top 20 BQ scans in the last 7 days (cost audit)
 	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/bq_scan_top.sql
@@ -305,25 +305,25 @@ enrich-properties: ## Phase 6 T8: run Gemini description enrichment (LIMIT=50 BA
 # when triaging which surface broke.)
 
 ops-vertex-models-list: ## Vertex Model Registry: list versions/aliases for encoder/reranker
-	uv run python -m scripts.ops.vertex_models_list
+	uv run python -m scripts.ops.vertex.models_list
 
 ops-vertex-pipeline-status: ## Vertex Pipelines: list latest runs + state (LIMIT=10)
-	uv run python -m scripts.ops.vertex_pipeline_status
+	uv run python -m scripts.ops.vertex.pipeline_status
 
 ops-vertex-rag: ## Vertex Gemini RAG via /rag (QUERY=...)
-	uv run python -m scripts.ops.vertex_rag
+	uv run python -m scripts.ops.vertex.rag
 
 ops-vertex-explain: ## Vertex Explainable AI via /search?explain=true (assert non-empty attributions)
-	uv run python -m scripts.ops.vertex_explain
+	uv run python -m scripts.ops.vertex.explain
 
 ops-vertex-monitoring: ## Vertex Model Monitoring: read recent BQ alert rows (LIMIT=10)
-	uv run python -m scripts.ops.vertex_monitoring
+	uv run python -m scripts.ops.vertex.monitoring
 
 ops-kserve-monitoring: ## Phase 7 self-managed drift alerts from model_monitoring_alerts (LIMIT=10)
-	uv run python -m scripts.ops.vertex_monitoring
+	uv run python -m scripts.ops.vertex.monitoring
 
 ops-vertex-feature-group: ## Vertex Feature Group: fetch online feature values for PROPERTY_ID=p001
-	uv run python -m scripts.ops.vertex_feature_group
+	uv run python -m scripts.ops.vertex.feature_group
 
 ops-vertex-all: ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-explain ops-vertex-rag ops-vertex-monitoring ops-vertex-feature-group ## Run every Vertex AI smoke check in sequence
 	@echo "==> all Vertex AI smoke checks completed"

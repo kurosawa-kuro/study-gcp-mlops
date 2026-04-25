@@ -88,7 +88,7 @@ variable "enable_feature_online_store" {
 }
 
 variable "feature_online_store_id" {
-  description = "Vertex AI Feature Online Store name. Must match VERTEX_FEATURE_ONLINE_STORE_ID env consumed by scripts/ops/vertex_feature_group.py."
+  description = "Vertex AI Feature Online Store name. Must match VERTEX_FEATURE_ONLINE_STORE_ID env consumed by scripts/ops/vertex/feature_group.py."
   type        = string
   default     = "mlops_dev_feature_store"
 }

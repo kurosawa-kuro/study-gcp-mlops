@@ -9,7 +9,7 @@ Phase 7 の **lock-step 不変条件** を pin する pytest 群。
 |---|---|---|
 | `test_feature_parity_ranking.py` | `ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER` ↔ `infra/terraform/modules/data/main.tf::ranking_log.features` ↔ `pipeline/data_job/dataform/features/property_features_daily.sqlx` | ranker 学習用の特徴量列が Python / BQ table schema / Dataform feature SQL で一致 |
 | `test_feature_parity_feature_group.py` | `FEATURE_COLS_RANKER` ↔ `infra/terraform/modules/vertex/main.tf::feature_group_property_features` | Vertex Feature Group の property-side feature 順序と value_type が Python と一致 |
-| `test_feature_parity_sql_ranker.py` | `FEATURE_COLS_RANKER` ↔ `monitoring/validate_feature_skew.sql` UNPIVOT | feature skew SQL が UNPIVOT する列が Python schema と一致 |
+| `test_feature_parity_sql_ranker.py` | `FEATURE_COLS_RANKER` ↔ `infra/sql/monitoring/validate_feature_skew.sql` UNPIVOT | feature skew SQL が UNPIVOT する列が Python schema と一致 |
 | `test_dataform_workflow_settings.py` | `env/config/setting.yaml` ↔ `pipeline/data_job/dataform/workflow_settings.yaml` (auto-generated) | `scripts/ci/sync_dataform.py` が出力する Dataform 設定と setting.yaml が同期 |
 | `test_configmap_drift.py` | `env/config/setting.yaml` ↔ `infra/manifests/search-api/configmap.example.yaml` (auto-generated) | `scripts/ci/sync_configmap.py` が出力する ConfigMap が setting.yaml と同期 |
 

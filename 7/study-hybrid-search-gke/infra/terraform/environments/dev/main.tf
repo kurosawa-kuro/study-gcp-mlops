@@ -138,8 +138,8 @@ module "monitoring" {
   project_id                  = var.project_id
   region                      = var.region
   mlops_dataset_id            = module.data.mlops_dataset.dataset_id
-  ranker_skew_sql_path        = "${path.root}/../../../../monitoring/validate_feature_skew.sql"
-  model_output_drift_sql_path = "${path.root}/../../../../monitoring/validate_model_output_drift.sql"
+  ranker_skew_sql_path        = "${path.root}/../../../../infra/sql/monitoring/validate_feature_skew.sql"
+  model_output_drift_sql_path = "${path.root}/../../../../infra/sql/monitoring/validate_model_output_drift.sql"
   oncall_email                = var.oncall_email
   service_accounts            = module.iam.service_accounts
 

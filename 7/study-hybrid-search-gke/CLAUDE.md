@@ -79,7 +79,7 @@ Phase 6 から継承。特徴量を追加 / 変更するとき、以下 6 つを
 2. `ml/data/feature_engineering/ranker_features.py::build_ranker_features`
 3. `ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER`
 4. `infra/terraform/modules/data/main.tf` の `ranking_log.features` RECORD
-5. `monitoring/validate_feature_skew.sql` の UNPIVOT
+5. `infra/sql/monitoring/validate_feature_skew.sql` の UNPIVOT
 6. `infra/terraform/modules/vertex/main.tf::google_vertex_ai_feature_group_feature` × N
 
 ---

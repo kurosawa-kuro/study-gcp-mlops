@@ -1,4 +1,4 @@
-"""Feature-parity check: monitoring/validate_feature_skew.sql UNPIVOT ↔ property-side ranker cols.
+"""Feature-parity check: infra/sql/monitoring/validate_feature_skew.sql UNPIVOT ↔ property-side ranker cols.
 
 ``validate_feature_skew.sql`` lists the property-side feature subset twice
 (training + serving UNPIVOT). Both lists must match the 7 property-side
@@ -17,7 +17,7 @@ import pytest
 
 from tests.integration.parity.parity_invariant import PROPERTY_SIDE_COLS, REPO_ROOT
 
-SQL_PATH = REPO_ROOT / "monitoring" / "validate_feature_skew.sql"
+SQL_PATH = REPO_ROOT / "infra" / "sql" / "monitoring" / "validate_feature_skew.sql"
 
 _UNPIVOT_RE = re.compile(
     r"UNPIVOT\s*\(\s*value\s+FOR\s+feature_name\s+IN\s*\((?P<cols>[^)]+)\)\s*\)",
