@@ -263,7 +263,7 @@ resource "google_bigquery_table" "model_monitoring_alerts" {
   dataset_id          = google_bigquery_dataset.mlops.dataset_id
   table_id            = "model_monitoring_alerts"
   deletion_protection = var.enable_deletion_protection
-  description         = "Vertex Model Monitoring v2 alert sink. Phase 7 serves via GKE + KServe, so Vertex Endpoint attach points are absent and this table is currently inactive unless endpoint-based monitoring is re-enabled."
+  description         = "Phase 7 drift alert sink. Legacy Vertex Model Monitoring v2 writes may still arrive if endpoint-based monitoring is re-enabled; current primary writer is the self-managed Scheduled Query that derives KServe drift signals from mlops.ranking_log."
 
   time_partitioning {
     type  = "DAY"
@@ -404,6 +404,13 @@ resource "google_secret_manager_secret" "meili_master_key" {
   }
 }
 
+resource "google_secret_manager_secret" "search_api_iap_oauth_client_secret" {
+  secret_id = "search-api-iap-oauth-client-secret"
+  replication {
+    auto {}
+  }
+}
+
 # =========================================================================
 # IAM — runtime SAs ↔ data resources
 # =========================================================================
@@ -438,6 +445,12 @@ resource "google_secret_manager_secret_iam_member" "api_meili_master_key_access"
 
 resource "google_secret_manager_secret_iam_member" "external_secrets_meili_master_key_access" {
   secret_id = google_secret_manager_secret.meili_master_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_accounts.external_secrets.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "external_secrets_search_api_iap_oauth_client_secret_access" {
+  secret_id = google_secret_manager_secret.search_api_iap_oauth_client_secret.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_accounts.external_secrets.email}"
 }

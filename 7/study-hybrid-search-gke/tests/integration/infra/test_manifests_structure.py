@@ -141,6 +141,21 @@ def test_search_api_external_secret_syncs_meili_master_key() -> None:
     ]
 
 
+def test_search_api_external_secret_syncs_iap_client_secret() -> None:
+    ext = _load(SEARCH_API_DIR / "iap-oauth-client-secret-externalsecret.yaml")
+    assert ext["apiVersion"].startswith("external-secrets.io/")
+    assert ext["kind"] == "ExternalSecret"
+    assert ext["metadata"]["name"] == "search-api-iap-oauth-client-secret"
+    assert ext["metadata"]["namespace"] == "search"
+    assert ext["spec"]["target"]["name"] == "search-api-iap-oauth-client-secret"
+    assert ext["spec"]["data"] == [
+        {
+            "secretKey": "key",
+            "remoteRef": {"key": "search-api-iap-oauth-client-secret"},
+        }
+    ]
+
+
 def test_search_api_deployment_probes_have_canonical_paths() -> None:
     """Pin the k8s probe contract for search-api Pods.
 
@@ -260,6 +275,21 @@ def test_kserve_networkpolicy_restricts_ingress_to_search_namespace() -> None:
         "kserve-inference ingress must whitelist the `search` namespace. "
         "Without this, search-api → KServe calls are blocked by default-deny."
     )
+
+
+def test_search_api_iap_policy_targets_gateway_service_with_gcp_backend_policy() -> None:
+    policy = _load(POLICIES_DIR / "search-api-iap-policy.yaml")
+    assert policy["apiVersion"] == "networking.gke.io/v1"
+    assert policy["kind"] == "GCPBackendPolicy"
+    assert policy["metadata"]["namespace"] == "search"
+    assert policy["spec"]["targetRef"] == {
+        "group": "",
+        "kind": "Service",
+        "name": "search-api",
+    }
+    iap = policy["spec"]["default"]["iap"]
+    assert iap["enabled"] is True
+    assert iap["oauth2ClientSecret"]["name"] == "search-api-iap-oauth-client-secret"
 
 
 # ----------------------------------------------------------------------------

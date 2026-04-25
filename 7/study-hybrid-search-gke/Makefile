@@ -60,7 +60,8 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
         ops-skew-latest ops-search-volume ops-runs-recent \
 	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed \
-        ops-slo-status bqml-train-popularity enrich-properties
+        ops-slo-status bqml-train-popularity enrich-properties \
+        ops-kserve-monitoring
 
 help: ## Show this help
 	@echo "First-time setup:  see README.md §セットアップ (run 'make doctor' to verify tools)"
@@ -310,6 +311,9 @@ ops-vertex-explain: ## Vertex Explainable AI via /search?explain=true (assert no
 	uv run python -m scripts.ops.vertex_explain
 
 ops-vertex-monitoring: ## Vertex Model Monitoring: read recent BQ alert rows (LIMIT=10)
+	uv run python -m scripts.ops.vertex_monitoring
+
+ops-kserve-monitoring: ## Phase 7 self-managed drift alerts from model_monitoring_alerts (LIMIT=10)
 	uv run python -m scripts.ops.vertex_monitoring
 
 ops-vertex-feature-group: ## Vertex Feature Group: fetch online feature values for PROPERTY_ID=p001

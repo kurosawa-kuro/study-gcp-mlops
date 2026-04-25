@@ -1,9 +1,13 @@
-"""Read recent Vertex Model Monitoring drift alerts from BigQuery.
+"""Read recent drift alerts from BigQuery.
 
-Phase 6 T5 wires drift detection through BQ ``mlops.model_monitoring_alerts``.
-This script lists the last N rows so an operator can confirm the
-monitoring job is firing (and surfacing genuine drift signals, not
-just an empty table).
+Phase 6 used Vertex Model Monitoring v2 as the primary writer into
+``mlops.model_monitoring_alerts``. Phase 7 keeps the same sink table but
+adds a self-managed Scheduled Query that derives drift from
+``mlops.ranking_log`` because live serving moved to GKE + KServe.
+
+This script lists the last N rows so an operator can confirm the current
+drift pipeline is firing (and surfacing genuine signals, not just an empty
+table).
 
 Usage::
 
@@ -48,7 +52,8 @@ def main() -> int:
     if not rows:
         print(
             "  HINT: empty table is normal pre-rollout. "
-            "After PodMonitoring scrape + drift job runs the table fills up."
+            "After the Scheduled Query / any endpoint-based monitoring runs, "
+            "the table fills up."
         )
         return 0
 

@@ -39,6 +39,7 @@ uv run python scripts/deploy/api_gke.py
 
 - `search-api/gateway.yaml` の `hostname` (実際の DNS 名)
 - `search-api/gateway.yaml` の `tls.certificateRefs` (`search-api-tls` Secret を参照。現状は Google-managed cert 自動化ではなく、Secret 配備または環境 overlay 前提)
+- `policies/search-api-iap-policy.yaml` の `spec.default.iap.clientID` (IAP OAuth client ID を環境ごとに置換)
 - `search-api/configmap.example.yaml` の `meili_base_url` (Meilisearch の Cloud Run URL)
 - `kserve/encoder.yaml` / `kserve/reranker.yaml` の `storageUri` / `image`
   (scripts/deploy/kserve_models.py が自動更新)

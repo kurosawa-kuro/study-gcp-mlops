@@ -167,3 +167,18 @@ resource "google_bigquery_data_transfer_config" "property_feature_skew_check" {
     query = file(var.ranker_skew_sql_path)
   }
 }
+
+resource "google_bigquery_data_transfer_config" "model_output_drift_check" {
+  display_name           = "model_output_drift_check"
+  data_source_id         = "scheduled_query"
+  destination_dataset_id = var.mlops_dataset_id
+  location               = var.region
+  schedule               = "every day 05:10"
+  service_account_name   = var.service_accounts.dataform.email
+  schedule_options {
+    disable_auto_scheduling = false
+  }
+  params = {
+    query = file(var.model_output_drift_sql_path)
+  }
+}

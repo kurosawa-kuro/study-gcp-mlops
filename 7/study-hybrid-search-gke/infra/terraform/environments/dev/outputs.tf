@@ -59,6 +59,7 @@ output "service_accounts" {
     endpoint_encoder  = module.iam.service_accounts.endpoint_encoder.email
     endpoint_reranker = module.iam.service_accounts.endpoint_reranker.email
     pipeline_trigger  = module.iam.service_accounts.pipeline_trigger.email
+    external_secrets  = module.iam.service_accounts.external_secrets.email
   }
 }
 
@@ -85,6 +86,11 @@ output "model_monitoring_alerts_topic" {
 output "model_monitoring_alerts_subscription" {
   description = "BigQuery subscription for Vertex model monitoring alerts"
   value       = module.vertex.monitoring_alerts_subscription.name
+}
+
+output "model_output_drift_check_config_id" {
+  description = "Scheduled Query config ID for the self-managed KServe drift substitute"
+  value       = module.monitoring.model_output_drift_check_config_id
 }
 
 output "pipeline_trigger_function_name" {

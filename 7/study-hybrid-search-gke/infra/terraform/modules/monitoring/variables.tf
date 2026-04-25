@@ -18,6 +18,11 @@ variable "ranker_skew_sql_path" {
   type        = string
 }
 
+variable "model_output_drift_sql_path" {
+  description = "Absolute path to monitoring/validate_model_output_drift.sql (self-managed KServe drift substitute)"
+  type        = string
+}
+
 variable "service_accounts" {
   description = "Map of SA resources emitted by the iam module. The dataform SA is used as google_bigquery_data_transfer_config.service_account_name so the Scheduled Query has a valid credential (otherwise DTS creation fails with 'Failed to find a valid credential')."
   type        = any

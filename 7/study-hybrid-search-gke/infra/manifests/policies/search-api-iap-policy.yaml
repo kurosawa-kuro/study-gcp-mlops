@@ -1,8 +1,16 @@
-apiVersion: cloud.google.com/v1
-kind: BackendConfig
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
 metadata:
   name: search-api-iap
   namespace: search
 spec:
-  iap:
-    enabled: true
+  default:
+    iap:
+      enabled: true
+      clientID: "CHANGE_ME_OAUTH_CLIENT_ID"
+      oauth2ClientSecret:
+        name: search-api-iap-oauth-client-secret
+  targetRef:
+    group: ""
+    kind: Service
+    name: search-api
