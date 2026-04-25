@@ -29,7 +29,7 @@ class _StubCandidateRetriever:
         self.calls: list[dict] = []
 
     def retrieve(self, *, query_text, query_vector, filters, top_k):
-        from app.services.protocols.candidate_retriever import Candidate
+        from app.domain.candidate import Candidate
 
         self.calls.append({"filters": filters, "top_k": top_k})
         return [

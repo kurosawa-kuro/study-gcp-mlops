@@ -15,8 +15,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from app.domain.candidate import RankedCandidate
 from app.services.protocols.generator import Generator
-from app.services.ranking import RankedCandidate
 
 
 @dataclass(frozen=True)

@@ -53,6 +53,17 @@ class GeminiGenerator:
             model_name,
         )
 
+    def prepare(self) -> None:
+        """Eagerly construct the underlying ``GenerativeModel``.
+
+        Phase A-4 — composition root calls this once at startup so the
+        SDK initialization (``vertexai.init`` + ``GenerativeModel``) happens
+        deterministically rather than on the first request. Failures
+        propagate so the composition root can downgrade ``rag_service`` to
+        ``None`` and surface the failure in startup logs.
+        """
+        self._model()
+
     def _model(self) -> Any:
         if self._client is not None:
             return self._client

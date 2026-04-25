@@ -1,4 +1,8 @@
-"""Lexical search adapters."""
+"""Production ``LexicalSearchPort`` adapter — Meilisearch.
+
+Phase B-3 moved ``NoopLexicalSearch`` to ``app/services/fakes/``. The
+Discovery Engine variant lives in ``agent_builder_lexical.py``.
+"""
 
 from __future__ import annotations
 
@@ -8,19 +12,9 @@ import httpx
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
+from app.services.protocols._types import LexicalResult
 from app.services.protocols.lexical_search import LexicalSearchPort
 from ml.common import get_logger
-
-
-class NoopLexicalSearch(LexicalSearchPort):
-    def search(
-        self,
-        *,
-        query: str,
-        filters: dict[str, Any],
-        top_k: int,
-    ) -> list[tuple[str, int]]:
-        return []
 
 
 class MeilisearchLexical(LexicalSearchPort):
@@ -48,7 +42,7 @@ class MeilisearchLexical(LexicalSearchPort):
         query: str,
         filters: dict[str, Any],
         top_k: int,
-    ) -> list[tuple[str, int]]:
+    ) -> list[LexicalResult]:
         headers: dict[str, str] = {"content-type": "application/json"}
         # Meilisearch v1.x はマスターキーを `Authorization: Bearer` で要求するが、
         # Cloud Run も同じヘッダで OIDC token を要求するため衝突する。
@@ -86,12 +80,12 @@ class MeilisearchLexical(LexicalSearchPort):
             return []
 
         hits = data.get("hits") or []
-        out: list[tuple[str, int]] = []
+        out: list[LexicalResult] = []
         for idx, hit in enumerate(hits, start=1):
             property_id = str(hit.get("property_id") or "").strip()
             if not property_id:
                 continue
-            out.append((property_id, idx))
+            out.append(LexicalResult(property_id=property_id, rank=idx))
         return out
 
 

@@ -15,31 +15,29 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
 from typing import Any
 
-from app.services.protocols.candidate_retriever import (
-    Candidate,
-    CandidateRetriever,
-    RankingLogPublisher,
-)
+from app.domain.candidate import Candidate, RankedCandidate
+from app.services.protocols.candidate_retriever import CandidateRetriever
+from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient, RerankerExplainer
 from ml.data.feature_engineering import FEATURE_COLS_RANKER, build_ranker_features
 
 RRF_K: int = 60
 DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
 
-
-@dataclass(frozen=True)
-class RankedCandidate:
-    candidate: Candidate
-    final_rank: int
-    score: float | None
-    # Phase 6 T4 — per-feature TreeSHAP contributions. Populated only when
-    # ``run_search(..., want_explanations=True)`` AND the reranker implements
-    # ``RerankerExplainer``. ``None`` otherwise, leaving SearchResultItem
-    # attributions null for non-explain responses.
-    attributions: dict[str, float] | None = None
+# Phase E moved ``RankedCandidate`` to ``app.domain.candidate``. Re-exported
+# here for legacy callers (``rag_summarizer`` etc.); Phase D-1 sweeps these
+# into ``SearchService`` directly.
+__all__ = [
+    "Candidate",
+    "DEFAULT_SEARCH_CACHE_TTL_SECONDS",
+    "RankedCandidate",
+    "RRF_K",
+    "normalize_search_cache_key",
+    "rrf_fuse",
+    "run_search",
+]
 
 
 def _build_feature_matrix(candidates: list[Candidate]) -> list[list[float]]:

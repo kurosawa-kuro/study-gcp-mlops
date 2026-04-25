@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from app.services.protocols.candidate_retriever import Candidate
+from app.domain.candidate import Candidate
 from app.services.ranking import run_search
 
 

@@ -137,14 +137,23 @@ Phase 6 から継承。特徴量を追加 / 変更するとき、以下 6 つを
 
 ---
 
-## Port / Adapter 境界と make check
+## Port / Adapter / DI 境界と make check
 
-Phase 6 から継承。新しいコードを追加するときの基準:
+Phase 7 では Phase 6 から継承した Port-Adapter 構造を **DI 最優先で全面整備しなおした**。詳細は [`docs/02_移行ロードマップ-Port-Adapter-DI.md`](docs/02_移行ロードマップ-Port-Adapter-DI.md) と [`docs/01_仕様と設計.md §4`](docs/01_仕様と設計.md)。設計優先順位は **DI > Port-Adapter > Clean > Domain**。
 
-- **Port**: `app/services/protocols/<name>.py` の Protocol
-- **Adapter**: `app/services/adapters/<name>.py`。外部 SDK 依存はここでのみ
-- **Service**: `app/services/<name>.py`。Port だけ import、adapter import 禁止
-- **境界検知**: `scripts/ci/layers.py::RULES` に新 Port / service を追加
+### 新しいコードを追加するときの基準
+
+- **Composition root** (`app/composition_root.py`): 全 adapter / service の組み立ては `ContainerBuilder.build()` 内で行う。`app/main.py` には DI 配線を書かない
+- **DI**: handler は `Depends(get_container)` または `Depends(get_search_service)` 等で受け取る。`request.app.state.xxx` の `getattr` 使用禁止
+- **Port (Protocol)**: `app/services/protocols/<name>.py`。**1 Protocol 1 file** (Phase B-1 ルール)
+- **Adapter (production)**: `app/services/adapters/<name>.py`。**1 Adapter 1 file**。外部 SDK 依存はここでのみ
+- **Fake (production noop / in-memory)**: `app/services/fakes/<name>.py`。Noop / InMemory はここに集約 (test stub は `tests/fakes/`)
+- **Domain**: `app/domain/`。Candidate / SearchFilters / SearchInput / SearchOutput など
+- **Service**: `app/services/<name>_service.py`。Port のみ import、adapter import 禁止。HTTP 詳細を持たない
+- **Handler**: `app/api/handlers/<endpoint>_handler.py`。1 endpoint 1 file、< 40 行
+- **Mapper**: `app/api/mappers/<endpoint>_mapper.py`。Pydantic ↔ domain 変換 1 箇所
+- **ML / Pipeline**: `ml/<feature>/{ports,adapters}/`、`pipeline/<verb>_job/{ports,adapters}/`。`ml/` 直下に ports/adapters は置かない (`docs/フォルダ-ファイル.md` 準拠)
+- **境界検知**: `scripts/ci/layers.py::RULES` に新 Port / service / handler / mapper / fake / ml port / pipeline port を追加
 
 ---
 

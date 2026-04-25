@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.services.protocols._types import LexicalResult
+
 logger = logging.getLogger("app.agent_builder_lexical")
 
 
@@ -81,7 +83,7 @@ class AgentBuilderLexicalRetriever:
         query: str,
         filters: dict[str, Any],
         top_k: int,
-    ) -> list[tuple[str, int]]:
+    ) -> list[LexicalResult]:
         import importlib
 
         discoveryengine = importlib.import_module("google.cloud.discoveryengine_v1")
@@ -101,7 +103,7 @@ class AgentBuilderLexicalRetriever:
                 len(query),
             )
             raise
-        out: list[tuple[str, int]] = []
+        out: list[LexicalResult] = []
         # ``results`` is a pager: iterate once to capture ``top_k`` hits.
         for rank, result in enumerate(response.results, start=1):
             if rank > top_k:
@@ -109,7 +111,7 @@ class AgentBuilderLexicalRetriever:
             doc_id = getattr(result.document, "id", None) or ""
             if not doc_id:
                 continue
-            out.append((str(doc_id), rank))
+            out.append(LexicalResult(property_id=str(doc_id), rank=rank))
         return out
 
 

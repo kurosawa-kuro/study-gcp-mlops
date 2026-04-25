@@ -1,12 +1,19 @@
 """Architectural boundary checks — enforced at CI time via AST.
 
 The canonical ruleset and the AST scanner live in
-``scripts/ci/layers.py``; this test module just wraps every entry of
-``RULES`` in its own pytest case so a failure points cleanly at the
-offending file. To add a rule, edit ``scripts/ci/layers.py::RULES``
-(do NOT duplicate the dict here).
+``scripts/ci/layers.py``; this test module just wraps every Port /
+service / Pure-logic file in its own pytest case so a failure points
+cleanly at the offending file.
 
-Composition-root wiring in ``*/adapters.py`` and ``*/main.py`` is exempt.
+Phase F-2 added directory-level auto-discovery: every ``.py`` file under
+``app/services/protocols/``, ``app/services/fakes/``, ``app/domain/``,
+``app/api/handlers``/``mappers``/``middleware``, ``app/services/``
+(top-level), ``ml/<feature>/ports/`` and ``pipeline/<job>/ports/``
+becomes a test case automatically. To add a per-file override that
+diverges from the directory default, edit
+``scripts/ci/layers.py::RULES``. To add a wholly new directory-level
+rule, edit ``DIRECTORY_RULES`` there.
+
 The check is intentionally shallow: each file is inspected at every
 ``Import`` / ``ImportFrom`` node — top-level AND inside functions — so
 lazy imports cannot smuggle a forbidden dependency back in. Transitive
@@ -18,10 +25,10 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.ci.layers import REPO_ROOT, RULES, find_violations
+from scripts.ci.layers import REPO_ROOT, discover_files, find_violations
 
 
-@pytest.mark.parametrize("rel_path", sorted(RULES))
+@pytest.mark.parametrize("rel_path", discover_files())
 def test_no_forbidden_imports(rel_path: str) -> None:
     assert (REPO_ROOT / rel_path).exists(), f"source file missing: {rel_path}"
 
