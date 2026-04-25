@@ -1,5 +1,5 @@
 # =========================================================================
-# runtime module — Pub/Sub + Scheduler (API is served from GKE, not Cloud Run)
+# messaging module — Pub/Sub + Scheduler (API is served from GKE, not Cloud Run)
 #
 # Phase 5 の Cloud Run Service (search-api) はこのモジュールから抜けた。
 # Phase 6 では search-api は GKE に載るため、Cloud Run 関連リソースはここには
@@ -7,10 +7,6 @@
 # =========================================================================
 
 data "google_project" "current" {}
-
-# =========================================================================
-# Pub/Sub — ranking_log + search_feedback sinks + retrain trigger
-# =========================================================================
 
 resource "google_pubsub_topic" "ranking_log" {
   name = "ranking-log"
@@ -24,7 +20,6 @@ resource "google_pubsub_topic" "retrain_trigger" {
   name = "retrain-trigger"
 }
 
-# Publisher grants
 resource "google_pubsub_topic_iam_member" "api_publish_ranking_log" {
   topic  = google_pubsub_topic.ranking_log.name
   role   = "roles/pubsub.publisher"
@@ -49,7 +44,6 @@ resource "google_pubsub_topic_iam_member" "scheduler_publish_retrain" {
   member = "serviceAccount:${var.service_accounts.scheduler.email}"
 }
 
-# Pub/Sub → BQ Subscriptions (no subscriber code)
 resource "google_pubsub_subscription" "ranking_log_to_bq" {
   name  = "ranking-log-to-bq"
   topic = google_pubsub_topic.ranking_log.name
@@ -62,7 +56,7 @@ resource "google_pubsub_subscription" "ranking_log_to_bq" {
   }
 
   ack_deadline_seconds       = 60
-  message_retention_duration = "604800s" # 7 days
+  message_retention_duration = "604800s"
 
   depends_on = [
     google_project_iam_member.pubsub_bq_writer,
@@ -105,14 +99,6 @@ resource "google_project_iam_member" "pubsub_bq_metadata_viewer" {
   role    = "roles/bigquery.metadataViewer"
   member  = local.pubsub_service_agent
 }
-
-# =========================================================================
-# Cloud Scheduler — retrain orchestration entrypoint
-#
-# Phase 5 は Cloud Run の URI を直接叩いていたが、Phase 6 では GKE Gateway
-# の HTTPS エンドポイント (search-api 用) を env 経由で受け取る。
-# `api_external_url` が空のままでは job を作らない。
-# =========================================================================
 
 resource "google_cloud_scheduler_job" "check_retrain_daily" {
   count = var.api_external_url == "" ? 0 : 1

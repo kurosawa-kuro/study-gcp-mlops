@@ -71,6 +71,19 @@ resource "google_monitoring_notification_channel" "email" {
 # =========================================================================
 
 resource "time_sleep" "wait_for_log_metric_indexing" {
+  triggers = {
+    metrics = sha256(jsonencode({
+      api_error_rate = {
+        name   = google_logging_metric.api_error_rate.name
+        filter = trimspace(google_logging_metric.api_error_rate.filter)
+      }
+      api_p95_latency = {
+        name            = google_logging_metric.api_p95_latency.name
+        filter          = trimspace(google_logging_metric.api_p95_latency.filter)
+        value_extractor = google_logging_metric.api_p95_latency.value_extractor
+      }
+    }))
+  }
   depends_on = [
     google_logging_metric.api_error_rate,
     google_logging_metric.api_p95_latency,

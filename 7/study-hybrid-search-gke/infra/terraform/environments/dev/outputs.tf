@@ -37,15 +37,15 @@ output "model_monitoring_alerts_table" {
 }
 
 output "ranking_log_topic" {
-  value = module.runtime.ranking_log_topic.name
+  value = module.messaging.ranking_log_topic.name
 }
 
 output "search_feedback_topic" {
-  value = module.runtime.search_feedback_topic.name
+  value = module.messaging.search_feedback_topic.name
 }
 
 output "retrain_trigger_topic" {
-  value = module.runtime.retrain_trigger_topic.name
+  value = module.messaging.retrain_trigger_topic.name
 }
 
 output "service_accounts" {

@@ -5,7 +5,7 @@
 #   vertex       → Vertex AI Pipelines / Feature Group / Model Registry (inherited from Phase 5)
 #   gke          → GKE Autopilot cluster + Workload Identity bindings
 #   kserve       → KServe + cert-manager + 3 KSA (api / encoder / reranker)
-#   runtime      → Pub/Sub + BQ subscription + Cloud Scheduler (Cloud Run Service を持たない)
+#   messaging    → Pub/Sub + BQ subscription + Cloud Scheduler (Cloud Run Service を持たない)
 #   meilisearch  → Cloud Run Service (BM25 lexical retrieval、Phase 5 継承)
 #   monitoring   → log-based metrics / alert policies / mean-drift Scheduled Query
 #   streaming    → Phase 6 T2: Dataflow streaming job scaffold
@@ -65,15 +65,15 @@ module "vertex" {
   encoder_endpoint_display_name    = "property-encoder-endpoint"
   reranker_endpoint_display_name   = "property-reranker-endpoint"
   enable_vertex_endpoint_shell     = var.enable_vertex_endpoint_shell
-  retrain_trigger_topic_id         = module.runtime.retrain_trigger_topic.id
-  retrain_trigger_topic_name       = module.runtime.retrain_trigger_topic.name
+  retrain_trigger_topic_id         = module.messaging.retrain_trigger_topic.id
+  retrain_trigger_topic_name       = module.messaging.retrain_trigger_topic.name
   enable_feature_online_store      = var.enable_feature_online_store
 
   depends_on = [
     google_project_service.enabled,
     module.data,
     module.iam,
-    module.runtime,
+    module.messaging,
   ]
 }
 
@@ -103,8 +103,8 @@ module "kserve" {
   ]
 }
 
-module "runtime" {
-  source = "../../modules/runtime"
+module "messaging" {
+  source = "../../modules/messaging"
 
   project_id               = var.project_id
   region                   = var.region
@@ -158,7 +158,7 @@ module "streaming" {
 
   project_id             = var.project_id
   region                 = var.region
-  ranking_log_topic_id   = module.runtime.ranking_log_topic.id
+  ranking_log_topic_id   = module.messaging.ranking_log_topic.id
   output_table_fqn       = "${var.project_id}:${module.data.mlops_dataset.dataset_id}.${module.data.ranking_log_hourly_ctr_table.table_id}"
   flex_template_gcs_path = var.streaming_flex_template_gcs_path
   temp_location          = "gs://${module.data.artifacts_bucket.name}/dataflow/tmp"
@@ -168,7 +168,7 @@ module "streaming" {
   depends_on = [
     google_project_service.enabled,
     module.data,
-    module.runtime,
+    module.messaging,
   ]
 }
 

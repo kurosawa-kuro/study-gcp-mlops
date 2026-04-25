@@ -263,6 +263,7 @@ resource "google_bigquery_table" "model_monitoring_alerts" {
   dataset_id          = google_bigquery_dataset.mlops.dataset_id
   table_id            = "model_monitoring_alerts"
   deletion_protection = var.enable_deletion_protection
+  description         = "Vertex Model Monitoring v2 alert sink. Phase 7 serves via GKE + KServe, so Vertex Endpoint attach points are absent and this table is currently inactive unless endpoint-based monitoring is re-enabled."
 
   time_partitioning {
     type  = "DAY"
