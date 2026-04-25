@@ -34,19 +34,16 @@ raw.properties (upstream ETL)
 
 | パス | 役割 |
 |---|---|
-| `infra/terraform/` | Terraform — BQ / GCS / Pub/Sub / GKE Autopilot / KServe Helm / Vertex Pipelines / Scheduler / WIF |
-| `infra/manifests/` | K8s manifests (search-api Deployment + KServe InferenceService + Gateway + NetworkPolicy + PodMonitoring) |
-| `definitions/` | Dataform — `properties_cleaned` + `property_features_daily` + assertions |
-| `ml/common/` | 共有コード — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs |
-| `app/` | FastAPI search-api (`/search` / `/feedback` / `/jobs/check-retrain` — GKE Pod entrypoint) |
-| `ml/data/` | 埋め込み/ローダー系の実装 |
-| `ml/training/` | LambdaRank 学習本体 |
-| `ml/serving/` | 推論補助ロジック |
-| `pipeline/` | KFP エントリポイント (`data_job`, `training_job`, `evaluation_job`, `batch_serving_job`) |
-| `scripts/` | deploy/setup/ops の運用コマンド群 (`scripts/deploy/api_gke.py` / `scripts/deploy/kserve_models.py` / `scripts/setup/deploy_all.py` / `scripts/setup/destroy_all.py` 等) |
-| `monitoring/` | feature skew Scheduled Query SQL |
-| `.github/workflows/` | CI (ruff/mypy/pytest) + Terraform + deploy-api (kubectl set image) + deploy-*-image / deploy-pipeline / deploy-dataform |
-| `docs/` | 仕様と設計・移行ロードマップ・実装カタログ・運用 (+ ドキュメント運用ルール) |
+| `infra/terraform/` | Terraform — `data` / `gke` / `iam` / `kserve` / `meilisearch` / `monitoring` / `runtime` / `slo` / `streaming` / `vertex` モジュール (BQ / GCS / Pub/Sub / GKE Autopilot / KServe Helm / Vertex Pipelines / Scheduler / WIF / SLO) |
+| `infra/manifests/` | K8s manifests — search-api 系 (Deployment / Service / Gateway / HPA / IAP-Policy / NetworkPolicy / PodMonitoring) + KServe 系 (encoder / reranker / reranker-explain / NetworkPolicy / PodMonitoring) + 統合 `kustomization.yaml` |
+| `pipeline/data_job/dataform/` | Dataform — `properties_cleaned` + `property_features_daily` + assertions + `monitoring/ranking_rank_diff_daily.sqlx` |
+| `app/` | FastAPI search-api。`composition_root.py` + `container/{infra,ml,search}.py` で DI、`api/{handlers,mappers,middleware,routes}/`、`services/{protocols,adapters,fakes}/`、`domain/`、`schemas/`、`settings/`、Jinja2 `templates/` + `static/` |
+| `ml/{common,data,training,evaluation,registry,serving,streaming}/` | 共有コード + ML pipeline 部品 — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs。`registry`・`serving`・`streaming`・`training` は `ports/` + `adapters/` 構造 |
+| `pipeline/{data_job,training_job,evaluation_job,batch_serving_job,workflow}/` | KFP エントリポイント。`data_job` / `training_job` は `ports/` + `adapters/` + `components/` 構造、`workflow/` でコンパイル & 投入 |
+| `scripts/` | 運用コマンド群。`setup/` (deploy_all / destroy_all / tf_* / doctor / seed_minimal / setup_model_monitoring / create_schedule / upload_encoder_assets) / `deploy/` (api_gke / kserve_models / monitor) / `ops/` (livez / search / ranking / feedback / promote / vertex_* / slo_status 他) / `ci/` (layers / sync_dataform) / `bqml/` (train_popularity) / `enrichment/` (run_enrichment) / `sql/` (BQ 運用クエリ 4 本) |
+| `monitoring/` | feature skew Scheduled Query SQL (`validate_feature_skew.sql`) |
+| `.github/workflows/` | `ci.yml` (ruff/fmt/mypy/pytest) + `terraform.yml` + `deploy-api.yml` (kubectl set image) + `deploy-encoder-image.yml` / `deploy-trainer-image.yml` / `deploy-reranker-image.yml` / `deploy-pipeline.yml` / `deploy-dataform.yml` |
+| `docs/` | 仕様と設計・移行ロードマップ (本体 + Port-Adapter-DI + 切り替え基盤)・実装カタログ・運用・`教育資料/` (スライド / ナレーション台本 / デモシナリオ / 図解) |
 
 ファイル単位の一言コメントは [`docs/03_実装カタログ.md §2`](docs/03_実装カタログ.md)。
 
@@ -72,8 +69,8 @@ raw.properties (upstream ETL)
 | `pipeline/data_job/**`, `ml/data/**` | `deploy-encoder-image.yml` | Docker build → push encoder image (Vertex Pipelines で使用) |
 | `pipeline/training_job/**`, `ml/training/**` | `deploy-trainer-image.yml` | Docker build → push KFP trainer image |
 | `ml/serving/**` | `deploy-reranker-image.yml` | Docker build → push reranker image |
-| `pipeline/**`, `scripts/setup/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS + Schedule setup |
-| `definitions/**` | `deploy-dataform.yml` | `dataform compile` + Dataform API へ compilationResults POST |
+| `pipeline/{data_job,training_job,evaluation_job}/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS |
+| `pipeline/data_job/dataform/**` | `deploy-dataform.yml` | `scripts.ci.sync_dataform` → `dataform compile` → Dataform API へ compilationResults POST |
 
 認証はすべて WIF。
 
@@ -85,9 +82,12 @@ raw.properties (upstream ETL)
 |---|---|---|
 | [`docs/README.md`](docs/README.md) | ドキュメント運用ルール (役割 / 権威順位 / 更新規約 / 書き方) | 文書を触る人全員 |
 | [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計 | LLM / 設計レビュー |
-| [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) | **本リポジトリの決定的仕様** (何を作るか・作らないか) | LLM / 開発者 |
+| [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) | **本リポジトリの決定的仕様** の母艦。現状はサブドキュメントに分割中 (下 2 つ) | LLM / 開発者 |
+| [`docs/02_移行ロードマップ-Port-Adapter-DI.md`](docs/02_移行ロードマップ-Port-Adapter-DI.md) | Phase 7 の Port / Adapter / DI 整備履歴と層境界ルール | LLM / 開発者 |
+| [`docs/02_移行ロードマップ切り替え基盤.md`](docs/02_移行ロードマップ切り替え基盤.md) | Vertex Endpoint → KServe 切り替えの差分仕様 | LLM / 開発者 |
 | [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) | 実装カタログ (ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform) | 新規参加者 / LLM |
 | [`docs/04_運用.md`](docs/04_運用.md) | 環境構築 + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 運用担当 |
+| [`docs/教育資料/`](docs/教育資料/) | スライド / ナレーション台本 / デモシナリオ / 図解 (`assets/*.svg`) | 学習・デモ担当 |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向け作業ガイド (非負制約 / 参照リポジトリ / feature-parity invariant) | Claude Code |
 
 ドキュメントが互いに矛盾したときの勝者は `docs/02_移行ロードマップ.md` (詳細は `docs/README.md §2` 権威順位)。
@@ -95,4 +95,5 @@ raw.properties (upstream ETL)
 ## 品質ステータス
 
 `make check` 全工程 PASS 目標 — ruff / ruff format / mypy strict / pytest。
+`make check-layers` で AST ベースの Port / Adapter 境界違反検知も PASS させる。
 `make tf-validate` PASS (offline)。
