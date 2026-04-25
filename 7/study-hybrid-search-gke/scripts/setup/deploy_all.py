@@ -29,7 +29,7 @@ from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
 from scripts.setup.tf_init import main as tf_init_main
 from scripts.setup.tf_plan import main as tf_plan_main
 
-INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
+INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
 
 # Overall start time; per-step timing relates elapsed time to the wall-clock
 # position in the deploy-all sequence so operators can see WHICH step is slow

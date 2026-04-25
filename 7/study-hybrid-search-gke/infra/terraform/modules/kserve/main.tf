@@ -54,6 +54,15 @@ resource "kubernetes_service_account" "reranker" {
 }
 
 # ----- cert-manager (KServe 前提) -----
+#
+# GKE Autopilot 対応: cainjector + controller の leader election を
+# `kube-system` ではなく `cert-manager` namespace に向けないと
+# Autopilot の managed-namespaces-limitation Warden authz で
+# `leases.coordination.k8s.io ... namespace "kube-system" is managed`
+# が出続け、CA injection が完了せず KServe install が
+# `webhook.cert-manager.io` の TLS 検証 (caBundle 未注入) で fail する。
+# cert-manager v1.16+ は default で cert-manager namespace を使うが、
+# v1.15 までは `--leader-election-namespace=cert-manager` の override が必要。
 resource "helm_release" "cert_manager" {
   name             = "cert-manager"
   namespace        = "cert-manager"
@@ -65,6 +74,13 @@ resource "helm_release" "cert_manager" {
   set {
     name  = "installCRDs"
     value = "true"
+  }
+
+  # Autopilot 対応: leader election を cert-manager namespace に閉じ込める。
+  # コンマ区切りリスト (`{...}` syntax) で extraArgs を渡す。
+  set {
+    name  = "global.leaderElection.namespace"
+    value = "cert-manager"
   }
 }
 

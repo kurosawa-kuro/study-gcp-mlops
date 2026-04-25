@@ -6,6 +6,28 @@
 
 ---
 
+## User 事前承認 (PDCA 学習用 dev project の自動化方針)
+
+**対象 project**: `mlops-dev-a` (学習用 dev、`destroy-all` でゼロに戻すこと前提)。
+
+User からの**包括的事前承認**として、本 phase の検証目的では以下の operation を **per-call の確認を取らずに直接実行してよい**。「最速で作成成功させて検証を完了する」ことが目的だから:
+
+- `terraform apply -auto-approve` (stage 分割含む `-target` 付き)
+- `terraform destroy -auto-approve` / `make destroy-all`
+- `make deploy-all` / `make deploy-api` / `make deploy-kserve-models`
+- `gcloud run deploy` / `gcloud ai endpoints undeploy-model + delete`
+- `kubectl set image` / `kubectl rollout restart`
+- BQ table の `deletion_protection` flip (destroy-all step 4 で実施)
+
+**範囲制限**:
+- 対象は本 phase (`mlops-dev-a` project) の Terraform 管理リソースのみ
+- `git push --force` / 共有 main branch への push は引き続き user 確認が必要
+- 別 project / 別 phase に波及するコマンドは事前承認外
+
+**理由**: 本 project は **PDCA dev project (CLAUDE.md §1.0 設計意図)**。`destroy-all` で全消し → `deploy-all` で再構築 が前提のループ。確認プロンプトを挟むと PDCA が成立しない。
+
+---
+
 ## 最初に読むもの (順番)
 
 1. [`docs/02_移行ロードマップ.md §0`](docs/02_移行ロードマップ.md) — Phase 6 からの差分 (Serving 層のみ GKE + KServe に差し替え)

@@ -41,6 +41,12 @@ variable "github_repo" {
   default     = "your-org/study-gcp-mlops-hybrid-search-cloud"
 }
 
+variable "admin_user_emails" {
+  description = "Developer user account emails that need to impersonate sa-api for local one-off ops (e.g. Meilisearch document sync that requires OIDC token with audience=meili-search URL). Empty list disables the binding. Forwarded to module.iam."
+  type        = list(string)
+  default     = []
+}
+
 variable "dataform_repository_id" {
   description = "Dataform repository name. Must match .github/workflows/deploy-dataform.yml env.REPOSITORY"
   type        = string
