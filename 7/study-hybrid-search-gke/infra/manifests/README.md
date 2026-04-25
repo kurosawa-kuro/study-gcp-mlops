@@ -8,7 +8,7 @@
 
 ## ディレクトリ
 
-- `search-api/` — FastAPI サービス (Deployment / Service / HPA / Gateway / PodMonitoring / ConfigMap サンプル)
+- `search-api/` — FastAPI サービス (Deployment / Service / HPA / Gateway / PodMonitoring / ConfigMap サンプル / SecretStore / ExternalSecret)
 - `kserve/` — KServe InferenceService (encoder / reranker / reranker-explain) + PodMonitoring
 - `policies/` — namespace 境界ポリシー (`search-api` IAP / search namespace egress / kserve-inference ingress)
 - `kustomization.yaml` — 全リソースを一括 apply する Kustomize root
@@ -38,6 +38,7 @@ uv run python scripts/deploy/api_gke.py
 ## overlay が必要な箇所
 
 - `search-api/gateway.yaml` の `hostname` (実際の DNS 名)
+- `search-api/gateway.yaml` の `tls.certificateRefs` (`search-api-tls` Secret を参照。現状は Google-managed cert 自動化ではなく、Secret 配備または環境 overlay 前提)
 - `search-api/configmap.example.yaml` の `meili_base_url` (Meilisearch の Cloud Run URL)
 - `kserve/encoder.yaml` / `kserve/reranker.yaml` の `storageUri` / `image`
   (scripts/deploy/kserve_models.py が自動更新)

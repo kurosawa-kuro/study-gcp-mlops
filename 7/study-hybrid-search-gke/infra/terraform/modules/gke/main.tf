@@ -68,3 +68,9 @@ resource "google_service_account_iam_member" "reranker_wi" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${local.wi_principal}[${var.namespaces.inference}/${var.ksa_names.reranker}]"
 }
+
+resource "google_service_account_iam_member" "external_secrets_wi" {
+  service_account_id = var.service_accounts.external_secrets.name
+  role               = "roles/iam.workloadIdentityUser"
+  member = "serviceAccount:${local.wi_principal}[${var.namespaces.external_secrets}/${var.ksa_names.external_secrets}]"
+}

@@ -34,25 +34,29 @@ variable "service_accounts" {
 variable "namespaces" {
   description = "Kubernetes namespaces that will host Workload-Identity-bound KSAs"
   type = object({
-    search    = string
-    inference = string
+    search           = string
+    inference        = string
+    external_secrets = string
   })
   default = {
-    search    = "search"
-    inference = "kserve-inference"
+    search           = "search"
+    inference        = "kserve-inference"
+    external_secrets = "external-secrets"
   }
 }
 
 variable "ksa_names" {
   description = "Kubernetes ServiceAccount names per workload (bound to GCP SAs via Workload Identity)"
   type = object({
-    api      = string
-    encoder  = string
-    reranker = string
+    api              = string
+    encoder          = string
+    reranker         = string
+    external_secrets = string
   })
   default = {
-    api      = "search-api"
-    encoder  = "encoder"
-    reranker = "reranker"
+    api              = "search-api"
+    encoder          = "encoder"
+    reranker         = "reranker"
+    external_secrets = "external-secrets"
   }
 }

@@ -84,6 +84,52 @@ resource "helm_release" "cert_manager" {
   }
 }
 
+resource "helm_release" "external_secrets" {
+  name             = "external-secrets"
+  namespace        = "external-secrets"
+  create_namespace = true
+  repository       = "https://charts.external-secrets.io"
+  chart            = "external-secrets"
+  version          = var.external_secrets_chart_version
+
+  set {
+    name  = "installCRDs"
+    value = "true"
+  }
+
+  set {
+    name  = "scopedNamespace"
+    value = var.search_namespace
+  }
+
+  set {
+    name  = "scopedRBAC"
+    value = "true"
+  }
+
+  set {
+    name  = "processClusterStore"
+    value = "false"
+  }
+
+  set {
+    name  = "processClusterExternalSecret"
+    value = "false"
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = var.ksa_names.external_secrets
+  }
+
+  set {
+    name  = "serviceAccount.annotations.iam\\.gke\\.io/gcp-service-account"
+    value = var.service_accounts.external_secrets.email
+  }
+
+  depends_on = [helm_release.cert_manager]
+}
+
 # ----- KServe (RawDeployment mode — Knative 非依存) -----
 #
 # Phase 6 は Knative Serving を載せない RawDeployment (K8s Deployment +

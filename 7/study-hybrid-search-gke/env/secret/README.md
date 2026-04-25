@@ -14,7 +14,11 @@
 
 ## 本番環境との関係
 
-本番 (Cloud Run) は **Secret Manager** 経由で環境変数に注入される（`.github/workflows/deploy-api.yml` の `--set-secrets MEILI_MASTER_KEY=meili-master-key:latest` 参照）。
+本番は **Secret Manager** を正本とする。
+
+- Cloud Run `meili-search`: Secret Manager を直接参照
+- GKE `search-api`: External Secrets Operator が Secret Manager から K8s Secret `meili-master-key` を自動生成
+
 `credential.yaml` はローカル開発でのみ使われる。
 
 ## 形式
@@ -32,4 +36,4 @@ meili_master_key: "<your-meilisearch-master-key>"
 1. `BaseAppSettings` または派生 Settings に `secret_name: SecretStr = SecretStr("")` フィールドを追加
 2. `credential.yaml` に同名キーを flat YAML で追加
 3. 本番で必要なら `infra/terraform/modules/data/main.tf` に `google_secret_manager_secret` を追加し、
-   deploy workflow の `--set-secrets` に追記する
+   deploy workflow の `--set-secrets` または ExternalSecret manifest に追記する

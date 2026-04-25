@@ -45,6 +45,11 @@ resource "google_service_account" "pipeline_trigger" {
   display_name = "Vertex pipeline trigger runtime SA"
 }
 
+resource "google_service_account" "external_secrets" {
+  account_id   = "sa-external-secrets"
+  display_name = "External Secrets Operator controller SA"
+}
+
 # ----- Workload Identity Federation for GitHub Actions -----
 
 resource "google_iam_workload_identity_pool" "github" {
@@ -235,4 +240,3 @@ resource "google_project_iam_member" "endpoint_reranker_logging_writer" {
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.endpoint_reranker.email}"
 }
-

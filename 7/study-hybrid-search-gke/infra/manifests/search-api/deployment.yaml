@@ -48,11 +48,10 @@ spec:
                 configMapKeyRef:
                   name: search-api-config
                   key: meili_base_url
-            # Phase 7 Run 1 (B13): K8s Secret `meili-master-key` (search namespace)
-            # の `MEILI_MASTER_KEY` キーを env に注入。Secret は
-            # `kubectl create secret generic meili-master-key
-            # --from-literal=MEILI_MASTER_KEY=<key>` で別途投入する
-            # (env/secret/README.md 参照)。
+            # `meili-master-key` Secret は External Secrets Operator が
+            # GCP Secret Manager (`meili-master-key`) から `search`
+            # namespace に同期する。Pod は生成済み K8s Secret を読むだけに
+            # 留め、Secret Manager SDK を直接持たない。
             - name: MEILI_MASTER_KEY
               valueFrom:
                 secretKeyRef:

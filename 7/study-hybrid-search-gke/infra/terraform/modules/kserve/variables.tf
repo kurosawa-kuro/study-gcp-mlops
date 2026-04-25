@@ -10,6 +10,12 @@ variable "cert_manager_version" {
   default     = "v1.15.3"
 }
 
+variable "external_secrets_chart_version" {
+  description = "External Secrets Operator Helm chart version"
+  type        = string
+  default     = "2.2.0"
+}
+
 variable "knative_version" {
   description = "Knative Serving version (KServe Serverless mode prerequisite). Empty skips install."
   type        = string
@@ -31,9 +37,10 @@ variable "search_namespace" {
 variable "ksa_names" {
   description = "KSA names created in each namespace (bound to GCP SAs via Workload Identity annotation)"
   type = object({
-    api      = string
-    encoder  = string
-    reranker = string
+    api              = string
+    encoder          = string
+    reranker         = string
+    external_secrets = string
   })
 }
 

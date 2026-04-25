@@ -8,6 +8,8 @@ resources:
   - search-api/gateway.yaml
   - search-api/podmonitoring.yaml
   - search-api/configmap.example.yaml
+  - search-api/secretstore.yaml
+  - search-api/meili-master-key-externalsecret.yaml
   # KServe InferenceService
   - kserve/encoder.yaml
   - kserve/reranker.yaml

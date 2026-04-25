@@ -10,6 +10,7 @@ output "service_accounts" {
     endpoint_encoder  = google_service_account.endpoint_encoder
     endpoint_reranker = google_service_account.endpoint_reranker
     pipeline_trigger  = google_service_account.pipeline_trigger
+    external_secrets  = google_service_account.external_secrets
   }
 }
 

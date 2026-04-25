@@ -436,6 +436,12 @@ resource "google_secret_manager_secret_iam_member" "api_meili_master_key_access"
   member    = "serviceAccount:${var.service_accounts.api.email}"
 }
 
+resource "google_secret_manager_secret_iam_member" "external_secrets_meili_master_key_access" {
+  secret_id = google_secret_manager_secret.meili_master_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_accounts.external_secrets.email}"
+}
+
 # sa-job-train: read feature mart, write models + training_runs, read secrets.
 resource "google_bigquery_dataset_iam_member" "train_feature_viewer" {
   dataset_id = google_bigquery_dataset.feature_mart.dataset_id

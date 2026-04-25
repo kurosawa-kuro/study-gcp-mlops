@@ -116,6 +116,31 @@ def test_search_api_deployment_exposes_kserve_env_vars() -> None:
     )
 
 
+def test_search_api_secretstore_uses_gcpsm_provider() -> None:
+    store = _load(SEARCH_API_DIR / "secretstore.yaml")
+    assert store["apiVersion"].startswith("external-secrets.io/")
+    assert store["kind"] == "SecretStore"
+    assert store["metadata"]["namespace"] == "search"
+    assert "gcpsm" in store["spec"]["provider"]
+
+
+def test_search_api_external_secret_syncs_meili_master_key() -> None:
+    ext = _load(SEARCH_API_DIR / "meili-master-key-externalsecret.yaml")
+    assert ext["apiVersion"].startswith("external-secrets.io/")
+    assert ext["kind"] == "ExternalSecret"
+    assert ext["metadata"]["name"] == "meili-master-key"
+    assert ext["metadata"]["namespace"] == "search"
+    assert ext["spec"]["secretStoreRef"] == {"name": "gcp-secretmanager", "kind": "SecretStore"}
+    assert ext["spec"]["target"]["name"] == "meili-master-key"
+    data = ext["spec"]["data"]
+    assert data == [
+        {
+            "secretKey": "MEILI_MASTER_KEY",
+            "remoteRef": {"key": "meili-master-key"},
+        }
+    ]
+
+
 def test_search_api_deployment_probes_have_canonical_paths() -> None:
     """Pin the k8s probe contract for search-api Pods.
 

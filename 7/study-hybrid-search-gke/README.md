@@ -34,10 +34,10 @@ raw.properties (upstream ETL)
 
 | パス | 役割 |
 |---|---|
-| `infra/terraform/` | Terraform — `data` / `gke` / `iam` / `kserve` / `meilisearch` / `monitoring` / `runtime` / `slo` / `streaming` / `vertex` モジュール (BQ / GCS / Pub/Sub / GKE Autopilot / KServe Helm / Vertex Pipelines / Scheduler / WIF / SLO) |
-| `infra/manifests/` | K8s manifests — search-api 系 (Deployment / Service / Gateway / HPA / IAP-Policy / NetworkPolicy / PodMonitoring) + KServe 系 (encoder / reranker / reranker-explain / NetworkPolicy / PodMonitoring) + 統合 `kustomization.yaml` |
+| `infra/terraform/` | Terraform — `data` / `gke` / `iam` / `kserve` / `meilisearch` / `messaging` / `monitoring` / `slo` / `streaming` / `vertex` モジュール (BQ / GCS / Pub/Sub / GKE Autopilot / KServe Helm / Vertex Pipelines / Scheduler / WIF / SLO) |
+| `infra/manifests/` | K8s manifests — search-api 系 (Deployment / Service / Gateway / HPA / PodMonitoring / ConfigMap example) + KServe 系 (encoder / reranker / reranker-explain / PodMonitoring) + `policies/` (IAP / NetworkPolicy) + 統合 `kustomization.yaml` |
 | `pipeline/data_job/dataform/` | Dataform — `properties_cleaned` + `property_features_daily` + assertions + `monitoring/ranking_rank_diff_daily.sqlx` |
-| `app/` | FastAPI search-api。`composition_root.py` + `container/{infra,ml,search}.py` で DI、`api/{handlers,mappers,middleware,routes}/`、`services/{protocols,adapters,fakes}/`、`domain/`、`schemas/`、`settings/`、Jinja2 `templates/` + `static/` |
+| `app/` | FastAPI search-api。`composition_root.py` + `container/{infra,ml,search}.py` で DI、`api/{handlers,mappers,middleware,routes}/`、`services/{protocols,adapters,noop_adapters}/`、`domain/`、`schemas/`、`settings/`、Jinja2 `templates/` + `static/` |
 | `ml/{common,data,training,evaluation,registry,serving,streaming}/` | 共有コード + ML pipeline 部品 — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs。`registry`・`serving`・`streaming`・`training` は `ports/` + `adapters/` 構造 |
 | `pipeline/{data_job,training_job,evaluation_job,batch_serving_job,workflow}/` | KFP エントリポイント。`data_job` / `training_job` は `ports/` + `adapters/` + `components/` 構造、`workflow/` でコンパイル & 投入 |
 | `scripts/` | 運用コマンド群。`setup/` (deploy_all / destroy_all / tf_* / doctor / seed_minimal / setup_model_monitoring / create_schedule / upload_encoder_assets) / `deploy/` (api_gke / kserve_models / monitor) / `ops/` (livez / search / ranking / feedback / promote / vertex_* / slo_status 他) / `ci/` (layers / sync_dataform) / `bqml/` (train_popularity) / `enrichment/` (run_enrichment) / `sql/` (BQ 運用クエリ 4 本) |
