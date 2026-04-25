@@ -61,6 +61,31 @@ Phase 7 はもはや「DI 導入を試し始めた段階」ではない。以下
 - **scope の明文化**: singleton/request scope の境界、metrics/tracing の DI 管理、feature flag ごとの adapter 切替を設計として固定する
 - **plugin 化余地**: 今後の PMLE 機能追加で plugin architecture に寄せる選択肢がある
 
+### 1.0.3 残り作業の整理
+
+Port-Adapter-DI の**移行作業そのものは完了済み**である。現時点の残作業は、設計の穴埋めではなく **運用期の改善作業** に分類される。
+
+#### 直近で着手価値が高いもの
+
+- **ContainerBuilder 分割**: `app/composition_root.py` の factory 群を search/ml/infra 単位に分け、第二の `main.py` 化を防ぐ
+- **settings package 化**: API / training / embedding / deploy の設定責務を feature 単位で分離し、読み手の探索コストを下げる
+- **DI scope の明文化**: singleton / request scope / eager init 対象を文書とコードコメントで固定する
+- **observability の DI 管理**: metrics / tracing / structured logging の注入点を `Container` 配下に揃える
+
+#### 中期の伸びしろ
+
+- **Port 粒度の再整理**: Publisher 系 / query 系 Port が増える場合の facade 導入
+- **feature flag ベースの adapter 選択統一**: settings → adapter resolve 規約を helper 化
+- **plugin architecture 化**: PMLE 技術追加時に optional module として切り離せる構造へ進める
+
+#### 既に完了したため、残作業から外すもの
+
+- `make check` / `pytest` 実行
+- legacy HTTP test の container 前提化
+- fake / stale test の整理
+- FastAPI `on_event` deprecation 解消
+- W&B 依存の完全除去
+
 ### 1.1 制約
 
 - **トップレベルのフォルダ構成は変更しない**。`app/ ml/ pipeline/ scripts/ infra/ env/ monitoring/ docs/` は必須維持
@@ -477,7 +502,7 @@ done
 | A-2 FastAPI Depends 化 | ✅ | `app/api/dependencies.py`、handler は全 Depends 化。`request.app.state.getattr` 全廃 |
 | A-3 テスト fixture | ✅ | `tests/conftest.py` (root) に `fake_settings` / `fake_container_factory` / `fake_container` / `fake_app` / `fake_client` を新設。各 adapter 用 fixture (`fake_encoder` / `fake_reranker` / `fake_candidate_retriever` / `fake_ranking_log_publisher` / `fake_feedback_recorder` / `fake_search_cache` / `fake_retrain_queries` / `fake_retrain_publisher`) も提供 |
 | A-4 SDK lifecycle 集約 | ✅ | `GeminiGenerator.prepare()` / `VertexVectorSearchSemantic.prepare()` を新設し composition root から eager init。BQ client は ``ContainerBuilder._bigquery()`` で共有 (CandidateRetriever / SemanticSearch / RetrainQueries / PopularityScorer 全部) |
-| A 検証 | TODO | テスト・検証は別日 |
+| A 検証 | ✅ | `make check` green (`379 passed`)。legacy test / stale test 整理も完了 |
 | B-1 Protocol 分割 | ✅ | `candidate_retriever.py` を 3 Port + Domain Model 移送に分割 |
 | B-2 Adapter 分割 | ✅ | `kserve_prediction.py` を `_kserve_common.py` + `kserve_encoder.py` + `kserve_reranker.py` に。`candidate_retriever.py` を `_pubsub_diagnostics.py` + `bigquery_candidate_retriever.py` + `pubsub_ranking_log_publisher.py` + `pubsub_feedback_recorder.py` に。`semantic_search.py` を `bigquery_semantic_search.py` + `vertex_vector_search_semantic.py` に。旧 file は thin re-export shim で backward compat 維持 |
 | B-3 fakes/ 分離 | ✅ | `app/services/fakes/` 5 file。adapters/__init__.py から fake 系 export を transitional re-export 化 |
@@ -493,8 +518,129 @@ done
 | E-1 app/domain/ | ✅ | `Candidate` / `RankedCandidate` / `SearchFilters` / `SearchInput` / `SearchOutput` / `SearchResultItem` |
 | F-1 tests/fakes/ | ✅ | 12 件の test double を `tests/fakes/` に配置 (`StubEncoderClient` / `MockRerankerClient` / `InMemoryCandidateRetriever` / `InMemoryRankingLogPublisher` / `InMemoryFeedbackRecorder` / `InMemoryLexicalSearch` / `InMemorySemanticSearch` / `StubPopularityScorer` / `StubGenerator` / `StubRetrainQueries` / `MockPredictionPublisher` / `InMemoryCacheStore`)。命名規約 (`Stub*` 固定 / `Mock*` 呼び出し記録 / `InMemory*` 状態あり) を `__init__.py` で明文化 |
 | F-2 layers.py 自動化 | ✅ | `DIRECTORY_RULES` + `EXCLUSIONS` + `find_rules_for_file` + `discover_files` を実装。Port / Domain / Service / Handler / Mapper / Fake / `ml/<feature>/ports/` / `pipeline/<job>/ports/` を directory rule で網羅。`composition_root.py` / `app/main.py` / `tests/` は EXCLUSIONS。test_import_boundaries.py を `discover_files()` ベースに更新。`make check-layers` = **51 files clean** |
-| F-3 テスト追加 | ✅ | service 層 / handler HTTP / mapper / ml / pipeline で計 9 file 追加 (test_search_service / test_feedback_service / test_rag_service / test_search_handler_http / test_feedback_handler_http / test_health_handler / test_search_mapper / test_lightgbm_trainer_adapter / test_kfp_orchestrator)。実行は別日 (user 指示) |
+| F-3 テスト追加 | ✅ | service 層 / handler HTTP / mapper / ml / pipeline で計 9 file 追加 (test_search_service / test_feedback_service / test_rag_service / test_search_handler_http / test_feedback_handler_http / test_health_handler / test_search_mapper / test_lightgbm_trainer_adapter / test_kfp_orchestrator)。全体 `pytest` 実行まで完了 |
 | G-1 本ドキュメント更新 | ✅ | 進捗反映済 |
 | G-2 01_仕様と設計.md 更新 | ✅ | §4 を Port-Adapter-DI 章に書き換え |
 | G-3 03_実装カタログ.md 更新 | ✅ | §2.6 を新構造で書き直し、§2.3 / §2.4 に ports/adapters の新規行追加 |
 | G-4 CLAUDE.md 更新 | ✅ | "Port / Adapter / DI 境界と make check" を Container DI ベースに改訂 |
+
+---
+
+## §6. 次アクション
+
+移行は完了しているため、次の作業は **改善タスク** として扱う。
+
+### P0 維持改善
+
+1. `app/composition_root.py` を search / ml / infra builder に分割
+2. settings を feature 単位 package に整理
+3. DI scope (singleton / request) を文書化し、eager init 対象を固定
+
+### P1 設計の磨き込み
+
+1. observability (metrics / tracing) を `Container` 管理へ統一
+2. adapter resolve 規約を helper 化し、feature flag 分岐を局所化
+3. Port 粒度が過剰になった箇所で facade 化を検討
+
+### P2 将来拡張
+
+1. plugin architecture 化
+2. PMLE 機能追加時の optional module 切り出し
+3. `ContainerBuilder` の自動登録や provider pattern 導入可否の検討
+
+### 6.1 issue 粒度の分解
+
+以下は、そのまま issue に起こせる粒度まで落とした作業一覧。
+
+#### Issue 1: search / ml / infra builder への分割
+
+- 目的: `app/composition_root.py` の肥大化を止め、責務ごとの見通しを回復する
+- 変更対象:
+  - `app/composition_root.py`
+  - `app/container/` または `app/composition/` 配下の新規 module
+- 完了条件:
+  - search 系 factory (`_build_encoder_client`, `_build_reranker_client`, `_build_candidate_retriever`, `_build_search_cache`) が独立 module に移る
+  - ml / infra 系 factory も責務別に分かれる
+  - `ContainerBuilder.build()` は orchestration のみになる
+  - `make check` green
+
+#### Issue 2: adapter resolve 規約の helper 化
+
+- 目的: `if settings.enable_xxx` / `if backend == "vertex"` 分岐を factory 内へ散らさない
+- 変更対象:
+  - `app/composition_root.py`
+  - 新規 helper (`app/container/resolve.py` など)
+- 完了条件:
+  - backend 選択規約が helper 関数または selector class に集約される
+  - lexical / semantic / reranker / rag / cache の選択ルールが 1 箇所で読める
+  - handler / service 側に選択ロジックが漏れない
+
+#### Issue 3: settings package 化
+
+- 目的: `ApiSettings` / `TrainSettings` / `EmbedSettings` の責務境界を明確化する
+- 変更対象:
+  - `app/services/config.py`
+  - `ml/common/config/`
+  - 必要なら `settings/` package 新設
+- 完了条件:
+  - API / train / embed / deploy 系設定が feature 単位で整理される
+  - import 経路が単純になり、どの設定がどの runtime 用か判別できる
+  - `.env` / yaml / env var の優先順が文書化される
+
+#### Issue 4: DI scope の明文化
+
+- 目的: singleton / request scope / eager init の境界を実装と文書で固定する
+- 変更対象:
+  - `docs/01_仕様と設計.md`
+  - `docs/02_移行ロードマップ-Port-Adapter-DI.md`
+  - `app/composition_root.py`
+- 完了条件:
+  - 各 dependency が singleton / request / transient のどれか明記される
+  - eager init 対象 (`GeminiGenerator`, `VertexVectorSearchSemantic`, BQ client など) の理由が記載される
+  - test fixture との整合も説明される
+
+#### Issue 5: observability を Container 管理へ統一
+
+- 目的: metrics / tracing / structured logging の注入点を揃える
+- 変更対象:
+  - `app/composition_root.py`
+  - `app/api/middleware/`
+  - `ml/common/logging/`
+  - 必要なら observability 用 protocol / adapter
+- 完了条件:
+  - request logging / metrics / trace context の注入経路が一貫する
+  - `get_logger()` 直呼びと DI 注入の使い分け方針が定義される
+  - observability 機能の差し替え余地が確保される
+
+#### Issue 6: Port 粒度の棚卸し
+
+- 目的: Port の細かさが過剰になっていないかを整理する
+- 変更対象:
+  - `app/services/protocols/`
+  - `ml/*/ports/`
+  - `pipeline/*/ports/`
+- 完了条件:
+  - Publisher 系 / Query 系 / Predictor 系 Port の責務マップが作られる
+  - facade 化すべき候補と現状維持すべき候補が分類される
+  - 不要に細かい Port の統合案が文書化される
+
+#### Issue 7: plugin architecture の事前調査
+
+- 目的: PMLE 機能追加時に optional module 化できる境界を見定める
+- 変更対象:
+  - 設計文書中心
+  - 必要なら PoC 用 module
+- 完了条件:
+  - plugin 候補 (RAG / popularity / Agent Builder / streaming / monitoring) が列挙される
+  - core と optional の境界が定義される
+  - 実装着手前の判断材料が揃う
+
+### 6.2 推奨着手順
+
+1. Issue 1: builder 分割
+2. Issue 2: adapter resolve 規約の helper 化
+3. Issue 4: DI scope の明文化
+4. Issue 3: settings package 化
+5. Issue 5: observability の Container 管理
+6. Issue 6: Port 粒度の棚卸し
+7. Issue 7: plugin architecture の事前調査
