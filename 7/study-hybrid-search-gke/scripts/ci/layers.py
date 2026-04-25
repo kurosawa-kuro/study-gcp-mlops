@@ -86,6 +86,7 @@ DIRECTORY_RULES: dict[str, frozenset[str]] = {
     "app/api/middleware/": ADAPTER_BANS,
     # ml/<feature>/ports/ — every Port file is SDK-free
     "ml/training/ports/": ADAPTER_BANS | frozenset({"lightgbm"}),
+    "ml/training/experiments/ports/": ADAPTER_BANS | frozenset({"lightgbm"}),
     "ml/registry/ports/": ADAPTER_BANS,
     "ml/serving/ports/": ADAPTER_BANS,
     "ml/streaming/ports/": ADAPTER_BANS,

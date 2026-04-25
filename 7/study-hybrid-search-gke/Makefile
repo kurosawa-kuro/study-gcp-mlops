@@ -46,7 +46,7 @@ include ../../mk/base.mk
 export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
-        check-layers sync-dataform-config \
+        check-layers sync-dataform-config sync-configmap \
 	tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
 	setup-model-monitoring \
         setup-pipeline-schedule \
@@ -98,6 +98,9 @@ check: lint fmt-check typecheck test ## Run all CI-equivalent checks
 
 sync-dataform-config: ## Regenerate pipeline/data_job/dataform/workflow_settings.yaml
 	uv run python -m scripts.ci.sync_dataform
+
+sync-configmap: ## Regenerate infra/manifests/search-api/configmap.example.yaml from setting.yaml
+	uv run python -m scripts.ci.sync_configmap
 
 check-layers: ## AST-based layer boundary check (Ports / pure logic must not import concrete adapters or SDKs)
 	uv run python -m scripts.ci.layers
