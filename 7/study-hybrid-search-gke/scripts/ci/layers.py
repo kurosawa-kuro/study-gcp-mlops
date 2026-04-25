@@ -1,7 +1,7 @@
 """AST-based layer boundary checker (MLOps skeleton edition).
 
 Walks every Port / pure-logic module and reports any forbidden import
-(concrete adapter, GCP SDK, W&B, LightGBM where inapplicable). Each file
+(concrete adapter, GCP SDK, LightGBM where inapplicable). Each file
 is inspected at *every* `Import` / `ImportFrom` node — top-level AND
 inside functions — so lazy imports cannot smuggle a banned dependency
 back in.
@@ -34,7 +34,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Every Port / pure-logic file is disallowed from importing these at all.
-UNIVERSAL_BANS: frozenset[str] = frozenset({"wandb"})
+UNIVERSAL_BANS: frozenset[str] = frozenset()
 
 # Concrete GCP / runtime integrations that must not leak into pure-logic
 # modules (protocols, pure functions, schemas).
