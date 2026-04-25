@@ -29,6 +29,8 @@ import httpx
 
 from app.services.adapters._kserve_common import (
     extract_predictions,
+    is_v2_inference_url,
+    log_http_error_response,
     logger,
     response_summary,
     safe_json,
@@ -141,7 +143,7 @@ class KServeReranker:
         # - ``/v1/models/<name>:predict`` → Vertex CPR custom container (v1)。
         #   Phase 7 では `property-reranker-explain` Pod (TreeSHAP 付き) が v1 を
         #   採用しているので、v1 path は active な分岐 (legacy ではない)。
-        is_v2 = "/v2/models/" in self.endpoint_url
+        is_v2 = is_v2_inference_url(self.endpoint_url)
         if is_v2:
             n_rows = len(instances)
             n_cols = len(instances[0]) if instances else 0
@@ -180,16 +182,12 @@ class KServeReranker:
             raise
         elapsed_ms = (time.monotonic() - start) * 1000
         if response.status_code >= 400:
-            body_preview = response.text[:500]
-            logger.error(
-                "reranker.predict HTTP %d endpoint=%s batch=%d elapsed_ms=%.0f body[:500]=%r "
-                "head_instance=%s",
-                response.status_code,
-                self.endpoint_url,
-                len(instances),
-                elapsed_ms,
-                body_preview,
-                instances[0][:5] if instances and instances[0] else [],
+            log_http_error_response(
+                response,
+                where=f"reranker.predict batch={len(instances)}",
+                endpoint=self.endpoint_url,
+                elapsed_ms=elapsed_ms,
+                details=f"head_instance={instances[0][:5] if instances and instances[0] else []}",
             )
         response.raise_for_status()
         response_json = safe_json(response, where="reranker.predict")
@@ -212,23 +210,9 @@ class KServeReranker:
                 f"KServe reranker returned {len(predictions)} scores for "
                 f"{len(instances)} instances (expected equal)"
             )
-        scores: list[float] = []
-        for idx, prediction in enumerate(predictions):
-            if isinstance(prediction, dict):
-                for key in ("score", "prediction", "value"):
-                    if key in prediction:
-                        scores.append(float(prediction[key]))
-                        break
-                else:
-                    logger.error(
-                        "reranker response[%d] dict missing score payload. "
-                        "available_keys=%s (expected one of: score / prediction / value)",
-                        idx,
-                        sorted(prediction.keys()),
-                    )
-                    raise KeyError("KServe reranker response dict missing score payload")
-            else:
-                scores.append(float(prediction))
+        scores = [
+            self._coerce_score(prediction, idx=idx) for idx, prediction in enumerate(predictions)
+        ]
         logger.info(
             "reranker.predict OK endpoint=%s batch=%d scores=%d elapsed_ms=%.0f "
             "score_range=[%.4f, %.4f]",
@@ -273,7 +257,7 @@ class KServeReranker:
         # degrade して /search?explain=true を 200 で返し、運用者には
         # warn ログで「container を Vertex CPR に切り替えれば SHAP が出る」
         # ことを案内する (B18 と同パターン)。
-        is_v2 = "/v2/models/" in url
+        is_v2 = is_v2_inference_url(url)
         if is_v2 and not use_explain_route:
             scores = self.predict(instances)
             logger.warning(
@@ -318,15 +302,11 @@ class KServeReranker:
             raise
         elapsed_ms = (time.monotonic() - start) * 1000
         if response.status_code >= 400:
-            body_preview = response.text[:500]
-            logger.error(
-                "reranker.predict_with_explain HTTP %d url=%s batch=%d elapsed_ms=%.0f "
-                "body[:500]=%r",
-                response.status_code,
-                url,
-                len(instances),
-                elapsed_ms,
-                body_preview,
+            log_http_error_response(
+                response,
+                where=f"reranker.predict_with_explain batch={len(instances)}",
+                endpoint=url,
+                elapsed_ms=elapsed_ms,
             )
         response.raise_for_status()
         response_json = safe_json(response, where="reranker.predict_with_explain")
@@ -344,13 +324,10 @@ class KServeReranker:
                     response_summary(response_json),
                 )
                 raise
-            scores = []
-            for p in predictions:
-                if isinstance(p, dict):
-                    raw = p.get("score", p.get("value", 0.0))
-                    scores.append(float(raw) if raw is not None else 0.0)
-                else:
-                    scores.append(float(p))
+            scores = [
+                self._coerce_score(prediction, idx=idx)
+                for idx, prediction in enumerate(predictions)
+            ]
         if attributions is None:
             logger.warning(
                 "reranker.predict_with_explain url=%s batch=%d: response carries no "
@@ -372,3 +349,18 @@ class KServeReranker:
             elapsed_ms,
         )
         return scores, attributions
+
+    @staticmethod
+    def _coerce_score(prediction: Any, *, idx: int) -> float:
+        if isinstance(prediction, dict):
+            for key in ("score", "prediction", "value"):
+                if key in prediction:
+                    return float(prediction[key])
+            logger.error(
+                "reranker response[%d] dict missing score payload. "
+                "available_keys=%s (expected one of: score / prediction / value)",
+                idx,
+                sorted(prediction.keys()),
+            )
+            raise KeyError("KServe reranker response dict missing score payload")
+        return float(prediction)

@@ -21,6 +21,7 @@ logger = logging.getLogger("app.kserve_prediction")
 # fail later in the /search pipeline with an opaque "vector dimension mismatch"
 # error. Guard at encoder.embed time so the root cause is visible.
 EXPECTED_EMBEDDING_DIM = 768
+HTTP_BODY_PREVIEW_CHARS = 500
 
 
 def safe_json(response: httpx.Response, *, where: str) -> Any:
@@ -36,13 +37,14 @@ def safe_json(response: httpx.Response, *, where: str) -> Any:
     try:
         return response.json()
     except (json.JSONDecodeError, ValueError) as exc:
-        body_preview = response.text[:500] if response.text else ""
+        body_preview = response.text[:HTTP_BODY_PREVIEW_CHARS] if response.text else ""
         content_type = response.headers.get("content-type", "")
         logger.error(
-            "%s NON_JSON_RESPONSE status=%d content_type=%r body[:500]=%r exc=%s",
+            "%s NON_JSON_RESPONSE status=%d content_type=%r body[:%d]=%r exc=%s",
             where,
             response.status_code,
             content_type,
+            HTTP_BODY_PREVIEW_CHARS,
             body_preview,
             str(exc),
         )
@@ -53,6 +55,38 @@ def safe_json(response: httpx.Response, *, where: str) -> Any:
             f"Envoy/Istio emitting an HTML error page. "
             f"Check `kubectl -n kserve-inference get pods` and `kubectl logs`."
         ) from exc
+
+
+def log_http_error_response(
+    response: httpx.Response,
+    *,
+    where: str,
+    endpoint: str,
+    elapsed_ms: float,
+    details: str = "",
+) -> None:
+    """Emit a consistent preview log before ``raise_for_status``.
+
+    The adapters deliberately log the body preview first so upstream 4xx/5xx
+    failures remain triageable even when ``httpx`` raises a generic
+    ``HTTPStatusError``.
+    """
+    body_preview = response.text[:HTTP_BODY_PREVIEW_CHARS]
+    suffix = f" {details}" if details else ""
+    logger.error(
+        "%s HTTP %d endpoint=%s elapsed_ms=%.0f body[:%d]=%r%s",
+        where,
+        response.status_code,
+        endpoint,
+        elapsed_ms,
+        HTTP_BODY_PREVIEW_CHARS,
+        body_preview,
+        suffix,
+    )
+
+
+def is_v2_inference_url(url: str) -> bool:
+    return "/v2/models/" in url
 
 
 def coerce_float_list(value: Any, *, field_name: str) -> list[float]:

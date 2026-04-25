@@ -21,6 +21,14 @@ from app.services.protocols import CacheStore, CandidateRetriever, EncoderClient
 from app.services.protocols.reranker_client import RerankerClient
 from app.settings import ApiSettings
 
+EXPECTED_KSERVE_ENCODER_URL = (
+    "http://property-encoder-predictor.kserve-inference.svc.cluster.local/predict"
+)
+EXPECTED_KSERVE_RERANKER_URL = (
+    "http://property-reranker-predictor.kserve-inference.svc.cluster.local"
+    "/v2/models/property-reranker/infer"
+)
+
 
 class SearchBuilderContext(Protocol):
     _settings: ApiSettings
@@ -144,8 +152,8 @@ class SearchBuilder:
             self._logger.warning(
                 "ENABLE_SEARCH=true but KSERVE_ENCODER_URL is empty — encoder client DISABLED. "
                 "Check infra/manifests/search-api/deployment.yaml env `KSERVE_ENCODER_URL`. "
-                "Expected cluster-local: "
-                "http://property-encoder-predictor.kserve-inference.svc.cluster.local/predict"
+                "Expected cluster-local: %s",
+                EXPECTED_KSERVE_ENCODER_URL,
             )
             return None, None
         try:
@@ -176,9 +184,8 @@ class SearchBuilder:
         if not settings.kserve_reranker_url:
             self._logger.warning(
                 "ENABLE_RERANK=true but KSERVE_RERANKER_URL is empty — reranker client DISABLED. "
-                "Expected cluster-local: "
-                "http://property-reranker-predictor.kserve-inference.svc.cluster.local"
-                "/v2/models/property-reranker/infer"
+                "Expected cluster-local: %s",
+                EXPECTED_KSERVE_RERANKER_URL,
             )
             return None, None
         try:

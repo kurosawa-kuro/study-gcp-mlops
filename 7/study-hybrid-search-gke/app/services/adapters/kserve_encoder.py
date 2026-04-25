@@ -20,6 +20,7 @@ from app.services.adapters._kserve_common import (
     EXPECTED_EMBEDDING_DIM,
     coerce_float_list,
     extract_predictions,
+    log_http_error_response,
     logger,
     response_summary,
     safe_json,
@@ -79,14 +80,11 @@ class KServeEncoder:
         elapsed_ms = (time.monotonic() - start) * 1000
         if response.status_code >= 400:
             # Phase 5 Run 6 の 422 再発を即座に検知するため status + body 先頭を dump
-            body_preview = response.text[:500]
-            logger.error(
-                "encoder.embed HTTP %d endpoint=%s kind=%s elapsed_ms=%.0f body[:500]=%r",
-                response.status_code,
-                self.endpoint_url,
-                kind,
-                elapsed_ms,
-                body_preview,
+            log_http_error_response(
+                response,
+                where=f"encoder.embed kind={kind}",
+                endpoint=self.endpoint_url,
+                elapsed_ms=elapsed_ms,
             )
         response.raise_for_status()
         response_json = safe_json(response, where="encoder.embed")
