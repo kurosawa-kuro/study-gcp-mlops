@@ -264,6 +264,25 @@ class KServeReranker:
             return [], []
         url = self.explain_url or self.endpoint_url
         use_explain_route = self.explain_url is not None
+        # KServe MLServer (LightGBM stock runtime) は v2 protocol のみで、
+        # TreeSHAP attribution を返すフックは持たない (B19 Phase 7 Run 2
+        # 検証で /v2/models/<name>/infer に v1 explain payload を送ると
+        # 422 Unprocessable Entity になることを確認済)。endpoint URL に
+        # ``/v2/models/`` が含まれる場合は v2 払い + 空 attributions に
+        # degrade して /search?explain=true を 200 で返し、運用者には
+        # warn ログで「container を Vertex CPR に切り替えれば SHAP が出る」
+        # ことを案内する (B18 と同パターン)。
+        is_v2 = "/v2/models/" in url
+        if is_v2 and not use_explain_route:
+            scores = self.predict(instances)
+            logger.warning(
+                "reranker.predict_with_explain url=%s batch=%d: KServe MLServer v2 "
+                "stock runtime does not support attributions — returning empty dicts. "
+                "Wire `explain_url` to a Vertex CPR `/explain` route to get TreeSHAP.",
+                url,
+                len(instances),
+            )
+            return scores, [{} for _ in instances]
         if use_explain_route:
             # Dedicated /explain route (Phase 6 Vertex CPR custom server): body
             # is {instances, feature_names}, response is {attributions}. We

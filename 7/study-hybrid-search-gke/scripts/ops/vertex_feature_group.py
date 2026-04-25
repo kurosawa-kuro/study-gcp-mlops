@@ -31,6 +31,7 @@ def main() -> int:
     try:
         from google.cloud.aiplatform_v1beta1 import (
             FeatureOnlineStoreServiceClient,
+            FeatureViewDataKey,
             FetchFeatureValuesRequest,
         )
     except ImportError:
@@ -44,7 +45,7 @@ def main() -> int:
     client = FeatureOnlineStoreServiceClient()
     req = FetchFeatureValuesRequest(
         feature_view=parent,
-        data_key=FetchFeatureValuesRequest.DataKey(key=property_id),
+        data_key=FeatureViewDataKey(key=property_id),
     )
     try:
         resp = client.fetch_feature_values(request=req)

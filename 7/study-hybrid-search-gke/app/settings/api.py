@@ -43,8 +43,15 @@ class ApiSettings(BaseAppSettings):
 
     # --- Phase 6 T6 — RAG via Gemini ----------------------------------------
     enable_rag: bool = False
-    gemini_model_name: str = "gemini-1.5-flash"
+    # Phase 7 Run 2 検証で `gemini-1.5-flash` が ``asia-northeast1`` で 404 になる
+    # ことを確認 (deprecated/region 不在)。current GA model に切替え済。
+    gemini_model_name: str = "gemini-2.5-flash"
     gemini_temperature: float = 0.2
+    # Gemini 2.5-flash は内部 reasoning に "thinking tokens" を消費する
+    # (Phase 7 Run 2 で 509 thoughts / 512 budget で finish_reason=MAX_TOKENS
+    # になる事象を確認)。512 では実出力が出ないので 2048 を default にし、
+    # 旧モデル運用時は ``GEMINI_MAX_OUTPUT_TOKENS=512`` で env override 可能。
+    gemini_max_output_tokens: int = 2048
 
     # --- Phase 6 T1 — BQML popularity scorer --------------------------------
     bqml_popularity_enabled: bool = False

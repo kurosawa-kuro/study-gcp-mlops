@@ -64,7 +64,9 @@ class MlBuilder:
         except Exception:
             self._logger.exception("Failed to initialize Gemini generator for /rag")
             return None
-        return RagSummarizer(generator=generator)
+        return RagSummarizer(
+            generator=generator, max_output_tokens=settings.gemini_max_output_tokens
+        )
 
     def build_popularity_scorer(self) -> PopularityScorer | None:
         settings = self._settings

@@ -207,6 +207,46 @@ def test_kserve_reranker_predict_with_explain_empty_instances_short_circuits() -
     fake_client.post.assert_not_called()
 
 
+def test_kserve_reranker_predict_with_explain_v2_degrades_to_predict_only() -> None:
+    """Phase 7 B19 regression — KServe MLServer v2 stock LightGBM runtime
+    rejects ``parameters.explain=true`` (returns 422). The adapter must
+    detect the v2 URL and fall back to a plain v2 predict + empty
+    attribution dicts so ``/search?explain=true`` stays 200 instead of
+    propagating the 422 to the client.
+    """
+    # v2 predict response shape per Open Inference Protocol: outputs[].data is
+    # a flat float list (predictions extractor handles this for is_v2 path).
+    fake_client = _fake_httpx_client({"outputs": [{"name": "scores", "data": [0.5, 0.2]}]})
+
+    adapter = KServeReranker(
+        endpoint_url="http://r/v2/models/property-reranker/infer",
+        client=fake_client,
+    )
+    scores, attrs = adapter.predict_with_explain(
+        [[1.0, 2.0], [3.0, 4.0]], feature_names=["rent", "walk_min"]
+    )
+
+    # Exactly one POST: the v2 predict call (no explain payload sent).
+    fake_client.post.assert_called_once()
+    sent_json = fake_client.post.call_args.kwargs["json"]
+    # The v2 payload must NOT contain `parameters.explain` (rejected by stock LGBServer).
+    assert "parameters" not in sent_json
+    assert sent_json == {
+        "inputs": [
+            {
+                "name": "input-0",
+                "shape": [2, 2],
+                "datatype": "FP64",
+                "data": [1.0, 2.0, 3.0, 4.0],
+            }
+        ]
+    }
+    assert scores == [0.5, 0.2]
+    # Attributions degrade to empty dicts so ranking.py emits attributions=None
+    # per row (caller treats None as "explain unsupported by container").
+    assert attrs == [{}, {}]
+
+
 def test_kserve_reranker_satisfies_reranker_explainer_protocol() -> None:
     """Structural check matching ``ranking.py``'s ``hasattr(reranker,
     'predict_with_explain')`` gate: KServeReranker must expose both ``predict``
@@ -332,7 +372,15 @@ def test_kserve_reranker_predict_with_explain_logs_count_mismatch_and_degrades(
 
 
 def test_kserve_reranker_parses_v2_attributions_output() -> None:
-    """V2 Open Inference: attributions come back as a named output with dict-rows data."""
+    """V2 Open Inference: attributions come back as a named output with dict-rows data.
+
+    The stock KServe LightGBM runtime (``/v2/models/<name>/infer``) does
+    NOT return attributions — that's the B19 degrade path. But a custom
+    v2 server (Vertex CPR built on the OIP ``/explain`` endpoint) can,
+    and the ``_extract_attributions`` parser must handle the OIP shape.
+    Wire it via ``explain_url`` so the predict_with_explain dispatch
+    actually hits this path.
+    """
     fake_client = _fake_httpx_client(
         {
             "outputs": [
@@ -344,7 +392,14 @@ def test_kserve_reranker_parses_v2_attributions_output() -> None:
             ]
         }
     )
-    adapter = KServeReranker(endpoint_url="http://r/v2/models/m/infer", client=fake_client)
+    adapter = KServeReranker(
+        endpoint_url="http://r/v2/models/m/infer",
+        explain_url="http://r/v2/models/m/explain",
+        client=fake_client,
+    )
+    # Stub the follow-up scores fetch (predict route is a separate call when
+    # using explain_url; mock returns scalar predictions in v1 shape).
+    adapter.predict = lambda instances: [0.5]  # type: ignore[method-assign]
     scores, attrs = adapter.predict_with_explain([[1.0]], feature_names=["rent"])
 
     assert scores == [0.5]
