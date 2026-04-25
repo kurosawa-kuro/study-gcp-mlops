@@ -35,7 +35,7 @@ class InMemoryLexicalSearch(LexicalSearchPort):
 
 
 class _LexicalCall:
-    __slots__ = ("query", "filters", "top_k")
+    __slots__ = ("filters", "query", "top_k")
 
     def __init__(self, *, query: str, filters: dict[str, Any], top_k: int) -> None:
         self.query = query

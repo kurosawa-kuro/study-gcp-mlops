@@ -54,9 +54,7 @@ class RagService:
             lexical_backend="meili",
         )
         try:
-            output = self._search_service.search(
-                request_id=request_id, input=search_input
-            )
+            output = self._search_service.search(request_id=request_id, input=search_input)
         except SearchServiceUnavailable:
             raise
         summary = self._summarizer.summarize(

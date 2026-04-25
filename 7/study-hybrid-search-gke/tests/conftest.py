@@ -206,4 +206,5 @@ def fake_app(fake_container: Container) -> FastAPI:
 
 @pytest.fixture
 def fake_client(fake_app: FastAPI) -> TestClient:
-    return TestClient(fake_app)
+    with TestClient(fake_app) as client:
+        yield client

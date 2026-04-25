@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.templating import Jinja2Templates
@@ -51,7 +52,7 @@ def build_ui_router(*, app_root: Path) -> APIRouter:
     @router.get("/metrics")
     def metrics_ui(
         request: Request,
-        container: Container = Depends(get_container),
+        container: Annotated[Container, Depends(get_container)],
     ) -> object:
         settings = container.settings
         payload = {

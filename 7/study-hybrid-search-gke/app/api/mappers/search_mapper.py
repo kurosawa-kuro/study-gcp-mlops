@@ -17,6 +17,8 @@ from app.schemas.rag import RagRequest, RagResponse
 from app.schemas.search import (
     SearchRequest,
     SearchResponse,
+)
+from app.schemas.search import (
     SearchResultItem as SchemaSearchResultItem,
 )
 from app.services.rag_service import RagOutput
@@ -28,16 +30,21 @@ def _filters_from_pydantic(raw: dict[str, object]) -> SearchFilters:
     Skips ``None`` so ``total=False`` semantics hold (absent key ≠ None).
     """
     out: SearchFilters = {}
-    if raw.get("max_rent") is not None:
-        out["max_rent"] = int(raw["max_rent"])  # type: ignore[arg-type]
-    if raw.get("layout") is not None:
-        out["layout"] = str(raw["layout"])
-    if raw.get("max_walk_min") is not None:
-        out["max_walk_min"] = int(raw["max_walk_min"])  # type: ignore[arg-type]
-    if raw.get("pet_ok") is not None:
-        out["pet_ok"] = bool(raw["pet_ok"])
-    if raw.get("max_age") is not None:
-        out["max_age"] = int(raw["max_age"])  # type: ignore[arg-type]
+    max_rent = raw.get("max_rent")
+    if isinstance(max_rent, int):
+        out["max_rent"] = max_rent
+    layout = raw.get("layout")
+    if isinstance(layout, str):
+        out["layout"] = layout
+    max_walk_min = raw.get("max_walk_min")
+    if isinstance(max_walk_min, int):
+        out["max_walk_min"] = max_walk_min
+    pet_ok = raw.get("pet_ok")
+    if isinstance(pet_ok, bool):
+        out["pet_ok"] = pet_ok
+    max_age = raw.get("max_age")
+    if isinstance(max_age, int):
+        out["max_age"] = max_age
     return out
 
 

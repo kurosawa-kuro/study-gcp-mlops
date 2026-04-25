@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -17,8 +19,8 @@ router = APIRouter()
 @router.post("/rag", response_model=RagResponse)
 def rag(
     req: RagRequest,
-    service: RagService = Depends(get_rag_service),
-    request_id: str = Depends(get_request_id),
+    service: Annotated[RagService, Depends(get_rag_service)],
+    request_id: Annotated[str, Depends(get_request_id)],
 ) -> RagResponse | JSONResponse:
     try:
         output = service.summarize(

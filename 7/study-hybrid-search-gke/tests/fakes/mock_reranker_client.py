@@ -44,9 +44,7 @@ class MockRerankerClient:
         instances: list[list[float]],
         feature_names: list[str],
     ) -> tuple[list[float], list[dict[str, float]]]:
-        self.explain_calls.append(
-            ([list(row) for row in instances], list(feature_names))
-        )
+        self.explain_calls.append(([list(row) for row in instances], list(feature_names)))
         scores = self._scores(instances)
         per_feature_attr = 1.0 / max(1, len(feature_names))
         attributions = [

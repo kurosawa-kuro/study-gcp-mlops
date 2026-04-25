@@ -10,6 +10,7 @@ accept their collaborators by parameter, with type-safe resolution via
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 
@@ -32,19 +33,19 @@ def get_container(request: Request) -> Container:
 
 
 def get_search_service(
-    container: Container = Depends(get_container),
+    container: Annotated[Container, Depends(get_container)],
 ) -> SearchService:
     return container.search_service
 
 
 def get_feedback_service(
-    container: Container = Depends(get_container),
+    container: Annotated[Container, Depends(get_container)],
 ) -> FeedbackService:
     return container.feedback_service
 
 
 def get_rag_service(
-    container: Container = Depends(get_container),
+    container: Annotated[Container, Depends(get_container)],
 ) -> RagService:
     """Return RagService or raise 503 if ENABLE_RAG=False."""
     if container.rag_service is None:

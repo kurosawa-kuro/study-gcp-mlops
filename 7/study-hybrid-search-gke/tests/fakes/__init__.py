@@ -19,18 +19,18 @@ Each class implements exactly one Port and accepts plain Python types
 so individual tests can construct them inline without builders.
 """
 
-from .stub_encoder_client import StubEncoderClient
-from .mock_reranker_client import MockRerankerClient
+from .in_memory_cache_store import InMemoryCacheStore
 from .in_memory_candidate_retriever import InMemoryCandidateRetriever
-from .in_memory_ranking_log_publisher import InMemoryRankingLogPublisher
 from .in_memory_feedback_recorder import InMemoryFeedbackRecorder
 from .in_memory_lexical_search import InMemoryLexicalSearch
+from .in_memory_ranking_log_publisher import InMemoryRankingLogPublisher
 from .in_memory_semantic_search import InMemorySemanticSearch
-from .stub_popularity_scorer import StubPopularityScorer
-from .stub_generator import StubGenerator
-from .stub_retrain_queries import StubRetrainQueries
 from .mock_prediction_publisher import MockPredictionPublisher
-from .in_memory_cache_store import InMemoryCacheStore
+from .mock_reranker_client import MockRerankerClient
+from .stub_encoder_client import StubEncoderClient
+from .stub_generator import StubGenerator
+from .stub_popularity_scorer import StubPopularityScorer
+from .stub_retrain_queries import StubRetrainQueries
 
 __all__ = [
     "InMemoryCacheStore",

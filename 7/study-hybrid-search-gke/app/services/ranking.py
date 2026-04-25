@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from app.domain.candidate import Candidate, RankedCandidate
+from app.domain.search import SearchFilters
 from app.services.protocols.candidate_retriever import CandidateRetriever
 from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient, RerankerExplainer
@@ -30,10 +32,10 @@ DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
 # here for legacy callers (``rag_summarizer`` etc.); Phase D-1 sweeps these
 # into ``SearchService`` directly.
 __all__ = [
-    "Candidate",
     "DEFAULT_SEARCH_CACHE_TTL_SECONDS",
-    "RankedCandidate",
     "RRF_K",
+    "Candidate",
+    "RankedCandidate",
     "normalize_search_cache_key",
     "rrf_fuse",
     "run_search",
@@ -74,7 +76,7 @@ def run_search(
     request_id: str,
     query_text: str,
     query_vector: list[float],
-    filters: dict[str, Any],
+    filters: SearchFilters,
     top_k: int,
     reranker: RerankerClient | None = None,
     model_path: str | None = None,
@@ -172,8 +174,8 @@ def normalize_search_cache_key(*, query: str, filters: dict[str, Any], top_k: in
 
 def rrf_fuse(
     *,
-    lexical_results: list[tuple[str, int]],
-    semantic_results: list[tuple[str, int]],
+    lexical_results: Sequence[tuple[str, int]],
+    semantic_results: Sequence[tuple[str, int]],
     top_n: int,
     k: int = RRF_K,
 ) -> list[str]:

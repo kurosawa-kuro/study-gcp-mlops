@@ -10,8 +10,8 @@ import pytest
 
 pytest.importorskip("kfp")
 
-from pipeline.training_job.adapters import KFPOrchestrator  # noqa: E402
-from pipeline.training_job.ports import (  # noqa: E402
+from pipeline.training_job.adapters import KFPOrchestrator
+from pipeline.training_job.ports import (
     PipelineComponent,
     PipelineComponentRef,
     PipelineOrchestrator,

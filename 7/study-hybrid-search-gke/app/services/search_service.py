@@ -80,8 +80,7 @@ class SearchService:
         retriever = self._pick_retriever(input.lexical_backend)
         if retriever is None:
             raise SearchServiceUnavailable(
-                f"/search?lexical={input.lexical_backend} unavailable "
-                "(retriever not configured)"
+                f"/search?lexical={input.lexical_backend} unavailable (retriever not configured)"
             )
         if self._encoder is None:
             raise SearchServiceUnavailable(
@@ -100,9 +99,7 @@ class SearchService:
         if self._cache is not None and not input.explain:
             cached = self._cache.get(cache_key)
             if cached is not None:
-                cached_items = [
-                    SearchResultItem(**dict(item)) for item in cached["results"]
-                ]
+                cached_items = [SearchResultItem(**dict(item)) for item in cached["results"]]
                 return SearchOutput(
                     request_id=request_id,
                     items=cached_items,
@@ -117,7 +114,7 @@ class SearchService:
             request_id=request_id,
             query_text=input.query,
             query_vector=query_vector,
-            filters=dict(input.filters),
+            filters=input.filters,
             top_k=input.top_k,
             reranker=self._reranker,
             model_path=self.reranker_model_path,
@@ -191,14 +188,19 @@ def filters_from_dict(raw: dict[str, object]) -> SearchFilters:
     Mypy happy and surfaces unexpected keys.
     """
     out: SearchFilters = {}
-    if "max_rent" in raw and raw["max_rent"] is not None:
-        out["max_rent"] = int(raw["max_rent"])  # type: ignore[arg-type]
-    if "layout" in raw and raw["layout"] is not None:
-        out["layout"] = str(raw["layout"])
-    if "max_walk_min" in raw and raw["max_walk_min"] is not None:
-        out["max_walk_min"] = int(raw["max_walk_min"])  # type: ignore[arg-type]
-    if "pet_ok" in raw and raw["pet_ok"] is not None:
-        out["pet_ok"] = bool(raw["pet_ok"])
-    if "max_age" in raw and raw["max_age"] is not None:
-        out["max_age"] = int(raw["max_age"])  # type: ignore[arg-type]
+    max_rent = raw.get("max_rent")
+    if isinstance(max_rent, int):
+        out["max_rent"] = max_rent
+    layout = raw.get("layout")
+    if isinstance(layout, str):
+        out["layout"] = layout
+    max_walk_min = raw.get("max_walk_min")
+    if isinstance(max_walk_min, int):
+        out["max_walk_min"] = max_walk_min
+    pet_ok = raw.get("pet_ok")
+    if isinstance(pet_ok, bool):
+        out["pet_ok"] = pet_ok
+    max_age = raw.get("max_age")
+    if isinstance(max_age, int):
+        out["max_age"] = max_age
     return out

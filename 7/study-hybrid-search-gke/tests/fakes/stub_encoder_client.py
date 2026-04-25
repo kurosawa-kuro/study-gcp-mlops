@@ -35,7 +35,7 @@ class StubEncoderClient(EncoderClient):
 
 
 class _EncoderCall:
-    __slots__ = ("text", "kind")
+    __slots__ = ("kind", "text")
 
     def __init__(self, *, text: str, kind: str) -> None:
         self.text = text

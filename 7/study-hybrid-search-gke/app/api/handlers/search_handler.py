@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
@@ -16,10 +18,10 @@ router = APIRouter()
 @router.post("/search", response_model=SearchResponse)
 def search(
     req: SearchRequest,
+    service: Annotated[SearchService, Depends(get_search_service)],
+    request_id: Annotated[str, Depends(get_request_id)],
     explain: bool = Query(False, description="Include TreeSHAP attributions per item"),
     lexical: str = Query("meili", description="Lexical backend: meili|agent_builder"),
-    service: SearchService = Depends(get_search_service),
-    request_id: str = Depends(get_request_id),
 ) -> SearchResponse | JSONResponse:
     try:
         output = service.search(

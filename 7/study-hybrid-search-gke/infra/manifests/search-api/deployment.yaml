@@ -28,12 +28,10 @@ spec:
           resources:
             requests:
               cpu: "500m"
-              memory: "2Gi"
-              ephemeral-storage: "2Gi"
+              memory: "1Gi"
             limits:
               cpu: "2"
-              memory: "4Gi"
-              ephemeral-storage: "2Gi"
+              memory: "2Gi"
           env:
             - name: PROJECT_ID
               valueFrom:

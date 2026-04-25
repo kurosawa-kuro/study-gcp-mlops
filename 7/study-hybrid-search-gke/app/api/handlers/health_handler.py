@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -18,7 +20,7 @@ def healthz() -> dict[str, str]:
 
 
 @router.get("/readyz")
-def readyz(container: Container = Depends(get_container)) -> JSONResponse:
+def readyz(container: Annotated[Container, Depends(get_container)]) -> JSONResponse:
     if container.candidate_retriever is None or container.encoder_client is None:
         return JSONResponse({"status": "loading"}, status_code=503)
     return JSONResponse(

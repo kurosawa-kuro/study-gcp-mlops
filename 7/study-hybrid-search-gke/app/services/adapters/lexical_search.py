@@ -12,6 +12,7 @@ import httpx
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
+from app.domain.search import SearchFilters
 from app.services.protocols._types import LexicalResult
 from app.services.protocols.lexical_search import LexicalSearchPort
 from ml.common import get_logger
@@ -40,7 +41,7 @@ class MeilisearchLexical(LexicalSearchPort):
         self,
         *,
         query: str,
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
     ) -> list[LexicalResult]:
         headers: dict[str, str] = {"content-type": "application/json"}
@@ -89,7 +90,7 @@ class MeilisearchLexical(LexicalSearchPort):
         return out
 
 
-def _to_meili_filter(filters: dict[str, Any]) -> str | None:
+def _to_meili_filter(filters: SearchFilters) -> str | None:
     clauses: list[str] = []
     max_rent = filters.get("max_rent")
     if max_rent is not None:

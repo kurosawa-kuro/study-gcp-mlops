@@ -7,11 +7,10 @@ BigQuery joins on ``properties_cleaned`` + ``property_features_daily``.
 
 from __future__ import annotations
 
-from typing import Any
-
 from google.cloud import bigquery
 
 from app.domain.candidate import Candidate
+from app.domain.search import SearchFilters
 from app.services.adapters.semantic_search import BigQuerySemanticSearch
 from app.services.protocols.lexical_search import LexicalSearchPort
 from app.services.protocols.semantic_search import SemanticSearchPort
@@ -55,18 +54,21 @@ class BigQueryCandidateRetriever:
         self._features_table = features_table
         self._properties_table = properties_table
         self._client = client or bigquery.Client(project=project_id)
-        self._semantic: SemanticSearchPort = semantic or BigQuerySemanticSearch(
-            embeddings_table=embeddings_table,
-            properties_table=properties_table,
-            client=self._client,
-        )
+        if semantic is None:
+            self._semantic: SemanticSearchPort = BigQuerySemanticSearch(
+                embeddings_table=embeddings_table,
+                properties_table=properties_table,
+                client=self._client,
+            )
+        else:
+            self._semantic = semantic
 
     def retrieve(
         self,
         *,
         query_text: str,
         query_vector: list[float],
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
     ) -> list[Candidate]:
         lexical_results = self._lexical.search(query=query_text, filters=filters, top_k=200)
@@ -74,7 +76,9 @@ class BigQueryCandidateRetriever:
             query_vector=query_vector, filters=filters, top_k=200
         )
 
-        semantic_rank_pairs = [(pid, rank) for pid, rank, _ in semantic_results]
+        semantic_rank_pairs: list[tuple[str, int]] = [
+            (result.property_id, result.rank) for result in semantic_results
+        ]
         fused_ids = rrf_fuse(
             lexical_results=lexical_results,
             semantic_results=semantic_rank_pairs,
@@ -84,9 +88,9 @@ class BigQueryCandidateRetriever:
         if not fused_ids:
             return []
 
-        lexical_rank_map = {pid: rank for pid, rank in lexical_results}
-        semantic_rank_map = {pid: rank for pid, rank, _ in semantic_results}
-        me5_score_map = {pid: score for pid, _, score in semantic_results}
+        lexical_rank_map = {result.property_id: result.rank for result in lexical_results}
+        semantic_rank_map = {result.property_id: result.rank for result in semantic_results}
+        me5_score_map = {result.property_id: result.similarity for result in semantic_results}
         rrf_rank_map = {pid: rank for rank, pid in enumerate(fused_ids, start=1)}
 
         return self._enrich_from_bq(

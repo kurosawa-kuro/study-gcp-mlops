@@ -33,9 +33,7 @@ class InMemorySemanticSearch(SemanticSearchPort):
         top_k: int,
     ) -> list[SemanticResult]:
         self.calls.append(
-            _SemanticCall(
-                query_vector=list(query_vector), filters=dict(filters), top_k=top_k
-            )
+            _SemanticCall(query_vector=list(query_vector), filters=dict(filters), top_k=top_k)
         )
         out: list[SemanticResult] = []
         for idx, pid in enumerate(self._ranked_ids[:top_k], start=1):
@@ -45,11 +43,9 @@ class InMemorySemanticSearch(SemanticSearchPort):
 
 
 class _SemanticCall:
-    __slots__ = ("query_vector", "filters", "top_k")
+    __slots__ = ("filters", "query_vector", "top_k")
 
-    def __init__(
-        self, *, query_vector: list[float], filters: dict[str, Any], top_k: int
-    ) -> None:
+    def __init__(self, *, query_vector: list[float], filters: dict[str, Any], top_k: int) -> None:
         self.query_vector = query_vector
         self.filters = filters
         self.top_k = top_k

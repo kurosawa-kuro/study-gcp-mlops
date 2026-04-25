@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.domain.search import SearchFilters
 from app.services.protocols._types import LexicalResult
 
 logger = logging.getLogger("app.agent_builder_lexical")
@@ -81,7 +82,7 @@ class AgentBuilderLexicalRetriever:
         self,
         *,
         query: str,
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
     ) -> list[LexicalResult]:
         import importlib
@@ -115,7 +116,7 @@ class AgentBuilderLexicalRetriever:
         return out
 
 
-def _build_filter(filters: dict[str, Any]) -> str:
+def _build_filter(filters: SearchFilters) -> str:
     """Translate SearchFilters into a Discovery Engine filter expression.
 
     Discovery Engine supports structured filters over indexed fields. Only

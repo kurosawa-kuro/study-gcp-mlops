@@ -39,7 +39,9 @@ class VertexModelRegistryAdapter(ModelRegistryPort):
             display_name=display_name,
             artifact_uri=artifact_uri,
             serving_container_image_uri=(
-                "asia-northeast1-docker.pkg.dev/" + self._project + "/mlops/property-reranker:latest"
+                "asia-northeast1-docker.pkg.dev/"
+                + self._project
+                + "/mlops/property-reranker:latest"
             ),
             labels=labels or {},
         )

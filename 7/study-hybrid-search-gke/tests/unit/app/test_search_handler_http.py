@@ -8,7 +8,6 @@ fixture from ``tests/conftest.py``.
 from __future__ import annotations
 
 from app.domain.candidate import Candidate
-from tests.fakes import InMemoryCandidateRetriever
 
 
 def _candidate(property_id: str, lex: int, sem: int) -> Candidate:
@@ -49,9 +48,6 @@ def test_search_endpoint_503_when_retriever_unavailable(
 ) -> None:
     # Replace the container with one that has no candidate retriever.
     container = fake_app.state.container
-    new_container = type(container)(
-        **{**container.__dict__, "candidate_retriever": None}
-    )
     # Rebuild SearchService to reflect the missing retriever.
     from app.services.search_service import SearchService
 

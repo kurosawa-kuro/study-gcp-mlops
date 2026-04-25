@@ -8,10 +8,9 @@ shape).
 
 from __future__ import annotations
 
-from typing import Any
-
 from google.cloud import bigquery
 
+from app.domain.search import SearchFilters
 from app.services.protocols._types import SemanticResult
 
 
@@ -33,7 +32,7 @@ class BigQuerySemanticSearch:
         self,
         *,
         query_vector: list[float],
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
     ) -> list[SemanticResult]:
         query = f"""

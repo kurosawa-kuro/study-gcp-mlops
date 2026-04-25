@@ -1,8 +1,7 @@
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
-
-from app.services.config import ApiSettings
 
 
 class _FakeQueries:
@@ -39,12 +38,15 @@ class _RecordingTrigger:
 
 def test_check_retrain_does_nothing_when_fresh(app_with_search_stub):
     app = app_with_search_stub
-    app.state.settings = ApiSettings()
-    app.state.retrain_queries = _FakeQueries(feedback_rows=100, ndcg_now=0.80, ndcg_week_ago=0.80)
     trigger = _RecordingTrigger()
-    app.state.retrain_trigger_publisher = trigger
+    app.state.container = replace(
+        app.state.container,
+        retrain_queries=_FakeQueries(feedback_rows=100, ndcg_now=0.80, ndcg_week_ago=0.80),
+        retrain_trigger_publisher=trigger,
+    )
 
-    r = TestClient(app).post("/jobs/check-retrain")
+    with TestClient(app) as client:
+        r = client.post("/jobs/check-retrain")
     assert r.status_code == 200
     body = r.json()
     assert body["should_retrain"] is False
@@ -53,12 +55,15 @@ def test_check_retrain_does_nothing_when_fresh(app_with_search_stub):
 
 def test_check_retrain_publishes_when_feedback_threshold_exceeded(app_with_search_stub):
     app = app_with_search_stub
-    app.state.settings = ApiSettings()
-    app.state.retrain_queries = _FakeQueries(feedback_rows=20_000)  # > 10_000
     trigger = _RecordingTrigger()
-    app.state.retrain_trigger_publisher = trigger
+    app.state.container = replace(
+        app.state.container,
+        retrain_queries=_FakeQueries(feedback_rows=20_000),  # > 10_000
+        retrain_trigger_publisher=trigger,
+    )
 
-    r = TestClient(app).post("/jobs/check-retrain")
+    with TestClient(app) as client:
+        r = client.post("/jobs/check-retrain")
     assert r.status_code == 200
     body = r.json()
     assert body["should_retrain"] is True
@@ -69,12 +74,15 @@ def test_check_retrain_publishes_when_feedback_threshold_exceeded(app_with_searc
 
 def test_check_retrain_publishes_when_ndcg_drops(app_with_search_stub):
     app = app_with_search_stub
-    app.state.settings = ApiSettings()
-    app.state.retrain_queries = _FakeQueries(feedback_rows=0, ndcg_now=0.70, ndcg_week_ago=0.80)
     trigger = _RecordingTrigger()
-    app.state.retrain_trigger_publisher = trigger
+    app.state.container = replace(
+        app.state.container,
+        retrain_queries=_FakeQueries(feedback_rows=0, ndcg_now=0.70, ndcg_week_ago=0.80),
+        retrain_trigger_publisher=trigger,
+    )
 
-    r = TestClient(app).post("/jobs/check-retrain")
+    with TestClient(app) as client:
+        r = client.post("/jobs/check-retrain")
     body = r.json()
     assert body["should_retrain"] is True
     assert any(reason.startswith("ndcg_drop=") for reason in body["reasons"])

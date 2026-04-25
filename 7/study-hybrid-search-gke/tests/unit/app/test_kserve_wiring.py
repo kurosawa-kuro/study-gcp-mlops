@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.main import _build_encoder_client, _build_reranker_client
+from app.composition_root import ContainerBuilder
 from app.services.adapters import KServeEncoder, KServeReranker
 from app.services.config import ApiSettings
 
@@ -32,6 +32,14 @@ def _settings(**overrides: object) -> ApiSettings:
     }
     base.update(overrides)
     return ApiSettings(**base)  # type: ignore[arg-type]
+
+
+def _build_encoder_client(settings: ApiSettings):
+    return ContainerBuilder(settings)._build_encoder_client()
+
+
+def _build_reranker_client(settings: ApiSettings):
+    return ContainerBuilder(settings)._build_reranker_client()
 
 
 # ----------------------------------------------------------------------------

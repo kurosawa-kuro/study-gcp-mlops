@@ -16,7 +16,7 @@ class StubGenerator(Generator):
 
 
 class _GenerateCall:
-    __slots__ = ("prompt", "max_output_tokens")
+    __slots__ = ("max_output_tokens", "prompt")
 
     def __init__(self, *, prompt: str, max_output_tokens: int) -> None:
         self.prompt = prompt

@@ -8,11 +8,11 @@ from app.api.mappers.search_mapper import (
     to_rag_response,
     to_search_response,
 )
-from app.domain.candidate import RankedCandidate
-from app.domain.candidate import Candidate
+from app.domain.candidate import Candidate, RankedCandidate
 from app.domain.search import SearchOutput, SearchResultItem
 from app.schemas.rag import RagRequest
-from app.schemas.search import SearchFilters as SchemaFilters, SearchRequest
+from app.schemas.search import SearchFilters as SchemaFilters
+from app.schemas.search import SearchRequest
 from app.services.rag_service import RagOutput
 
 

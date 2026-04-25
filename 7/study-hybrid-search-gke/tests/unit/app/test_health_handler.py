@@ -24,9 +24,7 @@ def test_readyz_returns_ready_when_search_wired(fake_client) -> None:
 
 def test_readyz_returns_loading_when_retriever_missing(fake_client, fake_app) -> None:
     container = fake_app.state.container
-    new_container = type(container)(
-        **{**container.__dict__, "candidate_retriever": None}
-    )
+    new_container = type(container)(**{**container.__dict__, "candidate_retriever": None})
     fake_app.state.container = new_container
 
     response = fake_client.get("/readyz")

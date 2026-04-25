@@ -70,9 +70,7 @@ def _extract_attributions(
             )
         else:
             return [
-                {str(k): float(v) for k, v in row.items()}
-                for row in attrs
-                if isinstance(row, dict)
+                {str(k): float(v) for k, v in row.items()} for row in attrs if isinstance(row, dict)
             ] or None
     outputs = response_json.get("outputs")
     if isinstance(outputs, list):

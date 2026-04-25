@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+from app.services.search_service import SearchService
+
 
 def _search_payload() -> dict:
     return {
@@ -33,11 +37,29 @@ def _assert_feedback_shape(body: dict) -> None:
     assert body == {"accepted": True}
 
 
+def _replace_search_container(app, **updates: object) -> None:
+    container = replace(app.state.container, **updates)
+    container = replace(
+        container,
+        search_service=SearchService(
+            retriever_default=container.candidate_retriever,
+            retriever_alt=container.candidate_retriever_alt,
+            encoder=container.encoder_client,
+            publisher=container.ranking_log_publisher,
+            reranker=container.reranker_client,
+            popularity_scorer=container.popularity_scorer,
+            cache=container.search_cache,
+            cache_ttl_seconds=container.settings.search_cache_ttl_seconds,
+        ),
+    )
+    app.state.container = container
+
+
 def test_api_contract_readyz_returns_ok(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.get("/readyz")
+    with TestClient(app_with_search_stub) as client:
+        r = client.get("/readyz")
     assert r.status_code == 200
     assert r.json().get("status") == "ready"
 
@@ -63,11 +85,11 @@ def test_api_contract_search_result_item_required_fields(search_client) -> None:
 def test_api_contract_feedback_accepts_click(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.post(
-        "/feedback",
-        json={"request_id": "abc", "property_id": "P-001", "action": "click"},
-    )
+    with TestClient(app_with_search_stub) as client:
+        r = client.post(
+            "/feedback",
+            json={"request_id": "abc", "property_id": "P-001", "action": "click"},
+        )
     assert r.status_code == 200
     _assert_feedback_shape(r.json())
 
@@ -82,28 +104,27 @@ def test_api_contract_search_validation_error(search_client) -> None:
 def test_api_contract_feedback_rejects_unknown_action(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.post(
-        "/feedback",
-        json={"request_id": "abc", "property_id": "P-001", "action": "teleport"},
-    )
+    with TestClient(app_with_search_stub) as client:
+        r = client.post(
+            "/feedback",
+            json={"request_id": "abc", "property_id": "P-001", "action": "teleport"},
+        )
     assert r.status_code == 422
 
 
 def test_api_contract_feedback_validation_error(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    # Missing required field `property_id`.
-    r = client.post("/feedback", json={"request_id": "abc", "action": "click"})
+    with TestClient(app_with_search_stub) as client:
+        # Missing required field `property_id`.
+        r = client.post("/feedback", json={"request_id": "abc", "action": "click"})
     assert r.status_code == 422
 
 
 def test_api_contract_search_unavailable_behavior(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    # Phase 5 behavior: missing encoder endpoint client disables /search (503).
-    app_with_search_stub.state.encoder_client = None
-    client = TestClient(app_with_search_stub)
-    r = client.post("/search", json=_search_payload())
+    _replace_search_container(app_with_search_stub, encoder_client=None)
+    with TestClient(app_with_search_stub) as client:
+        r = client.post("/search", json=_search_payload())
     assert r.status_code == 503

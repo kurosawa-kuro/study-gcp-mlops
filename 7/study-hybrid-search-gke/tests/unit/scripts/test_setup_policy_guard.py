@@ -31,7 +31,7 @@ def test_setup_scripts_target_dev_terraform_environment() -> None:
     tf_plan = _read("scripts/setup/tf_plan.py")
 
     expected = (
-        'Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"'
+        'Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"'
     )
     assert expected in deploy_all
     assert expected in destroy_all

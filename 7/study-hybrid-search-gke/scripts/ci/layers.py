@@ -191,10 +191,7 @@ def find_violations(rel_path: str) -> list[Violation]:
         return [Violation(rel_path, 0, "<missing source file>", "")]
 
     rules = find_rules_for_file(rel_path)
-    if rules is None:
-        bans = UNIVERSAL_BANS
-    else:
-        bans = UNIVERSAL_BANS | rules
+    bans = UNIVERSAL_BANS if rules is None else UNIVERSAL_BANS | rules
 
     found: list[Violation] = []
     for line, imp in _imports_with_lines(path):

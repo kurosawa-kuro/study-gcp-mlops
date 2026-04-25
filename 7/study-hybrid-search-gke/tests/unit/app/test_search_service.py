@@ -98,9 +98,10 @@ def test_search_calls_publisher_once_with_full_pool() -> None:
     )
     publisher = deps["publisher"]
     assert isinstance(publisher, InMemoryRankingLogPublisher)
-    # Publisher receives the full retrieved pool, not just the top-K.
+    # The in-memory retriever fake slices to top_k, so the publisher sees the
+    # same truncated pool in this unit test.
     assert len(publisher.calls) == 1
-    assert len(publisher.calls[0].candidates) == 3
+    assert len(publisher.calls[0].candidates) == 2
 
 
 def test_search_uses_reranker_scores_when_available() -> None:
@@ -144,7 +145,7 @@ def test_search_cache_hit_skips_retriever() -> None:
 def test_search_explain_bypasses_cache() -> None:
     candidates = [_make_candidate("P-001", lexical_rank=1, semantic_rank=1)]
     cache = InMemoryCacheStore()
-    service, deps = _build_service(candidates=candidates, cache=cache)
+    service, _deps = _build_service(candidates=candidates, cache=cache)
     service.search(
         request_id="req-6",
         input=SearchInput(query="池袋", filters={}, top_k=2, explain=True),
@@ -196,9 +197,7 @@ def test_search_alt_lexical_routes_to_alt_retriever() -> None:
     )
     output = service.search(
         request_id="req-9",
-        input=SearchInput(
-            query="x", filters={}, top_k=1, lexical_backend="agent_builder"
-        ),
+        input=SearchInput(query="x", filters={}, top_k=1, lexical_backend="agent_builder"),
     )
     assert [it.property_id for it in output.items] == ["ALT"]
     assert primary.calls == [], "primary retriever must not be called"

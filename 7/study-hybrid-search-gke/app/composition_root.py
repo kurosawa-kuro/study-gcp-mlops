@@ -29,6 +29,7 @@ from app.services.adapters import (
     PubSubPublisher,
     PubSubRankingLogPublisher,
 )
+from app.services.config import ApiSettings
 from app.services.fakes import (
     InMemoryTTLCacheStore,
     NoopCacheStore,
@@ -36,7 +37,7 @@ from app.services.fakes import (
     NoopLexicalSearch,
     NoopRankingLogPublisher,
 )
-from app.services.config import ApiSettings
+from app.services.feedback_service import FeedbackService
 from app.services.protocols import (
     CacheStore,
     CandidateRetriever,
@@ -47,7 +48,6 @@ from app.services.protocols import (
     RankingLogPublisher,
     RerankerClient,
 )
-from app.services.feedback_service import FeedbackService
 from app.services.protocols.generator import Generator
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.protocols.retrain_queries import RetrainQueries
@@ -144,8 +144,7 @@ class ContainerBuilder:
     def build(self) -> Container:
         settings = self._settings
         training_runs_table = (
-            f"{settings.project_id}.{settings.bq_dataset_mlops}."
-            f"{settings.bq_table_training_runs}"
+            f"{settings.project_id}.{settings.bq_dataset_mlops}.{settings.bq_table_training_runs}"
         )
 
         retrain_trigger_publisher = self._build_retrain_publisher()
@@ -207,8 +206,7 @@ class ContainerBuilder:
             rag_service = None
 
         self._logger.info(
-            "Startup complete; search_enabled=%s rerank_enabled=%s rag_enabled=%s "
-            "model_path=%s",
+            "Startup complete; search_enabled=%s rerank_enabled=%s rag_enabled=%s model_path=%s",
             settings.enable_search,
             reranker_client is not None,
             rag_service is not None,
@@ -257,15 +255,13 @@ class ContainerBuilder:
         settings = self._settings
         if not settings.feedback_topic:
             return NoopFeedbackRecorder()
-        return PubSubFeedbackRecorder(
-            project_id=settings.project_id, topic=settings.feedback_topic
-        )
+        return PubSubFeedbackRecorder(project_id=settings.project_id, topic=settings.feedback_topic)
 
     def _build_candidate_retriever(
         self,
         *,
         override_lexical: LexicalSearchPort | None = None,
-    ) -> BigQueryCandidateRetriever:
+    ) -> CandidateRetriever:
         settings = self._settings
         embeddings_table = (
             f"{settings.project_id}.{settings.bq_dataset_feature_mart}."

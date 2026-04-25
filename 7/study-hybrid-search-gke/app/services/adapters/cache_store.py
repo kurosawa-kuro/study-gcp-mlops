@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.fakes import InMemoryTTLCacheStore, NoopCacheStore
 from app.services.protocols.cache_store import CacheStore
 
 
@@ -26,3 +27,10 @@ class MemorystoreRedisCacheStore(CacheStore):
 
     def set(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
         return None
+
+
+__all__ = [
+    "InMemoryTTLCacheStore",
+    "MemorystoreRedisCacheStore",
+    "NoopCacheStore",
+]

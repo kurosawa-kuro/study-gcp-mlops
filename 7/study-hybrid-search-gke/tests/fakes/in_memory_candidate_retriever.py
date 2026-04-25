@@ -40,7 +40,7 @@ class InMemoryCandidateRetriever(CandidateRetriever):
 
 
 class _RetrieveCall:
-    __slots__ = ("query_text", "query_vector", "filters", "top_k")
+    __slots__ = ("filters", "query_text", "query_vector", "top_k")
 
     def __init__(
         self,

@@ -14,6 +14,7 @@ from typing import Any
 
 from google.cloud import bigquery
 
+from app.domain.search import SearchFilters
 from app.services.protocols._types import SemanticResult
 
 
@@ -67,7 +68,7 @@ class VertexVectorSearchSemantic:
         self,
         *,
         query_vector: list[float],
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
     ) -> list[SemanticResult]:
         endpoint = self._matching_engine()
@@ -119,8 +120,6 @@ class VertexVectorSearchSemantic:
             if property_id not in kept:
                 continue
             similarity = 1.0 - cosine_distance
-            out.append(
-                SemanticResult(property_id=property_id, rank=rank, similarity=similarity)
-            )
+            out.append(SemanticResult(property_id=property_id, rank=rank, similarity=similarity))
             rank += 1
         return out

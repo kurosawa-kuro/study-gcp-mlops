@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_feedback_service
@@ -14,7 +16,7 @@ router = APIRouter()
 @router.post("/feedback", response_model=FeedbackResponse)
 def feedback(
     req: FeedbackRequest,
-    service: FeedbackService = Depends(get_feedback_service),
+    service: Annotated[FeedbackService, Depends(get_feedback_service)],
 ) -> FeedbackResponse:
     accepted = service.record(
         request_id=req.request_id,

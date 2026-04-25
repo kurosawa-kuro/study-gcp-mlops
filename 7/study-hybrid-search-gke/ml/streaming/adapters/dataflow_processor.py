@@ -29,5 +29,5 @@ class DataflowStreamProcessor(StreamProcessor):
             argv.append(f"--staging_location={config.staging_location}")
         if config.streaming:
             argv.append("--streaming")
-        result = run_beam(argv)
-        return str(result) if result is not None else "submitted"
+        run_beam(argv)
+        return "submitted"

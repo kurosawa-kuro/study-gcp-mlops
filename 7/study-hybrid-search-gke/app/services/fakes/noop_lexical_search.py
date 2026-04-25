@@ -7,8 +7,8 @@ falls back to semantic-only ordering.
 
 from __future__ import annotations
 
-from typing import Any
-
+from app.domain.search import SearchFilters
+from app.services.protocols._types import LexicalResult
 from app.services.protocols.lexical_search import LexicalSearchPort
 
 
@@ -17,7 +17,7 @@ class NoopLexicalSearch(LexicalSearchPort):
         self,
         *,
         query: str,
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
-    ) -> list[tuple[str, int]]:
+    ) -> list[LexicalResult]:
         return []

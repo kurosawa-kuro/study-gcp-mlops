@@ -17,30 +17,28 @@ from app.services.fakes import (
 
 from .bigquery_candidate_retriever import BigQueryCandidateRetriever
 from .cache_store import MemorystoreRedisCacheStore
-from .pubsub_feedback_recorder import PubSubFeedbackRecorder
-from .pubsub_ranking_log_publisher import PubSubRankingLogPublisher
 from .kserve_encoder import KServeEncoder
 from .kserve_reranker import KServeReranker
 from .lexical_search import MeilisearchLexical
 from .publisher import PubSubPublisher
+from .pubsub_feedback_recorder import PubSubFeedbackRecorder
+from .pubsub_ranking_log_publisher import PubSubRankingLogPublisher
 from .retrain import BigQueryRetrainQueries, create_retrain_queries
 
 __all__ = [
-    # Production adapters
     "BigQueryCandidateRetriever",
     "BigQueryRetrainQueries",
+    "InMemoryTTLCacheStore",
     "KServeEncoder",
     "KServeReranker",
     "MeilisearchLexical",
     "MemorystoreRedisCacheStore",
-    "PubSubFeedbackRecorder",
-    "PubSubPublisher",
-    "PubSubRankingLogPublisher",
-    "create_retrain_queries",
-    # Re-exported from app.services.fakes for backward compat (Phase B-3 transitional)
-    "InMemoryTTLCacheStore",
     "NoopCacheStore",
     "NoopFeedbackRecorder",
     "NoopLexicalSearch",
     "NoopRankingLogPublisher",
+    "PubSubFeedbackRecorder",
+    "PubSubPublisher",
+    "PubSubRankingLogPublisher",
+    "create_retrain_queries",
 ]

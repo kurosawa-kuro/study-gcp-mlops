@@ -23,11 +23,12 @@ def test_middleware_preserves_client_supplied_request_id(search_client) -> None:
 
 
 def test_middleware_request_id_matches_search_response(app_with_search_stub) -> None:
-    r = TestClient(app_with_search_stub).post(
-        "/search",
-        json={"query": "test", "top_k": 1},
-        headers={"x-request-id": "my-trace"},
-    )
+    with TestClient(app_with_search_stub) as client:
+        r = client.post(
+            "/search",
+            json={"query": "test", "top_k": 1},
+            headers={"x-request-id": "my-trace"},
+        )
     assert r.status_code == 200
     assert r.headers["x-request-id"] == "my-trace"
     assert r.json()["request_id"] == "my-trace"
