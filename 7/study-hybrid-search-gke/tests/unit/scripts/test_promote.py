@@ -1,12 +1,11 @@
 """Pin the Phase 7 promote contract.
 
-The Phase 7 ``deploy-kserve-models`` reads the ``production`` alias on
-each Vertex Model. ``scripts/ops/promote.py --mode=alias`` is the
-canonical way to set that alias. The Run 1 incident promoted a stale
-empty-URI version because the original promote script had no guard;
-these tests pin the new safety nets (explicit version selection,
-empty-artifact_uri detection, .bst rename) so a future refactor can't
-re-introduce the regression.
+``deploy-kserve-models`` reads the ``production`` alias on each Vertex
+Model; ``scripts/ops/promote.py`` is the canonical way to set that
+alias. The Run 1 incident promoted a stale empty-URI version because
+the original promote script had no guard; these tests pin the safety
+nets (explicit version selection, empty-artifact_uri detection,
+.bst rename) so a future refactor can't re-introduce the regression.
 """
 
 from __future__ import annotations
@@ -51,6 +50,37 @@ def _args(**kwargs: Any) -> argparse.Namespace:
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
+
+
+def test_resolve_display_name_uses_model_not_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the Model vs Endpoint display_name distinction.
+
+    Vertex *Models* are registered as ``property-{kind}`` (no ``-endpoint``
+    suffix); Vertex *Endpoint* shells are ``property-{kind}-endpoint``.
+    promote.py searches Models, so it must default to the no-suffix form.
+    A regression that swaps these would make ``ops-promote-*`` silently
+    return "no Model matched" against a populated registry.
+    """
+    monkeypatch.delenv("RERANKER_MODEL_DISPLAY_NAME", raising=False)
+    monkeypatch.delenv("ENCODER_MODEL_DISPLAY_NAME", raising=False)
+    assert promote_mod._resolve_display_name("reranker") == "property-reranker"
+    assert promote_mod._resolve_display_name("encoder") == "property-encoder"
+
+
+def test_resolve_display_name_env_override_uses_model_named_var(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The env override is named ``*_MODEL_DISPLAY_NAME`` (not ``*_ENDPOINT_*``).
+
+    Phase 5/6 ops used ``RERANKER_ENDPOINT_DISPLAY_NAME`` which read the
+    Endpoint display_name out of setting.yaml — pointed at a Model search
+    that string returns zero hits. Renaming makes the contract explicit;
+    this test pins it so we don't drift back.
+    """
+    monkeypatch.setenv("RERANKER_MODEL_DISPLAY_NAME", "custom-rr")
+    monkeypatch.setenv("ENCODER_MODEL_DISPLAY_NAME", "custom-enc")
+    assert promote_mod._resolve_display_name("reranker") == "custom-rr"
+    assert promote_mod._resolve_display_name("encoder") == "custom-enc"
 
 
 def test_select_version_picks_explicit_version_id() -> None:

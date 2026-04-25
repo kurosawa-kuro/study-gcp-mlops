@@ -49,9 +49,20 @@ def _log(msg: str) -> None:
 
 
 def _resolve_display_name(model_kind: str) -> str:
+    """Return the **Model Registry display_name** that ``aiplatform.Model.list``
+    filters on.
+
+    This is *not* the Endpoint display name (``property-*-endpoint``). The
+    distinction matters because the train pipeline registers Models with
+    ``model_display_name="property-reranker"`` / ``"property-encoder"``
+    (see ``pipeline/training_job/main.py``), while Terraform creates
+    Endpoint *shells* with the ``-endpoint`` suffix. Setting
+    ``RERANKER_ENDPOINT_DISPLAY_NAME`` (the old Phase 5/6 ops env) here
+    would silently match zero Models.
+    """
     return {
-        "reranker": env("RERANKER_ENDPOINT_DISPLAY_NAME", "property-reranker"),
-        "encoder": env("ENCODER_ENDPOINT_DISPLAY_NAME", "property-encoder"),
+        "reranker": env("RERANKER_MODEL_DISPLAY_NAME", "property-reranker"),
+        "encoder": env("ENCODER_MODEL_DISPLAY_NAME", "property-encoder"),
     }[model_kind]
 
 

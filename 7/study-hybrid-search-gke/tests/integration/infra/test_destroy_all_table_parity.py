@@ -87,13 +87,13 @@ def test_destroy_all_targets_do_not_reference_removed_tables() -> None:
 
 
 def test_ten_tables_baseline() -> None:
-    """Sanity: as of Phase 6 Run 2 we have 10 protected tables. This baseline
-    is advisory (not a hard contract) — if the count changes intentionally,
-    update this number so the next reader sees the canonical state.
+    """Sanity: Phase 7 currently protects 10 BQ tables under
+    ``deletion_protection=true``. Bump this number when adding a new
+    protected table so future readers see the canonical baseline.
     """
     destroy_tables = _destroy_all_targets()
     assert len(destroy_tables) == 10, (
-        f"Expected 10 protected BQ tables (Phase 6 Run 2 baseline), got "
+        f"Expected 10 protected BQ tables (Phase 7 current baseline), got "
         f"{len(destroy_tables)}: {sorted(destroy_tables)}. "
         "If the count changed intentionally, bump this baseline."
     )

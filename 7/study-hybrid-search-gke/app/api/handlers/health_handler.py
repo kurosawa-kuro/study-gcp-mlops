@@ -26,6 +26,10 @@ def readyz(container: Annotated[Container, Depends(get_container)]) -> JSONRespo
     return JSONResponse(
         {
             "status": "ready",
+            # Pin the SLO ``service`` label value so on-call can confirm which
+            # OTEL_SERVICE_NAME is in effect without scraping /metrics. Real
+            # consumer of ``Container.observability`` — keeps the DI seam alive.
+            "service": container.observability.service_name,
             "search_enabled": True,
             "rerank_enabled": container.reranker_client is not None,
             "model_path": container.model_path,

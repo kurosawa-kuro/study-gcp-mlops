@@ -12,6 +12,9 @@ from typing import Any
 from cachetools import TTLCache
 
 from app.services.protocols.cache_store import CacheStore
+from ml.common.logging import get_logger
+
+logger = get_logger("app.cache.in_memory")
 
 
 class InMemoryTTLCacheStore(CacheStore):
@@ -21,6 +24,11 @@ class InMemoryTTLCacheStore(CacheStore):
     adapter uses ``default_ttl_seconds`` as the source of truth and accepts
     the per-call ``ttl_seconds`` parameter for interface compatibility
     (the value is ignored — all entries expire after ``default_ttl_seconds``).
+
+    Cache failures are best-effort: ``get`` failure → cache miss (the
+    next call recomputes), ``set`` failure → next /search misses again.
+    Both are logged at WARN so silent degradation has a diagnostic
+    breadcrumb instead of vanishing entirely.
     """
 
     def __init__(self, *, maxsize: int = 2048, default_ttl_seconds: int = 120) -> None:
@@ -39,6 +47,7 @@ class InMemoryTTLCacheStore(CacheStore):
                     return None
                 return dict(value)
         except Exception:
+            logger.warning("cache.get failed key=%s — treating as miss", key, exc_info=True)
             return None
 
     def set(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
@@ -47,4 +56,5 @@ class InMemoryTTLCacheStore(CacheStore):
             with self._lock:
                 self._cache[key] = dict(value)
         except Exception:
+            logger.warning("cache.set failed key=%s — entry skipped", key, exc_info=True)
             return None

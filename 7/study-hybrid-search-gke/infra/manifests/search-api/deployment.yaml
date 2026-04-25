@@ -98,8 +98,13 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 30
           readinessProbe:
+            # /readyz は health_handler.py の readyz() で
+            # container.candidate_retriever と container.encoder_client が両方
+            # wired か確認する。readinessProbe を /livez (常時 200) に向けると
+            # Container 構築途中の Pod に kube-proxy がトラフィックを流し込み、
+            # /search が 503 / 500 を返してユーザに見える bug になる。
             httpGet:
-              path: /livez
+              path: /readyz
               port: http
             initialDelaySeconds: 10
             periodSeconds: 10

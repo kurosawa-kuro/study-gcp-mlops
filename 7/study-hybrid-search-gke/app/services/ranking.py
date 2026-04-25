@@ -23,7 +23,50 @@ from app.domain.search import SearchFilters
 from app.services.protocols.candidate_retriever import CandidateRetriever
 from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient, RerankerExplainer
+from ml.common.logging import get_logger
 from ml.data.feature_engineering import FEATURE_COLS_RANKER, build_ranker_features
+
+logger = get_logger("app.ranking")
+
+
+def _safe_publish_candidates(
+    publisher: RankingLogPublisher,
+    *,
+    request_id: str,
+    candidates: list[Candidate],
+    final_ranks: list[int],
+    scores: list[float | None],
+    model_path: str | None,
+) -> None:
+    """Publish ranking_log rows; swallow failures so /search keeps serving.
+
+    Adapter-level (``PubSubRankingLogPublisher.publish_candidates``)
+    raises with a loud ``log_publish_failure`` ERROR log + IAM hints
+    (Phase 6 Run 1 incident pattern). At the service-orchestration layer
+    we swallow so a Pub/Sub topic / IAM regression does not turn /search
+    into a 500 for end users — matching ``FeedbackService.record`` which
+    already treats publish as best-effort telemetry.
+
+    The ERROR log is still emitted by ``log_publish_failure`` so
+    operators see it; ranking_log just gets gaps until ops restores the
+    publish path.
+    """
+    try:
+        publisher.publish_candidates(
+            request_id=request_id,
+            candidates=candidates,
+            final_ranks=final_ranks,
+            scores=scores,
+            model_path=model_path,
+        )
+    except Exception:
+        logger.exception(
+            "ranking_log publish failed — continuing /search (request_id=%s, "
+            "candidates=%d). Adapter ERROR log carries the IAM / topic hint.",
+            request_id,
+            len(candidates),
+        )
+
 
 RRF_K: int = 60
 DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
@@ -101,7 +144,8 @@ def run_search(
         top_k=top_k,
     )
     if not candidates:
-        publisher.publish_candidates(
+        _safe_publish_candidates(
+            publisher,
             request_id=request_id,
             candidates=[],
             final_ranks=[],
@@ -126,7 +170,8 @@ def run_search(
         # publish in lexical (original) order so ranking_log matches the
         # candidates' `lexical_rank` column 1:1.
         scores_nullable: list[float | None] = list(scores)
-        publisher.publish_candidates(
+        _safe_publish_candidates(
+            publisher,
             request_id=request_id,
             candidates=candidates,
             final_ranks=[final_rank_by_index[i] for i in range(len(candidates))],
@@ -146,7 +191,8 @@ def run_search(
 
     # Fallback: rerank disabled or reranker missing.
     final_ranks = [c.lexical_rank for c in candidates]
-    publisher.publish_candidates(
+    _safe_publish_candidates(
+        publisher,
         request_id=request_id,
         candidates=candidates,
         final_ranks=final_ranks,

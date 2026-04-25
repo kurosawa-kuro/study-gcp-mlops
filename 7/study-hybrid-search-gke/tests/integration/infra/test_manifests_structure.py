@@ -106,17 +106,28 @@ def test_search_api_deployment_exposes_kserve_env_vars() -> None:
     )
 
 
-def test_search_api_deployment_readiness_probe_hits_livez_not_healthz() -> None:
-    """Knative/GFE reserved /healthz as HTML 404 in Phase 5; the app moved
-    liveness to /livez. Readiness probe must target /livez to avoid
-    regressing the GFE-reserved path in the GKE rollout.
+def test_search_api_deployment_probes_have_canonical_paths() -> None:
+    """Pin the k8s probe contract for search-api Pods.
+
+    - ``livenessProbe`` → ``/livez``: unconditional 200 — process is alive.
+      ``/healthz`` is a Cloud Run / GFE reserved name that returned HTML
+      404 in Phase 5, so we use ``/livez`` exclusively.
+    - ``readinessProbe`` → ``/readyz``: returns 503 until
+      ``container.candidate_retriever`` and ``container.encoder_client``
+      are both wired by ``ContainerBuilder.build()`` in lifespan. A
+      previous version of this test pinned readiness to ``/livez`` —
+      that locked in a real bug where kube-proxy would route traffic
+      to Pods whose Container was still being constructed, surfacing
+      503 / 500 to /search users.
     """
     dep = _load(SEARCH_API_DIR / "deployment.yaml")
     container = dep["spec"]["template"]["spec"]["containers"][0]
     readiness = container["readinessProbe"]["httpGet"]["path"]
     liveness = container["livenessProbe"]["httpGet"]["path"]
-    assert readiness == "/livez", f"readinessProbe must hit /livez (got {readiness!r})"
+    startup = container["startupProbe"]["httpGet"]["path"]
+    assert readiness == "/readyz", f"readinessProbe must hit /readyz (got {readiness!r})"
     assert liveness == "/livez", f"livenessProbe must hit /livez (got {liveness!r})"
+    assert startup == "/livez", f"startupProbe must hit /livez (got {startup!r})"
 
 
 # ----------------------------------------------------------------------------
