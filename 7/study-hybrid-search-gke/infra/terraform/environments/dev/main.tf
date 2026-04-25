@@ -64,6 +64,7 @@ module "vertex" {
   reranker_endpoint_id             = var.vertex_reranker_endpoint_id
   encoder_endpoint_display_name    = "property-encoder-endpoint"
   reranker_endpoint_display_name   = "property-reranker-endpoint"
+  enable_vertex_endpoint_shell     = var.enable_vertex_endpoint_shell
   retrain_trigger_topic_id         = module.runtime.retrain_trigger_topic.id
   retrain_trigger_topic_name       = module.runtime.retrain_trigger_topic.name
   enable_feature_online_store      = var.enable_feature_online_store

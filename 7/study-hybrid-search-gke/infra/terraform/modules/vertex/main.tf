@@ -318,7 +318,7 @@ resource "google_vertex_ai_feature_online_store_featureview" "property_features"
 # =========================================================================
 
 resource "google_vertex_ai_endpoint" "encoder" {
-  count = var.enable_endpoints ? 1 : 0
+  count = var.enable_vertex_endpoint_shell ? 1 : 0
 
   name         = "property-encoder-endpoint"
   display_name = var.encoder_endpoint_display_name
@@ -332,7 +332,7 @@ resource "google_vertex_ai_endpoint" "encoder" {
 # computed fields so we leave them out of the managed resource entirely.
 
 resource "google_vertex_ai_endpoint" "reranker" {
-  count = var.enable_endpoints ? 1 : 0
+  count = var.enable_vertex_endpoint_shell ? 1 : 0
 
   name         = "property-reranker-endpoint"
   display_name = var.reranker_endpoint_display_name

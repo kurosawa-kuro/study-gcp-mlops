@@ -93,6 +93,12 @@ variable "vertex_reranker_endpoint_id" {
   default     = ""
 }
 
+variable "enable_vertex_endpoint_shell" {
+  description = "When true, create empty Vertex AI Endpoint shells for encoder/reranker. Default false because Phase 7 serves via GKE + KServe."
+  type        = bool
+  default     = false
+}
+
 variable "gke_cluster_name" {
   description = "GKE Autopilot cluster name for Phase 7 serving"
   type        = string

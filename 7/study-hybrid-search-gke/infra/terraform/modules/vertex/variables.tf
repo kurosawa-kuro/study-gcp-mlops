@@ -93,8 +93,8 @@ variable "feature_online_store_id" {
   default     = "mlops_dev_feature_store"
 }
 
-variable "enable_endpoints" {
-  description = "When true, declare the encoder + reranker Vertex AI Endpoints. Model deployment still happens via the Python SDK."
+variable "enable_vertex_endpoint_shell" {
+  description = "When true, declare the encoder + reranker Vertex AI Endpoint shells. Default false in Phase 7 because serving runs on GKE + KServe; enable only when an empty endpoint scaffold is intentionally needed."
   type        = bool
-  default     = true
+  default     = false
 }

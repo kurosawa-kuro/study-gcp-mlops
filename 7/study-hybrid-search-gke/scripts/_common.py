@@ -8,8 +8,8 @@ DEFAULTS are loaded at import time from `env/config/setting.yaml` so the
 project-wide constants (project_id / region / api_service / training_job /
 artifact_repo / vertex_location / pipeline_root_bucket / pipeline_template_gcs_path)
 live in exactly one place. The YAML parser is a deliberately minimal
-hand-rolled flat-key:value reader to keep the stdlib-only promise
-(no PyYAML dependency).
+hand-rolled parser that supports only top-level flat key:value entries and
+block-style lists to keep the stdlib-only promise (no PyYAML dependency).
 """
 
 from __future__ import annotations
