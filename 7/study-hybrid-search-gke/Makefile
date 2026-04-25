@@ -233,8 +233,22 @@ ops-train-now: ## Submit train pipeline to Vertex AI
 ops-pipeline-run: ## Submit a pipeline manually: TARGET=embed|train PARAM='key=value'
 	uv run python -m pipeline.workflow.compile --target $${TARGET:-train} --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com $${PARAM:+--parameter $$PARAM}
 
-ops-promote-reranker: ## Print or apply reranker promotion plan: VERSION=vN APPLY=1
-	uv run python -m scripts.ops.promote reranker $${VERSION:-v1} $${APPLY:+--apply}
+ops-promote-reranker: ## Promote a reranker to `production` alias. Usage: MODEL_ID=N or VERSION_ID=N [BST_RENAME=1] [APPLY=1].
+	uv run python -m scripts.ops.promote reranker \
+	  $${MODE:+--mode=$${MODE}} \
+	  $${MODEL_ID:+--model-id=$${MODEL_ID}} \
+	  $${VERSION_ID:+--version-id=$${VERSION_ID}} \
+	  $${VERSION:+$${VERSION}} \
+	  $${BST_RENAME:+--bst-rename} \
+	  $${APPLY:+--apply}
+
+ops-promote-encoder: ## Promote an encoder to `production` alias. Usage: MODEL_ID=N or VERSION_ID=N [APPLY=1].
+	uv run python -m scripts.ops.promote encoder \
+	  $${MODE:+--mode=$${MODE}} \
+	  $${MODEL_ID:+--model-id=$${MODEL_ID}} \
+	  $${VERSION_ID:+--version-id=$${VERSION_ID}} \
+	  $${VERSION:+$${VERSION}} \
+	  $${APPLY:+--apply}
 
 ops-reload-api: ## Trigger a rolling restart of search-api Pods to re-read ConfigMap / model URIs
 	kubectl rollout restart deployment/search-api --namespace=search
@@ -276,3 +290,34 @@ bqml-train-popularity: ## Phase 6 T1: train BQML property-popularity model (BOOS
 
 enrich-properties: ## Phase 6 T8: run Gemini description enrichment (LIMIT=50 BATCH=10)
 	uv run python -m scripts.enrichment.run_enrichment --limit=$${LIMIT:-50} --batch-size=$${BATCH:-10}
+
+# ----- Vertex AI feature verification scripts (each ops target probes one Vertex
+# AI surface in isolation. ops-vertex-all chains them; individual ones are useful
+# when triaging which surface broke.)
+
+ops-vertex-models-list: ## Vertex Model Registry: list versions/aliases for encoder/reranker
+	uv run python -m scripts.ops.vertex_models_list
+
+ops-vertex-pipeline-status: ## Vertex Pipelines: list latest runs + state (LIMIT=10)
+	uv run python -m scripts.ops.vertex_pipeline_status
+
+ops-vertex-vector-search: ## Vertex Vector Search: probe deployed index with zero vector (TOP_K=5)
+	uv run python -m scripts.ops.vertex_vector_search
+
+ops-vertex-rag: ## Vertex Gemini RAG via /rag (QUERY=...)
+	uv run python -m scripts.ops.vertex_rag
+
+ops-vertex-explain: ## Vertex Explainable AI via /search?explain=true (assert non-empty attributions)
+	uv run python -m scripts.ops.vertex_explain
+
+ops-vertex-agent-builder: ## Vertex AI Search (Discovery Engine) direct query (QUERY=...)
+	uv run python -m scripts.ops.vertex_agent_builder
+
+ops-vertex-monitoring: ## Vertex Model Monitoring: read recent BQ alert rows (LIMIT=10)
+	uv run python -m scripts.ops.vertex_monitoring
+
+ops-vertex-feature-group: ## Vertex Feature Group: fetch online feature values for PROPERTY_ID=p001
+	uv run python -m scripts.ops.vertex_feature_group
+
+ops-vertex-all: ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-vector-search ops-vertex-explain ops-vertex-rag ops-vertex-agent-builder ops-vertex-monitoring ops-vertex-feature-group ## Run every Vertex AI smoke check in sequence
+	@echo "==> all Vertex AI smoke checks completed"

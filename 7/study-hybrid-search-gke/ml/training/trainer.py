@@ -169,6 +169,15 @@ def write_artifacts(result: RankTrainResult, *, output_dir: Path) -> RankTrainin
     model_path = output_dir / "model.txt"
     result.booster.save_model(str(model_path))
 
+    # KServe LGBServer (`kserve/lgbserver:v0.14`) only loads files ending
+    # in ``.bst`` (see ``MODEL_EXTENSIONS = ".bst"`` in lgbserver source).
+    # The byte content is identical to ``model.txt`` — LightGBM's text
+    # format works for both. Writing both side-by-side lets the same
+    # artifact_uri serve both the CLI / accuracy report (model.txt) and
+    # the KServe Pod (model.bst) without an extra promote-time copy.
+    bst_path = output_dir / "model.bst"
+    result.booster.save_model(str(bst_path))
+
     (output_dir / "metrics.json").write_text(json.dumps(result.metrics, indent=2))
 
     importances = result.booster.feature_importance(importance_type="gain")

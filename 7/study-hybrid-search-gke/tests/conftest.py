@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient
 
 from app.composition_root import Container
 from app.services.feedback_service import FeedbackService
+from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.search_service import SearchService
 from app.settings import ApiSettings
 from tests.fakes import (
@@ -167,6 +168,13 @@ def fake_container_factory(
             FeedbackService(recorder=defaults["feedback_recorder"]),
         )
         defaults.setdefault("rag_service", None)
+        defaults.setdefault(
+            "model_metrics_service",
+            ModelMetricsService(
+                search_service=defaults["search_service"],
+                default_cases_file=default_cases_path(),
+            ),
+        )
         return Container(**defaults)
 
     return _build

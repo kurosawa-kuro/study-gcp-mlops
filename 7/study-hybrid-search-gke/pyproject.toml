@@ -25,6 +25,7 @@ dependencies = [
     "numpy>=2.0",
     "google-cloud-pubsub>=2.23",
     "google-cloud-run>=0.10",
+    "prometheus-fastapi-instrumentator>=7.0",
     # --- ml serving / training ---
     "lightgbm>=4.5",
     "sentence-transformers>=3.0",

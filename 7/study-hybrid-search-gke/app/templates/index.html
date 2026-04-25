@@ -1,51 +1,159 @@
 {% extends "base.html" %}
 
-{% block title %}Predict · Phase5{% endblock %}
+{% block title %}検索 · ハイブリッド検索 Console{% endblock %}
 
 {% block content %}
-  <h1>Phase5 API Console</h1>
-  <p>Jinja2 + PicoCSS UI for Vertex-backed hybrid search endpoints.</p>
+  <hgroup>
+    <h1>不動産ハイブリッド検索</h1>
+    <p>クエリとフィルタを指定すると、Meilisearch (BM25) + BigQuery VECTOR_SEARCH (multilingual-e5) + LightGBM LambdaRank の 3 段で再ランクした上位物件を返します。</p>
+  </hgroup>
 
-  <section>
-    <h2>Search (POST /search)</h2>
-    <textarea id="search-json" rows="14">{{ search_payload | tojson(indent=2) }}</textarea>
-    <button id="search-btn">Run Search</button>
-  </section>
+  <article>
+    <h2>クエリ</h2>
+    <form id="search-form" onsubmit="event.preventDefault(); runSearch();">
+      <label>
+        自由文クエリ
+        <input id="q-query" type="text" value="{{ default_query }}" required>
+      </label>
+      <div class="grid">
+        <label>
+          家賃上限 (円)
+          <input id="q-max-rent" type="number" min="0" step="10000" value="{{ default_max_rent }}">
+        </label>
+        <label>
+          間取り
+          <input id="q-layout" type="text" placeholder="例: 1LDK">
+        </label>
+        <label>
+          上位件数 (top_k)
+          <input id="q-top-k" type="number" min="1" max="100" value="{{ default_top_k }}">
+        </label>
+      </div>
+      <fieldset>
+        <label><input id="q-pet-ok" type="checkbox"> ペット可のみ</label>
+        <label><input id="q-explain" type="checkbox"> 寄与度 (attributions) を取得</label>
+      </fieldset>
+      <button type="submit" id="search-btn">検索する</button>
+    </form>
+  </article>
 
-  <section>
-    <h2>Feedback (POST /feedback)</h2>
-    <textarea id="feedback-json" rows="8">{{ feedback_payload | tojson(indent=2) }}</textarea>
-    <button id="feedback-btn">Send Feedback</button>
-  </section>
+  <article id="result-card" hidden>
+    <h2>検索結果 <small id="result-meta"></small></h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>property_id</th><th>final_rank</th><th>lex</th><th>sem</th><th>me5_score</th><th>score (rerank)</th>
+        </tr>
+      </thead>
+      <tbody id="result-rows"></tbody>
+    </table>
+    <details>
+      <summary>API レスポンス JSON</summary>
+      <pre id="result-json"></pre>
+    </details>
+  </article>
 
-  <section>
-    <h2>Response</h2>
-    <pre id="result">{}</pre>
-  </section>
+  <article>
+    <h2>クリックフィードバック (POST /feedback)</h2>
+    <p><small>検索後、表内の <code>property_id</code> を選んでクリック / お気に入り / 問合わせを送れます。Pub/Sub → BQ への配信を確認できます。</small></p>
+    <form id="feedback-form" onsubmit="event.preventDefault(); sendFeedback();">
+      <div class="grid">
+        <label>
+          property_id
+          <input id="fb-pid" type="text" required>
+        </label>
+        <label>
+          action
+          <select id="fb-action">
+            <option value="click" selected>click</option>
+            <option value="favorite">favorite</option>
+            <option value="inquiry">inquiry</option>
+          </select>
+        </label>
+      </div>
+      <button type="submit">送信</button>
+    </form>
+    <pre id="fb-result"></pre>
+  </article>
+
 <script>
-  const resultEl = document.getElementById("result");
-  const show = (obj) => {
-    resultEl.textContent = JSON.stringify(obj, null, 2);
-  };
+  let lastRequestId = null;
 
-  async function callJson(url, payload) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const body = await res.json().catch(() => ({ error: "Invalid JSON response" }));
-    show({ status: res.status, body });
+  function getFilters() {
+    const filters = {};
+    const maxRent = parseInt(document.getElementById("q-max-rent").value, 10);
+    if (!Number.isNaN(maxRent)) filters.max_rent = maxRent;
+    const layout = document.getElementById("q-layout").value.trim();
+    if (layout) filters.layout = layout;
+    if (document.getElementById("q-pet-ok").checked) filters.pet_ok = true;
+    return filters;
   }
 
-  document.getElementById("search-btn").addEventListener("click", async () => {
-    const payload = JSON.parse(document.getElementById("search-json").value);
-    await callJson("/search", payload);
-  });
+  async function runSearch() {
+    const btn = document.getElementById("search-btn");
+    btn.setAttribute("aria-busy", "true");
+    const payload = {
+      query: document.getElementById("q-query").value,
+      filters: getFilters(),
+      top_k: parseInt(document.getElementById("q-top-k").value, 10) || 20,
+    };
+    const explain = document.getElementById("q-explain").checked;
+    const url = explain ? "/search?explain=true" : "/search";
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      document.getElementById("result-card").hidden = false;
+      lastRequestId = body.request_id || null;
+      document.getElementById("result-meta").textContent = `request_id=${lastRequestId} · status=${res.status} · ${(body.results || []).length} 件`;
+      document.getElementById("result-json").textContent = JSON.stringify(body, null, 2);
+      const tbody = document.getElementById("result-rows");
+      tbody.innerHTML = "";
+      (body.results || []).forEach((r, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td><code>${r.property_id}</code></td>
+          <td>${r.final_rank ?? ""}</td>
+          <td>${r.lexical_rank ?? ""}</td>
+          <td>${r.semantic_rank ?? ""}</td>
+          <td>${(r.me5_score ?? 0).toFixed(4)}</td>
+          <td>${r.score == null ? "<em>n/a</em>" : r.score.toFixed(4)}</td>
+        `;
+        tr.addEventListener("click", () => {
+          document.getElementById("fb-pid").value = r.property_id;
+        });
+        tbody.appendChild(tr);
+      });
+      const first = (body.results || [])[0];
+      if (first) document.getElementById("fb-pid").value = first.property_id;
+    } catch (err) {
+      document.getElementById("result-meta").textContent = `error: ${err}`;
+    } finally {
+      btn.removeAttribute("aria-busy");
+    }
+  }
 
-  document.getElementById("feedback-btn").addEventListener("click", async () => {
-    const payload = JSON.parse(document.getElementById("feedback-json").value);
-    await callJson("/feedback", payload);
-  });
+  async function sendFeedback() {
+    if (!lastRequestId) {
+      alert("まず検索を実行してください (request_id が必要)");
+      return;
+    }
+    const payload = {
+      request_id: lastRequestId,
+      property_id: document.getElementById("fb-pid").value,
+      action: document.getElementById("fb-action").value,
+    };
+    const res = await fetch("/feedback", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    document.getElementById("fb-result").textContent = JSON.stringify({status: res.status, body}, null, 2);
+  }
 </script>
 {% endblock %}

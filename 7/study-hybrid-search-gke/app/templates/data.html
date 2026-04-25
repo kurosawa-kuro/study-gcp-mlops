@@ -1,28 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}Data · Phase5{% endblock %}
+{% block title %}データ · ハイブリッド検索 Console{% endblock %}
 
 {% block content %}
-<h1>Payload Catalog</h1>
-<p>表示中 {{ rows|length }} / 全 {{ total }} 件</p>
-<figure>
-  <table>
-    <thead>
-      <tr>
-        {% for col in columns %}
-        <th>{{ col }}</th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        {% for col in columns %}
-        <td>{{ row[col] }}</td>
-        {% endfor %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</figure>
+  <hgroup>
+    <h1>モデル / データ サマリ</h1>
+    <p><code>GET /model/info</code> を呼び出し、現在 active な encoder / reranker と検索フラグの状態を表示します。</p>
+  </hgroup>
+
+  <article>
+    <button id="data-btn" type="button" onclick="loadInfo()">再読込</button>
+  </article>
+
+  <article id="data-card" hidden>
+    <h2>モデル情報</h2>
+    <table>
+      <tbody id="data-rows"></tbody>
+    </table>
+  </article>
+
+<script>
+  async function loadInfo() {
+    const btn = document.getElementById("data-btn");
+    btn.setAttribute("aria-busy", "true");
+    try {
+      const res = await fetch("/model/info");
+      const body = await res.json();
+      const tbody = document.getElementById("data-rows");
+      tbody.innerHTML = "";
+      Object.entries(body).forEach(([k, v]) => {
+        const tr = document.createElement("tr");
+        const valStr = typeof v === "boolean" ? (v ? "✓ true" : "✗ false") : (v ?? "<em>null</em>");
+        tr.innerHTML = `<th>${k}</th><td><code>${valStr}</code></td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById("data-card").hidden = false;
+    } finally {
+      btn.removeAttribute("aria-busy");
+    }
+  }
+  loadInfo();
+</script>
 {% endblock %}

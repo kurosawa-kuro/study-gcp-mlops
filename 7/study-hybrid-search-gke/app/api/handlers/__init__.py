@@ -11,6 +11,7 @@ handlers only handle HTTP concerns (status codes, content negotiation).
 
 from .feedback_handler import router as feedback_router
 from .health_handler import router as health_router
+from .model_handler import router as model_router
 from .rag_handler import router as rag_router
 from .retrain_handler import router as retrain_router
 from .search_handler import router as search_router
@@ -20,6 +21,7 @@ __all__ = [
     "build_ui_router",
     "feedback_router",
     "health_router",
+    "model_router",
     "rag_router",
     "retrain_router",
     "search_router",

@@ -4,6 +4,20 @@ Reads ``feature_mart.properties_cleaned`` from BigQuery and upserts documents
 into Meilisearch index ``properties``. Invoked as a one-shot job from Cloud
 Run Jobs or locally via ``make sync-meili``.
 
+**AUTH HEADER CONTRACT (Phase 7 Run 1 B17 教訓)**:
+Meilisearch v1.x は ``Authorization: Bearer <master_key>`` を要求するが、
+Cloud Run IAM も同じ ``Authorization`` ヘッダを validate→strip するため
+ナイーブに併存させると Meili に master key が届かず 403 invalid_api_key
+になる (旧 ``x-meili-api-key`` は v1.x で廃止)。Cloud Run の代替
+``X-Serverless-Authorization`` ヘッダに OIDC ID token を逃がすことで
+両者を共存させる:
+
+- ``Authorization: Bearer <master_key>`` → Meilisearch 認証
+- ``X-Serverless-Authorization: Bearer <oidc>`` → Cloud Run IAM bypass
+
+このパターンは ``app/services/adapters/lexical_search.py`` の正本実装と
+完全に揃える。
+
 **NUMERIC TYPE NOTE (2026-04-23 実運用知見)**:
 BigQuery の INT64 / BOOL 列は、`google.cloud.bigquery` Python client 経由では
 Python の ``int`` / ``bool`` として返るが、``bq query --format=json`` CLI 経由
@@ -45,10 +59,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _headers(*, base_url: str, api_key: str, require_identity_token: bool) -> dict[str, str]:
+    """Build Meilisearch v1.x + Cloud Run IAM compatible headers.
+
+    See module docstring `AUTH HEADER CONTRACT` for the full reasoning.
+    """
     headers = {"content-type": "application/json"}
     if api_key:
-        headers["x-meili-api-key"] = api_key
-        _log("using api_key auth")
+        headers["authorization"] = f"Bearer {api_key}"
+        _log("using master_key auth (Authorization: Bearer)")
     if require_identity_token:
         _log(f"fetching id_token audience={base_url}")
         try:
@@ -60,7 +78,8 @@ def _headers(*, base_url: str, api_key: str, require_identity_token: bool) -> di
             _log(traceback.format_exc())
             raise
         _log(f"id_token OK (len={len(token)})")
-        headers["authorization"] = f"Bearer {token}"
+        # Cloud Run の代替認証ヘッダ — Meili master key を上書きしない。
+        headers["x-serverless-authorization"] = f"Bearer {token}"
     return headers
 
 

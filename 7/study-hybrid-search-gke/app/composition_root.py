@@ -21,6 +21,7 @@ from typing import Any
 
 from app.container import InfraBuilder, MlBuilder, SearchBuilder
 from app.services.feedback_service import FeedbackService
+from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.protocols import (
     CacheStore,
     CandidateRetriever,
@@ -89,6 +90,7 @@ class Container:
     search_service: SearchService
     feedback_service: FeedbackService
     rag_service: RagService | None  # None when ENABLE_RAG=False
+    model_metrics_service: ModelMetricsService | None  # None if no SearchService wired
 
 
 class ContainerBuilder:
@@ -152,6 +154,10 @@ class ContainerBuilder:
             )
         else:
             rag_service = None
+        model_metrics_service = ModelMetricsService(
+            search_service=search_service,
+            default_cases_file=default_cases_path(),
+        )
 
         self._logger.info(
             "Startup complete; search_enabled=%s rerank_enabled=%s rag_enabled=%s model_path=%s",
@@ -181,6 +187,7 @@ class ContainerBuilder:
             search_service=search_service,
             feedback_service=feedback_service,
             rag_service=rag_service,
+            model_metrics_service=model_metrics_service,
         )
 
     # ------------------------------------------------------------------ factories

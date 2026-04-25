@@ -1,88 +1,51 @@
-"""HTML template handlers for ``/`` ``/metrics`` ``/data``.
+"""HTML template handlers for the operator UI.
 
-The router needs the ``Jinja2Templates`` instance constructed against the
-app root, so this module exposes a builder rather than a static router.
+Routed under ``/ui/`` (see ``app/main.py``) so the bare ``/metrics``
+path stays exclusive to Prometheus exposition. UI pages use AJAX
+``fetch()`` to call the JSON APIs (``/search``, ``/feedback``,
+``/model/metrics``, ``/model/info``); this keeps the UI layer thin and
+removable without touching API contracts.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
-
-from app.api.dependencies import get_container
-from app.composition_root import Container
 
 
 def build_ui_router(*, app_root: Path) -> APIRouter:
     router = APIRouter()
     templates = Jinja2Templates(directory=str(app_root / "templates"))
 
-    @router.get("/")
-    def ui(request: Request) -> object:
-        search_payload = {
-            "query": "渋谷 1LDK",
-            "filters": {
-                "max_rent": 220000,
-                "layout": "1LDK",
-                "max_walk_min": 12,
-                "pet_ok": True,
-                "max_age": 20,
-            },
-            "top_k": 20,
-        }
-        feedback_payload = {
-            "request_id": "demo-request-id",
-            "property_id": "1001",
-            "action": "click",
-        }
+    @router.get("/", name="ui-home")
+    def ui_home(request: Request) -> object:
         return templates.TemplateResponse(
             request,
             "index.html",
             {
-                "active": "predict",
-                "search_payload": search_payload,
-                "feedback_payload": feedback_payload,
+                "active": "search",
+                "default_query": "新宿区西新宿 1LDK",
+                "default_max_rent": 150000,
+                "default_top_k": 20,
             },
         )
 
-    @router.get("/metrics")
-    def metrics_ui(
-        request: Request,
-        container: Annotated[Container, Depends(get_container)],
-    ) -> object:
-        settings = container.settings
-        payload = {
-            "service": "phase7-gke-kserve-api",
-            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-            "project_id": settings.project_id,
-            "enable_search": settings.enable_search,
-            "enable_rerank": settings.enable_rerank,
-            "kserve_encoder_url": settings.kserve_encoder_url,
-            "kserve_reranker_url": settings.kserve_reranker_url,
-            "model_path": container.model_path,
-        }
+    @router.get("/model/metrics", name="ui-model-metrics")
+    def ui_model_metrics(request: Request) -> object:
         return templates.TemplateResponse(
             request,
-            "metrics.html",
-            {"active": "metrics", "metrics": payload},
+            "model_metrics.html",
+            {"active": "model-metrics", "default_k": 10},
         )
 
-    @router.get("/data")
-    def data_ui(request: Request) -> object:
-        rows = [
-            {"key": "search_payload", "value": '{"query":"渋谷 1LDK","top_k":20}'},
-            {"key": "feedback_payload", "value": '{"request_id":"...","action":"click"}'},
-            {"key": "kserve_encoder", "value": "settings.kserve_encoder_url"},
-            {"key": "kserve_reranker", "value": "settings.kserve_reranker_url"},
-        ]
+    @router.get("/data", name="ui-data")
+    def ui_data(request: Request) -> object:
         return templates.TemplateResponse(
             request,
             "data.html",
-            {"active": "data", "columns": ["key", "value"], "rows": rows, "total": len(rows)},
+            {"active": "data"},
         )
 
     return router
