@@ -1,4 +1,63 @@
-3/study-hybrid-search-local/logs/
-2/study-ml-app-pipeline/logs/
-1/study-ml-foundations/logs/
-2/study-ml-app-pipeline/app/__pycache__/
+# =============================================================================
+# Repository-root .gitignore.
+#
+# Phase 4-7 は各 phase 配下に独自の .gitignore を持つ (canonical)。本ファイルは:
+#   - Phase 1/2/3 (独自 .gitignore なし) のフォールバック
+#   - 全 phase 共通の生成物 / IDE / OS artifact
+# のみカバーする。phase 個別の細かい ignore は各 phase の .gitignore で。
+# =============================================================================
+
+# ----- Python ランタイム生成物 -----
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.tox/
+**/.nox/
+**/.ipynb_checkpoints/
+
+# ----- 仮想環境 -----
+**/.venv/
+**/venv/
+
+# ----- カバレッジ / テスト生成物 -----
+**/.coverage
+**/.coverage.*
+**/coverage.xml
+**/htmlcov/
+
+# ----- ビルド成果物 / 学習成果物 / 動作ログ -----
+**/build/
+**/dist/
+**/logs/
+**/artifacts/
+**/*.log
+
+# ----- 環境変数 / シークレット (commit 厳禁) -----
+**/.env
+**/.env.*
+!**/.env.example
+**/credential.yaml
+**/credentials.json
+**/service-account*.json
+
+# ----- Terraform 個別 state / plan -----
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/tfplan
+# ※ infra/.terraform.lock.hcl は commit 必須なので ignore しない
+
+# ----- IDE / OS -----
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ----- Claude Code / その他ローカル状態 -----
+.claude/local/

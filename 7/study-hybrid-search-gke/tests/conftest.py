@@ -26,6 +26,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.composition_root import Container
+from app.observability import Observability
 from app.services.feedback_service import FeedbackService
 from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.search_service import SearchService
@@ -131,6 +132,7 @@ def fake_container_factory(
     def _build(**overrides: Any) -> Container:
         defaults: dict[str, Any] = {
             "settings": fake_settings,
+            "observability": Observability.from_env(default_service="search-api-test"),
             "training_runs_table": "mlops-test.mlops.training_runs",
             "retrain_trigger_publisher": fake_retrain_publisher,
             "retrain_queries": fake_retrain_queries,

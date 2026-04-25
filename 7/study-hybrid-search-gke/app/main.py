@@ -15,9 +15,13 @@ Route surfaces (kept disjoint to avoid cross-concern collision):
 
 The Pod keeps only retrieval / orchestration concerns. Query embeddings
 and rerank scoring are delegated to KServe InferenceService (cluster-local
-HTTP) when configured. PMLE technology integrations (RAG, BQML, Agent
-Builder, Vertex Vector Search) are wired in as optional adapters per
-Phase 6 — see ``ContainerBuilder``.
+HTTP) when configured. PMLE technology integrations (RAG, BQML) are wired
+in as optional adapters per Phase 6 — see ``ContainerBuilder``.
+
+Observability (logging / metrics / future tracing) is bundled in
+``app.observability.Observability`` and shared between this entrypoint and
+the Container — see the residual-task notes in
+``docs/02_移行ロードマップ-Port-Adapter-DI.md``.
 """
 
 from __future__ import annotations
@@ -30,9 +34,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from prometheus_client import Counter, Histogram
-from prometheus_fastapi_instrumentator import Instrumentator
-from prometheus_fastapi_instrumentator.metrics import Info as MetricInfo
 
 from app.api.handlers import (
     build_ui_router,
@@ -45,22 +46,24 @@ from app.api.handlers import (
 )
 from app.api.middleware import RequestLoggingMiddleware
 from app.composition_root import ContainerBuilder
+from app.observability import Observability
 from app.settings import ApiSettings
-from ml.common.logging import configure_logging, get_logger
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Build the immutable :class:`Container` once and stash on app state."""
-    configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
-    settings = ApiSettings()
-    app.state.container = ContainerBuilder(settings).build()
-    yield
+from ml.common.logging import configure_logging
 
 
 def create_app() -> FastAPI:
     configure_logging()
-    logger = get_logger("app")
+    settings = ApiSettings()
+    observability = Observability.from_env()
+    logger = observability.get_logger("app")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Build the immutable :class:`Container` once and stash on app state."""
+        configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
+        app.state.container = ContainerBuilder(settings, observability=observability).build()
+        yield
+
     app = FastAPI(title="gke+kserve-backed hybrid search API", lifespan=lifespan)
 
     app_root = Path(__file__).resolve().parent
@@ -82,68 +85,13 @@ def create_app() -> FastAPI:
     def _root_redirect() -> RedirectResponse:
         return RedirectResponse(url="/ui/", status_code=308)
 
-    # Prometheus exposition at /metrics. Custom collector emits a `service`
-    # label so the SLO module's filter
-    # (``metric.label."service"="search-api"`` and ``status=~"2.."``) matches.
-    # The default instrumentator metric ships only `handler`/`method`/`status`
-    # which leaves the SLO query selecting zero series — see
-    # `infra/terraform/modules/slo/main.tf` good/total filter contract.
-    _expose_prometheus(app, service_name=os.getenv("OTEL_SERVICE_NAME", "search-api"))
+    # Prometheus exposition at /metrics. The ``service`` label this emits
+    # has to match the SLO module's good/total filter
+    # (``metric.label."service"="search-api"`` and ``status=~"2.."``);
+    # ``Observability.expose_prometheus`` owns that contract.
+    observability.expose_prometheus(app)
 
     return app
-
-
-_REQUEST_LABELS = ("service", "method", "handler", "status")
-_REQUESTS_TOTAL = Counter(
-    "http_requests_total",
-    "Total HTTP requests served by the FastAPI app.",
-    labelnames=_REQUEST_LABELS,
-)
-_REQUEST_DURATION = Histogram(
-    "http_request_duration_seconds",
-    "Latency of HTTP requests served by the FastAPI app.",
-    labelnames=_REQUEST_LABELS,
-)
-
-
-def _track(service_name: str):  # type: ignore[no-untyped-def]
-    """Build a per-request callback that records (service, method, handler, status)."""
-
-    def _record(info: MetricInfo) -> None:
-        handler = info.modified_handler or "unhandled"
-        raw_status = (
-            str(info.response.status_code)
-            if info.response is not None and info.response.status_code is not None
-            else "0"
-        )
-        status_class = f"{raw_status[0]}xx" if raw_status and raw_status[0].isdigit() else "unknown"
-        _REQUESTS_TOTAL.labels(
-            service=service_name,
-            method=info.request.method,
-            handler=handler,
-            status=status_class,
-        ).inc()
-        _REQUEST_DURATION.labels(
-            service=service_name,
-            method=info.request.method,
-            handler=handler,
-            status=status_class,
-        ).observe(info.modified_duration)
-
-    return _record
-
-
-def _expose_prometheus(app: FastAPI, *, service_name: str) -> None:
-    instrumentator = Instrumentator(
-        excluded_handlers=["/metrics", "/livez", "/healthz", "/readyz"],
-    )
-    instrumentator.add(_track(service_name))
-    instrumentator.instrument(app).expose(
-        app,
-        endpoint="/metrics",
-        include_in_schema=False,
-        should_gzip=False,
-    )
 
 
 app = create_app()

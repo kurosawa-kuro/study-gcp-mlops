@@ -14,14 +14,14 @@
 
 ## 残作業 (改善タスク、運用熟成後に判断)
 
-優先順は **observability 統一 > optional adapter helper**。残り 2 件は見送り判断 (理由は下表)。
+### 対応済み
 
-### 現役タスク
+| # | 旧 Issue | 項目 | 反映先 |
+|---|---|---|---|
+| 1 | Issue 5 | ✅ **observability の Container 管理統一** | `app/observability.py::Observability` (frozen dataclass、`service_name` + `logger_factory` + `expose_prometheus()`) を新設。`Container.observability` field 追加、`ContainerBuilder(settings, observability=...)` で外部注入可。`app/main.py` から `_expose_prometheus` / module-global `Counter` / `Histogram` を撤去し `observability.expose_prometheus(app)` 呼び出しに統一。`tests/conftest.py` の `fake_container_factory` も新 field を default 値で埋める。tracing 導入時は `Observability` に `tracer` field を足すだけで Container 全体に伝搬する seam が出来た |
+| 2 | Issue 2 | ✅ **optional adapter guard の helper 化** | `app/container/_optional_adapter.py::resolve_optional_adapter[T]()` 新設 (PEP 695 generics)。`enabled=False` で `None`、`factory()` 例外時は `logger.exception("Failed to initialize %s", name)` + `None`。`MlBuilder.build_rag_summarizer` / `build_popularity_scorer` を helper 経由に refactor。`SearchBuilder.build_encoder_client` / `build_reranker_client` は tuple 返却 + URL 空文字 warn の追加分岐があり helper に押し込むと逆に読みにくいので原形維持 (理由は helper module docstring に記載) |
 
-| # | 旧 Issue | 優先 | 項目 | 判断材料 / 着手条件 |
-|---|---|---|---|---|
-| 1 | Issue 5 | 高 | **observability の Container 管理統一** | metrics (`prometheus-fastapi-instrumentator`) / tracing / structured logging の注入経路を Container 経由に揃える。現状 `app/main.py:_expose_prometheus()` で Instrumentator を register、`ml/common/logging::get_logger()` を adapter / service が直呼び、`api/middleware/request_logging.py` で request_id 発行と、3 経路に分散。tracing (Cloud Trace / OpenTelemetry) を入れる時点で必ず再線引きになるので、その手前で **`Container.observability` (Logger / Tracer / MeterProvider 入り)** を切り出すのが妥当。着手条件: tracing 導入の意思決定がある時 |
-| 2 | Issue 2 | 中 | **optional adapter guard の helper 化** (旧 "adapter resolve 規約") | VS/AB 削除で backend 分岐 (`if backend == "vertex"`) は消滅。残っているのは `if not settings.enable_xxx: return None` → `try construct: ... except: logger.exception + return None` の **optional adapter guard 4 連発** (`build_encoder_client` / `build_reranker_client` / `build_rag_summarizer` / `build_popularity_scorer`)。これを `resolve_optional_adapter(name, enabled: bool, factory: Callable)` 型の helper にまとめる。着手条件: optional adapter が 5 個目以降に増えた時 (現状 4 個では helper 化しても短縮幅が小さい) |
+検証: `make check` 全 PASS (ruff / fmt / mypy strict / pytest 409 passed) + `make check-layers` clean。
 
 ### 見送り判断 (再検討トリガー付き)
 
@@ -29,8 +29,6 @@
 |---|---|---|---|
 | 3 | Issue 4 | 見送り | **DI scope 明文化は不要**。現 Container は全 adapter が singleton + eager init で、`ContainerBuilder.build()` で一度生成 → frozen `Container` に格納する単一 scope。scope 表を書いても 1 行 ("all singleton, eager") で trivial。再検討トリガー: request-scoped state (per-request connection / per-request retry budget 等) を導入した時 |
 | 4 | Issue 6 | 見送り | **Publisher / Query Port の facade 化はしない**。`RankingLogPublisher` / `FeedbackRecorder` / `PredictionPublisher` は ISP に沿った 1-method protocol で、`tests/fakes/` の noop 実装も短い。facade 化は call site と fake を曖昧にして得が薄い。再検討トリガー: Port が同種 5 個以上に増殖した時、または Publisher 群を共通 retry / batching 層で wrap する必要が出た時 |
-
-いずれも「設計穴」ではなく「磨き込み」案件のため、Phase 7 主検証 (`/search` 3 成分 + `/rag` + `/search?explain=true`) には影響しない。
 
 ## 完了タスクの参照先
 

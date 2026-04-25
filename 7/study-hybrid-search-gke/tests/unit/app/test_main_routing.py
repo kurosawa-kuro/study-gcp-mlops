@@ -42,7 +42,9 @@ def app_no_lifespan(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped
         return _NoopContainer()
 
     monkeypatch.setattr(
-        ContainerBuilder, "__init__", lambda self, settings: real_init(self, settings)
+        ContainerBuilder,
+        "__init__",
+        lambda self, settings, **kwargs: real_init(self, settings, **kwargs),
     )
     monkeypatch.setattr(ContainerBuilder, "build", _build)
     return main.create_app()

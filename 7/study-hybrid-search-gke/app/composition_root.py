@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.container import InfraBuilder, MlBuilder, SearchBuilder
+from app.observability import Observability
 from app.services.feedback_service import FeedbackService
 from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.protocols import (
@@ -38,7 +39,6 @@ from app.services.rag_service import RagService
 from app.services.rag_summarizer import RagSummarizer
 from app.services.search_service import SearchService
 from app.settings import ApiSettings
-from ml.common.logging import get_logger
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,7 @@ class Container:
     """
 
     settings: ApiSettings
+    observability: Observability
     training_runs_table: str
 
     retrain_trigger_publisher: PredictionPublisher | None
@@ -95,9 +96,19 @@ class ContainerBuilder:
     ``self._settings`` reference without threading it through every call.
     """
 
-    def __init__(self, settings: ApiSettings) -> None:
+    def __init__(
+        self,
+        settings: ApiSettings,
+        *,
+        observability: Observability | None = None,
+    ) -> None:
         self._settings = settings
-        self._logger = get_logger("app")
+        # Observability is constructed once per app; the builder accepts an
+        # external instance so ``app.main.create_app`` can register
+        # ``/metrics`` before lifespan completes and still share the same
+        # service_name / logger_factory with the Container.
+        self._observability = observability or Observability.from_env()
+        self._logger = self._observability.get_logger("app")
         self._bq_client: Any = None  # cached, see _bigquery()
 
     def _bigquery(self) -> Any:
@@ -161,6 +172,7 @@ class ContainerBuilder:
 
         return Container(
             settings=settings,
+            observability=self._observability,
             training_runs_table=infra.training_runs_table,
             retrain_trigger_publisher=infra.retrain_trigger_publisher,
             retrain_queries=infra.retrain_queries,

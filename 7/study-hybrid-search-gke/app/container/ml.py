@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from app.container._optional_adapter import resolve_optional_adapter
 from app.services.protocols.generator import Generator
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.rag_summarizer import RagSummarizer
@@ -48,9 +49,8 @@ class MlBuilder:
 
     def build_rag_summarizer(self) -> RagSummarizer | None:
         settings = self._settings
-        if not settings.enable_rag:
-            return None
-        try:
+
+        def _factory() -> RagSummarizer:
             from app.services.adapters.gemini_generator import GeminiGenerator
 
             adapter = GeminiGenerator(
@@ -61,17 +61,20 @@ class MlBuilder:
             )
             adapter.prepare()
             generator: Generator = adapter
-        except Exception:
-            self._logger.exception("Failed to initialize Gemini generator for /rag")
-            return None
-        return RagSummarizer(
-            generator=generator, max_output_tokens=settings.gemini_max_output_tokens
+            return RagSummarizer(
+                generator=generator,
+                max_output_tokens=settings.gemini_max_output_tokens,
+            )
+
+        return resolve_optional_adapter(
+            name="Gemini generator for /rag",
+            enabled=settings.enable_rag,
+            factory=_factory,
+            logger=self._logger,
         )
 
     def build_popularity_scorer(self) -> PopularityScorer | None:
         settings = self._settings
-        if not settings.bqml_popularity_enabled:
-            return None
         model_fqn = settings.bqml_popularity_model_fqn or (
             f"{settings.project_id}.{settings.bq_dataset_mlops}.property_popularity"
         )
@@ -83,7 +86,8 @@ class MlBuilder:
             f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
             f"{settings.bq_table_property_features_daily}"
         )
-        try:
+
+        def _factory() -> PopularityScorer:
             from app.services.adapters.bqml_popularity_scorer import BQMLPopularityScorer
 
             return BQMLPopularityScorer(
@@ -93,6 +97,10 @@ class MlBuilder:
                 features_table=features_table,
                 client=self._context._bigquery(),
             )
-        except Exception:
-            self._logger.exception("Failed to initialize BQML popularity scorer")
-            return None
+
+        return resolve_optional_adapter(
+            name="BQML popularity scorer",
+            enabled=settings.bqml_popularity_enabled,
+            factory=_factory,
+            logger=self._logger,
+        )
