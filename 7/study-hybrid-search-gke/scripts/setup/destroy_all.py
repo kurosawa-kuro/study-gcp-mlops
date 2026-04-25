@@ -23,13 +23,15 @@ Steps:
    a learn/PDCA target where losing model artifacts + pipeline roots is
    intended. Benign when the bucket is absent.
 4. `terraform apply -auto-approve -var=enable_deletion_protection=false
-   -target=<each-table>` — flip every BQ table's `deletion_protection` to
-   false in Terraform state. `-target` is **load-bearing**: a bare apply
-   would also try to (re)create any resource that drifted out of state
-   from a previous half-destroy (e.g. SAs whose IAM bindings linger as
-   `deleted:serviceaccount:...?uid=...` in dataset IAM policies). Limiting
-   apply to the 8 BQ tables guarantees this state-flip is a pure attribute
-   change, no resource (re)creation.
+   -target=<each>` — flip `deletion_protection` to false on every
+   server-side-protected resource (`PROTECTED_TARGETS`: 10 BQ tables +
+   1 GKE cluster). `-target` is **load-bearing**: a bare apply would
+   also try to (re)create any resource that drifted out of state from a
+   previous half-destroy (e.g. SAs whose IAM bindings linger as
+   `deleted:serviceaccount:...?uid=...`). The GKE cluster was added in
+   Phase 7 Run 4 — without flipping it server-side first the body
+   destroy fails with `Cannot destroy cluster because deletion_protection
+   is set to true.`
 5. `terraform destroy -target=module.kserve` — K8s / Helm リソース
    (`helm_release.{cert_manager,external_secrets}` / `kubernetes_namespace.*`
    / `kubernetes_service_account.*`) を **GKE cluster より先に** 個別 destroy。
@@ -291,10 +293,11 @@ def main() -> int:
         _wipe_bucket(project_id, f"{project_id}-{suffix}")
 
     print(
-        "==> [4/6] terraform apply -target=<10 BQ tables> "
-        "-var=enable_deletion_protection=false (state-flip only, no recreate)"
+        f"==> [4/6] terraform apply -target=<{len(PROTECTED_TARGETS)} resources "
+        "with deletion_protection> -var=enable_deletion_protection=false "
+        "(state-flip only, no recreate)"
     )
-    targets = [arg for tgt in PROTECTED_TABLE_TARGETS for arg in ("-target", tgt)]
+    targets = [arg for tgt in PROTECTED_TARGETS for arg in ("-target", tgt)]
     run(
         [
             "terraform",
