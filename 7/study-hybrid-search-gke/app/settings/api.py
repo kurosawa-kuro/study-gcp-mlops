@@ -1,7 +1,5 @@
 """API settings."""
 
-from typing import Literal
-
 from pydantic import SecretStr
 
 from ml.common.config import BaseAppSettings
@@ -22,7 +20,7 @@ class ApiSettings(BaseAppSettings):
     meili_master_key: SecretStr = SecretStr("")  # Secret Manager: meili-master-key
     meili_require_identity_token: bool = True
 
-    # --- Vertex AI location (used by Vector Search, Gemini, Agent Builder) ---
+    # --- Vertex AI location (used by Gemini RAG / Model Registry / Pipelines) -
     vertex_location: str = "asia-northeast1"
 
     # --- KServe inference endpoints (cluster-local HTTP) ----------------------
@@ -35,11 +33,6 @@ class ApiSettings(BaseAppSettings):
     enable_rerank: bool = False
     search_cache_ttl_seconds: int = 120
     search_cache_maxsize: int = 2048
-
-    # --- Phase 6 T3 — semantic backend (BQ VECTOR_SEARCH vs Vertex ME) ------
-    semantic_backend: Literal["bq", "vertex"] = "bq"
-    vertex_vector_search_index_endpoint_id: str = ""
-    vertex_vector_search_deployed_index_id: str = ""
 
     # --- Phase 6 T6 — RAG via Gemini ----------------------------------------
     enable_rag: bool = False
@@ -56,10 +49,3 @@ class ApiSettings(BaseAppSettings):
     # --- Phase 6 T1 — BQML popularity scorer --------------------------------
     bqml_popularity_enabled: bool = False
     bqml_popularity_model_fqn: str = ""
-
-    # --- Phase 6 T7 — alternative lexical backend ----------------------------
-    lexical_backend: Literal["meili", "agent_builder"] = "meili"
-    vertex_agent_builder_location: str = "global"
-    vertex_agent_builder_engine_id: str = ""
-    vertex_agent_builder_collection_id: str = "default_collection"
-    vertex_agent_builder_serving_config_id: str = "default_search"

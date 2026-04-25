@@ -1,7 +1,7 @@
 """Production ``LexicalSearchPort`` adapter — Meilisearch.
 
 Phase B-3 moved ``NoopLexicalSearch`` to ``app/services/fakes/``. The
-Discovery Engine variant lives in ``agent_builder_lexical.py``.
+This is the only lexical adapter — Phase 7 dropped the Discovery Engine variant.
 """
 
 from __future__ import annotations

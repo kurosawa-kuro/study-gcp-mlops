@@ -44,14 +44,13 @@ class RagService:
         input: SearchInput,
         summary_top_n: int | None = None,
     ) -> RagOutput:
-        # /rag uses default lexical backend; explain is irrelevant here.
-        # Re-build the input deliberately to enforce these defaults.
+        # /rag uses the same retrieval pipeline as /search; explain is
+        # irrelevant for summarization. Rebuild the input to enforce these.
         search_input = SearchInput(
             query=input.query,
             filters=input.filters,
             top_k=input.top_k,
             explain=False,
-            lexical_backend="meili",
         )
         try:
             output = self._search_service.search(request_id=request_id, input=search_input)

@@ -33,7 +33,7 @@ class BigQueryCandidateRetriever:
             walk_min / age_years / area_m2 / pet_ok / layout filter columns.
         client: optional pre-built BQ client (tests / centralized lifecycle).
         semantic: Phase 6 T3 — alternative ``SemanticSearchPort``
-            implementation (e.g. ``VertexVectorSearchSemantic``). Defaults
+            implementation. Defaults
             to ``BigQuerySemanticSearch`` over ``embeddings_table`` so
             existing Phase 5 constructor call-sites keep working unchanged.
     """

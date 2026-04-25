@@ -21,12 +21,11 @@ def search(
     service: Annotated[SearchService, Depends(get_search_service)],
     request_id: Annotated[str, Depends(get_request_id)],
     explain: bool = Query(False, description="Include TreeSHAP attributions per item"),
-    lexical: str = Query("meili", description="Lexical backend: meili|agent_builder"),
 ) -> SearchResponse | JSONResponse:
     try:
         output = service.search(
             request_id=request_id,
-            input=search_request_to_input(req, explain=explain, lexical_backend=lexical),
+            input=search_request_to_input(req, explain=explain),
         )
     except SearchServiceUnavailable as exc:
         return JSONResponse({"detail": str(exc)}, status_code=503)

@@ -34,7 +34,6 @@ from app.services.protocols import (
 )
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.protocols.retrain_queries import RetrainQueries
-from app.services.protocols.semantic_search import SemanticSearchPort
 from app.services.rag_service import RagService
 from app.services.rag_summarizer import RagSummarizer
 from app.services.search_service import SearchService
@@ -53,10 +52,6 @@ class Container:
     missing — handlers must check for ``None`` before use.
 
     Notes:
-    - ``candidate_retriever_alt`` is the Phase 6 T7 副経路 (Discovery Engine
-      via Agent Builder), only built when ``LEXICAL_BACKEND=agent_builder``
-      and the engine is configured. Default lexical (Meilisearch) stays as
-      ``candidate_retriever`` (親リポ non-negotiable).
     - ``model_path`` mirrors ``reranker_client.model_path`` for endpoints
       that need to surface the active reranker model identifier without
       pulling the client.
@@ -69,7 +64,6 @@ class Container:
     retrain_queries: RetrainQueries
 
     candidate_retriever: CandidateRetriever | None
-    candidate_retriever_alt: CandidateRetriever | None
 
     encoder_client: EncoderClient | None
     encoder_model_path: str | None
@@ -79,7 +73,6 @@ class Container:
 
     rag_summarizer: RagSummarizer | None
     popularity_scorer: PopularityScorer | None
-    lexical_alt: LexicalSearchPort | None
 
     ranking_log_publisher: RankingLogPublisher
     feedback_recorder: FeedbackRecorder
@@ -137,7 +130,6 @@ class ContainerBuilder:
         # don't pay per-request allocation cost.
         search_service = SearchService(
             retriever_default=search.candidate_retriever,
-            retriever_alt=search.candidate_retriever_alt,
             encoder=search.encoder_client,
             publisher=infra.ranking_log_publisher,
             reranker=search.reranker_client,
@@ -173,14 +165,12 @@ class ContainerBuilder:
             retrain_trigger_publisher=infra.retrain_trigger_publisher,
             retrain_queries=infra.retrain_queries,
             candidate_retriever=search.candidate_retriever,
-            candidate_retriever_alt=search.candidate_retriever_alt,
             encoder_client=search.encoder_client,
             encoder_model_path=search.encoder_model_path,
             reranker_client=search.reranker_client,
             model_path=search.model_path,
             rag_summarizer=ml.rag_summarizer,
             popularity_scorer=ml.popularity_scorer,
-            lexical_alt=search.lexical_alt,
             ranking_log_publisher=infra.ranking_log_publisher,
             feedback_recorder=infra.feedback_recorder,
             search_cache=search.search_cache,
@@ -208,13 +198,6 @@ class ContainerBuilder:
     ) -> CandidateRetriever:
         return SearchBuilder(self).build_candidate_retriever(override_lexical=override_lexical)
 
-    def _build_semantic_search(
-        self,
-        *,
-        properties_table: str,
-    ) -> SemanticSearchPort | None:
-        return SearchBuilder(self).build_semantic_search(properties_table=properties_table)
-
     def _build_search_cache(self) -> CacheStore:
         return SearchBuilder(self).build_search_cache()
 
@@ -229,6 +212,3 @@ class ContainerBuilder:
 
     def _build_popularity_scorer(self) -> PopularityScorer | None:
         return MlBuilder(self).build_popularity_scorer()
-
-    def _build_agent_builder_lexical(self) -> LexicalSearchPort | None:
-        return SearchBuilder(self).build_agent_builder_lexical()

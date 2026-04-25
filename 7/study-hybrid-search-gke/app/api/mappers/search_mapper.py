@@ -52,14 +52,12 @@ def search_request_to_input(
     req: SearchRequest,
     *,
     explain: bool = False,
-    lexical_backend: str = "meili",
 ) -> SearchInput:
     return SearchInput(
         query=req.query,
         filters=_filters_from_pydantic(req.filters.model_dump()),
         top_k=req.top_k,
         explain=explain,
-        lexical_backend=lexical_backend,
     )
 
 
@@ -69,7 +67,6 @@ def rag_request_to_search_input(req: RagRequest) -> SearchInput:
         filters=_filters_from_pydantic(req.filters.model_dump()),
         top_k=req.top_k,
         explain=False,
-        lexical_backend="meili",
     )
 
 

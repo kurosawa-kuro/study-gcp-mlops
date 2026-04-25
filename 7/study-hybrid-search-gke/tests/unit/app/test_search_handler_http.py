@@ -53,7 +53,6 @@ def test_search_endpoint_503_when_retriever_unavailable(
 
     new_search_service = SearchService(
         retriever_default=None,
-        retriever_alt=None,
         encoder=container.encoder_client,
         publisher=container.ranking_log_publisher,
     )
@@ -72,15 +71,6 @@ def test_search_endpoint_503_when_retriever_unavailable(
     )
 
     assert response.status_code == 503
-
-
-def test_search_endpoint_alt_lexical_503_when_alt_missing(fake_client) -> None:
-    response = fake_client.post(
-        "/search?lexical=agent_builder",
-        json={"query": "x", "filters": {}, "top_k": 1},
-    )
-    assert response.status_code == 503
-    assert "agent_builder" in response.json()["detail"]
 
 
 def test_search_endpoint_explain_returns_attributions(

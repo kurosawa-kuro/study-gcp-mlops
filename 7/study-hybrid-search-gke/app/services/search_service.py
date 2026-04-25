@@ -45,7 +45,7 @@ class SearchService:
         self,
         *,
         retriever_default: CandidateRetriever | None,
-        retriever_alt: CandidateRetriever | None,
+        retriever_alt: CandidateRetriever | None = None,
         encoder: EncoderClient | None,
         publisher: RankingLogPublisher,
         reranker: RerankerClient | None = None,
@@ -53,8 +53,13 @@ class SearchService:
         cache: CacheStore | None = None,
         cache_ttl_seconds: int = 120,
     ) -> None:
+        # ``retriever_alt`` was a Phase 6 T7 副経路 hook for the Agent Builder
+        # lexical backend; Phase 7 dropped Agent Builder entirely (cannibalized
+        # the Meilisearch primary path) so the parameter is kept only for
+        # backward compatibility with callers that still pass it positionally
+        # — it is never read.
+        del retriever_alt
         self._retriever_default = retriever_default
-        self._retriever_alt = retriever_alt
         self._encoder = encoder
         self._publisher = publisher
         self._reranker = reranker
@@ -66,22 +71,15 @@ class SearchService:
     def reranker_model_path(self) -> str | None:
         return getattr(self._reranker, "model_path", None)
 
-    def _pick_retriever(self, lexical_backend: str) -> CandidateRetriever | None:
-        if lexical_backend == "agent_builder":
-            return self._retriever_alt
-        return self._retriever_default
-
     def search(self, *, request_id: str, input: SearchInput) -> SearchOutput:
         """Execute one /search call.
 
-        Raises :class:`SearchServiceUnavailable` when the selected lexical
-        backend or the encoder is missing — the HTTP handler maps to 503.
+        Raises :class:`SearchServiceUnavailable` when the lexical retriever
+        or the encoder is missing — the HTTP handler maps to 503.
         """
-        retriever = self._pick_retriever(input.lexical_backend)
+        retriever = self._retriever_default
         if retriever is None:
-            raise SearchServiceUnavailable(
-                f"/search?lexical={input.lexical_backend} unavailable (retriever not configured)"
-            )
+            raise SearchServiceUnavailable("/search unavailable (retriever not configured)")
         if self._encoder is None:
             raise SearchServiceUnavailable(
                 "/search disabled (enable_search=False or encoder missing)"
@@ -89,9 +87,7 @@ class SearchService:
 
         cache_key = normalize_search_cache_key(
             query=input.query,
-            # Include the lexical backend in the cache key so meili /
-            # agent_builder responses do not shadow each other.
-            filters={**dict(input.filters), "_lexical": input.lexical_backend},
+            filters=dict(input.filters),
             top_k=input.top_k,
         )
 

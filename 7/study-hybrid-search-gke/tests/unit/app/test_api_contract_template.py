@@ -43,7 +43,6 @@ def _replace_search_container(app, **updates: object) -> None:
         container,
         search_service=SearchService(
             retriever_default=container.candidate_retriever,
-            retriever_alt=container.candidate_retriever_alt,
             encoder=container.encoder_client,
             publisher=container.ranking_log_publisher,
             reranker=container.reranker_client,

@@ -19,7 +19,6 @@ class LexicalSearchPort(Protocol):
     """Returns lexical rank list as ``(property_id, rank)`` named tuples.
 
     Implementations: ``MeilisearchLexical`` (Cloud Run BM25) /
-    ``AgentBuilderLexicalRetriever`` (Discovery Engine, Phase 6 T7) /
     ``NoopLexicalSearch`` (when ``MEILI_BASE_URL`` is empty).
     """
 

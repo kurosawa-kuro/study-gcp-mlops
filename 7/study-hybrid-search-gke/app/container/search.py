@@ -19,7 +19,6 @@ from app.services.adapters import (
 from app.services.fakes import InMemoryTTLCacheStore, NoopCacheStore, NoopLexicalSearch
 from app.services.protocols import CacheStore, CandidateRetriever, EncoderClient, LexicalSearchPort
 from app.services.protocols.reranker_client import RerankerClient
-from app.services.protocols.semantic_search import SemanticSearchPort
 from app.settings import ApiSettings
 
 
@@ -33,12 +32,10 @@ class SearchBuilderContext(Protocol):
 @dataclass(frozen=True)
 class SearchComponents:
     candidate_retriever: CandidateRetriever | None
-    candidate_retriever_alt: CandidateRetriever | None
     encoder_client: EncoderClient | None
     encoder_model_path: str | None
     reranker_client: RerankerClient | None
     model_path: str | None
-    lexical_alt: LexicalSearchPort | None
     search_cache: CacheStore
 
 
@@ -64,28 +61,18 @@ class SearchBuilder:
         if settings.enable_search:
             encoder_client, encoder_model_path = self.build_encoder_client()
             candidate_retriever = self.build_candidate_retriever()
-            alt_lexical = self.build_agent_builder_lexical()
-            candidate_retriever_alt = (
-                self.build_candidate_retriever(override_lexical=alt_lexical)
-                if alt_lexical is not None
-                else None
-            )
         else:
             encoder_client = None
             encoder_model_path = None
             candidate_retriever = None
-            candidate_retriever_alt = None
         reranker_client, model_path = self.build_reranker_client()
-        lexical_alt = self.build_agent_builder_lexical()
         search_cache = self.build_search_cache()
         return SearchComponents(
             candidate_retriever=candidate_retriever,
-            candidate_retriever_alt=candidate_retriever_alt,
             encoder_client=encoder_client,
             encoder_model_path=encoder_model_path,
             reranker_client=reranker_client,
             model_path=model_path,
-            lexical_alt=lexical_alt,
             search_cache=search_cache,
         )
 
@@ -108,14 +95,13 @@ class SearchBuilder:
             f"{settings.bq_table_properties_cleaned}"
         )
         lexical = self._resolve_lexical_search(override_lexical=override_lexical)
-        semantic = self.build_semantic_search(properties_table=properties_table)
         return BigQueryCandidateRetriever(
             project_id=settings.project_id,
             lexical=lexical,
             embeddings_table=embeddings_table,
             features_table=features_table,
             properties_table=properties_table,
-            semantic=semantic,
+            semantic=None,
             client=self._context._bigquery(),
         )
 
@@ -136,47 +122,6 @@ class SearchBuilder:
                 require_identity_token=settings.meili_require_identity_token,
             )
         return NoopLexicalSearch()
-
-    def build_semantic_search(
-        self,
-        *,
-        properties_table: str,
-    ) -> SemanticSearchPort | None:
-        settings = self._settings
-        if settings.semantic_backend != "vertex":
-            return None
-        if not settings.vertex_vector_search_index_endpoint_id:
-            self._logger.warning(
-                "SEMANTIC_BACKEND=vertex but VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID is empty; "
-                "falling back to BigQuery VECTOR_SEARCH"
-            )
-            return None
-        if not settings.vertex_vector_search_deployed_index_id:
-            self._logger.warning(
-                "SEMANTIC_BACKEND=vertex but VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID is empty; "
-                "falling back to BigQuery VECTOR_SEARCH"
-            )
-            return None
-        from app.services.adapters.vertex_vector_search_semantic import (
-            VertexVectorSearchSemantic,
-        )
-
-        try:
-            adapter = VertexVectorSearchSemantic(
-                project_id=settings.project_id,
-                location=settings.vertex_location,
-                index_endpoint_id=settings.vertex_vector_search_index_endpoint_id,
-                deployed_index_id=settings.vertex_vector_search_deployed_index_id,
-                properties_table=properties_table,
-                client=self._context._bigquery(),
-            )
-            adapter.prepare()
-        except Exception:
-            self._logger.exception(
-                "Failed to prepare VertexVectorSearchSemantic — falling back to BigQuery VECTOR_SEARCH"
-            )
-            return None
-        return adapter
 
     def build_search_cache(self) -> CacheStore:
         settings = self._settings
@@ -250,26 +195,3 @@ class SearchBuilder:
             return None, None
         self._logger.info("reranker client READY endpoint_name=%s", client.endpoint_name)
         return client, client.endpoint_name
-
-    def build_agent_builder_lexical(self) -> LexicalSearchPort | None:
-        settings = self._settings
-        if settings.lexical_backend != "agent_builder":
-            return None
-        if not settings.vertex_agent_builder_engine_id:
-            self._logger.warning(
-                "LEXICAL_BACKEND=agent_builder but VERTEX_AGENT_BUILDER_ENGINE_ID is empty"
-            )
-            return None
-        try:
-            from app.services.adapters.agent_builder_lexical import AgentBuilderLexicalRetriever
-
-            return AgentBuilderLexicalRetriever(
-                project_id=settings.project_id,
-                location=settings.vertex_agent_builder_location,
-                engine_id=settings.vertex_agent_builder_engine_id,
-                collection_id=settings.vertex_agent_builder_collection_id,
-                serving_config_id=settings.vertex_agent_builder_serving_config_id,
-            )
-        except Exception:
-            self._logger.exception("Failed to initialize Agent Builder lexical adapter")
-            return None

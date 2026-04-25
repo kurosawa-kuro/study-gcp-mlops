@@ -22,12 +22,11 @@ def test_search_request_to_input_propagates_filters_and_flags() -> None:
         filters=SchemaFilters(max_rent=200000, layout="1LDK", pet_ok=True),
         top_k=10,
     )
-    domain = search_request_to_input(req, explain=True, lexical_backend="agent_builder")
+    domain = search_request_to_input(req, explain=True)
 
     assert domain.query == "渋谷"
     assert domain.top_k == 10
     assert domain.explain is True
-    assert domain.lexical_backend == "agent_builder"
     assert domain.filters.get("max_rent") == 200000
     assert domain.filters.get("layout") == "1LDK"
     assert domain.filters.get("pet_ok") is True
@@ -36,11 +35,10 @@ def test_search_request_to_input_propagates_filters_and_flags() -> None:
     assert "max_age" not in domain.filters
 
 
-def test_rag_request_keeps_meili_default_and_no_explain() -> None:
+def test_rag_request_input_disables_explain() -> None:
     req = RagRequest(query="x", top_k=20, summary_top_n=3)
     domain = rag_request_to_search_input(req)
 
-    assert domain.lexical_backend == "meili"
     assert domain.explain is False
 
 

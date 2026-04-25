@@ -43,10 +43,6 @@ class SearchInput:
     filters: SearchFilters
     top_k: int
     explain: bool = False
-    # Phase 6 T7 — `?lexical=` selector. Container exposes both default
-    # (``meili``) and alt (``agent_builder``) candidate retrievers; service
-    # picks based on this value.
-    lexical_backend: str = "meili"
 
 
 @dataclass(frozen=True)

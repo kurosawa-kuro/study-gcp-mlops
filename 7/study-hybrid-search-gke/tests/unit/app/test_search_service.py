@@ -54,7 +54,6 @@ def _build_service(
     publisher = InMemoryRankingLogPublisher()
     service = SearchService(
         retriever_default=retriever,
-        retriever_alt=None,
         encoder=encoder,
         publisher=publisher,
         reranker=reranker,
@@ -157,7 +156,6 @@ def test_search_explain_bypasses_cache() -> None:
 def test_search_raises_unavailable_when_retriever_missing() -> None:
     service = SearchService(
         retriever_default=None,
-        retriever_alt=None,
         encoder=StubEncoderClient(),
         publisher=InMemoryRankingLogPublisher(),
     )
@@ -171,7 +169,6 @@ def test_search_raises_unavailable_when_retriever_missing() -> None:
 def test_search_raises_unavailable_when_encoder_missing() -> None:
     service = SearchService(
         retriever_default=InMemoryCandidateRetriever(),
-        retriever_alt=None,
         encoder=None,
         publisher=InMemoryRankingLogPublisher(),
     )
@@ -180,27 +177,6 @@ def test_search_raises_unavailable_when_encoder_missing() -> None:
             request_id="req-8",
             input=SearchInput(query="x", filters={}, top_k=1),
         )
-
-
-def test_search_alt_lexical_routes_to_alt_retriever() -> None:
-    primary = InMemoryCandidateRetriever(
-        candidates=[_make_candidate("PRIMARY", lexical_rank=1, semantic_rank=1)]
-    )
-    alt = InMemoryCandidateRetriever(
-        candidates=[_make_candidate("ALT", lexical_rank=1, semantic_rank=1)]
-    )
-    service = SearchService(
-        retriever_default=primary,
-        retriever_alt=alt,
-        encoder=StubEncoderClient(),
-        publisher=InMemoryRankingLogPublisher(),
-    )
-    output = service.search(
-        request_id="req-9",
-        input=SearchInput(query="x", filters={}, top_k=1, lexical_backend="agent_builder"),
-    )
-    assert [it.property_id for it in output.items] == ["ALT"]
-    assert primary.calls == [], "primary retriever must not be called"
 
 
 def test_search_populates_popularity_score_when_scorer_present() -> None:
