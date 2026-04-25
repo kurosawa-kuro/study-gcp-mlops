@@ -1,16 +1,9 @@
-"""Production ``CacheStore`` adapters.
-
-Phase B-3 moved ``NoopCacheStore`` and ``InMemoryTTLCacheStore`` into
-``app/services/fakes/`` (production no-ops / in-memory implementations).
-This module retains the **external-system-backed** stub for the future
-Memorystore (Redis) rollout.
-"""
+"""Production ``CacheStore`` adapters."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.services.fakes import InMemoryTTLCacheStore, NoopCacheStore
 from app.services.protocols.cache_store import CacheStore
 
 
@@ -29,8 +22,4 @@ class MemorystoreRedisCacheStore(CacheStore):
         return None
 
 
-__all__ = [
-    "InMemoryTTLCacheStore",
-    "MemorystoreRedisCacheStore",
-    "NoopCacheStore",
-]
+__all__ = ["MemorystoreRedisCacheStore"]

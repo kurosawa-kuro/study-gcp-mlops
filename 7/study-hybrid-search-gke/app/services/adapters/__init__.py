@@ -1,19 +1,4 @@
-"""Production adapters — concrete implementations backed by external systems.
-
-Phase B-3 separated test-doubles / null-implementations into
-``app/services/fakes/``. This module re-exports both production adapters
-and (for backward compat) the ``fakes/`` symbols that previously lived
-here. Phase D will remove the fakes re-exports once callers (composition
-root, tests) have moved to ``from app.services.fakes import ...``.
-"""
-
-from app.services.fakes import (
-    InMemoryTTLCacheStore,
-    NoopCacheStore,
-    NoopFeedbackRecorder,
-    NoopLexicalSearch,
-    NoopRankingLogPublisher,
-)
+"""Production adapters — concrete implementations backed by external systems."""
 
 from .bigquery_candidate_retriever import BigQueryCandidateRetriever
 from .cache_store import MemorystoreRedisCacheStore
@@ -28,15 +13,10 @@ from .retrain import BigQueryRetrainQueries, create_retrain_queries
 __all__ = [
     "BigQueryCandidateRetriever",
     "BigQueryRetrainQueries",
-    "InMemoryTTLCacheStore",
     "KServeEncoder",
     "KServeReranker",
     "MeilisearchLexical",
     "MemorystoreRedisCacheStore",
-    "NoopCacheStore",
-    "NoopFeedbackRecorder",
-    "NoopLexicalSearch",
-    "NoopRankingLogPublisher",
     "PubSubFeedbackRecorder",
     "PubSubPublisher",
     "PubSubRankingLogPublisher",

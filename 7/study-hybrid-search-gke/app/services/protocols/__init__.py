@@ -1,12 +1,4 @@
-"""API-side Ports — Protocols consumed by services / handlers.
-
-Phase B-1 split each Protocol into its own file (1 Port = 1 file). The
-``Candidate`` dataclass moved to ``app/domain/candidate.py`` and is
-re-exported here for backward compatibility with existing adapter
-imports (Phase B-2 sweeps callers to import from ``app.domain``).
-"""
-
-from app.domain.candidate import Candidate
+"""API-side Ports — Protocols consumed by services / handlers."""
 
 from ._types import LexicalResult, SemanticResult
 from .cache_store import CacheStore
@@ -23,7 +15,6 @@ from .semantic_search import SemanticSearchPort
 
 __all__ = [
     "CacheStore",
-    "Candidate",
     "CandidateRetriever",
     "EncoderClient",
     "FeedbackRecorder",

@@ -32,7 +32,7 @@ from app.api.handlers import (
 )
 from app.api.middleware import RequestLoggingMiddleware
 from app.composition_root import ContainerBuilder
-from app.services.config import ApiSettings
+from app.settings import ApiSettings
 from ml.common.logging import configure_logging, get_logger
 
 

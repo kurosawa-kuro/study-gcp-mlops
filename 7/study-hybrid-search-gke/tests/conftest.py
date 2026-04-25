@@ -26,7 +26,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.composition_root import Container
-from app.services.config import ApiSettings
+from app.settings import ApiSettings
 from app.services.feedback_service import FeedbackService
 from app.services.search_service import SearchService
 from tests.fakes import (

@@ -11,7 +11,7 @@ from google.cloud import bigquery
 
 from app.domain.candidate import Candidate
 from app.domain.search import SearchFilters
-from app.services.adapters.semantic_search import BigQuerySemanticSearch
+from app.services.adapters.bigquery_semantic_search import BigQuerySemanticSearch
 from app.services.protocols.lexical_search import LexicalSearchPort
 from app.services.protocols.semantic_search import SemanticSearchPort
 from app.services.ranking import RRF_K, rrf_fuse

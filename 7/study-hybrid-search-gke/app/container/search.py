@@ -157,7 +157,9 @@ class SearchBuilder:
                 "falling back to BigQuery VECTOR_SEARCH"
             )
             return None
-        from app.services.adapters.semantic_search import VertexVectorSearchSemantic
+        from app.services.adapters.vertex_vector_search_semantic import (
+            VertexVectorSearchSemantic,
+        )
 
         try:
             adapter = VertexVectorSearchSemantic(

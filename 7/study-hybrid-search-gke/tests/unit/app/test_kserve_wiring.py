@@ -1,9 +1,9 @@
 """Phase 7 composition-root + ApiSettings wiring for KServe adapters.
 
-These tests pin down the contract between ``app.services.config.ApiSettings``
-(env var → attribute) and ``app.main._build_*_client`` (settings →
-``KServeEncoder`` / ``KServeReranker``). They run purely in-process — no GCP
-calls, no kubectl.
+These tests pin down the contract between ``app.settings.ApiSettings``
+(env var → attribute) and ``ContainerBuilder._build_*_client`` (settings →
+``KServeEncoder`` / ``KServeReranker``). They run purely in-process, with no
+GCP calls or kubectl.
 
 Why this layer matters: Phase 7 introduces three new env-driven knobs
 (``KSERVE_ENCODER_URL`` / ``KSERVE_RERANKER_URL`` / ``KSERVE_RERANKER_EXPLAIN_URL``).
@@ -17,7 +17,7 @@ import pytest
 
 from app.composition_root import ContainerBuilder
 from app.services.adapters import KServeEncoder, KServeReranker
-from app.services.config import ApiSettings
+from app.settings import ApiSettings
 
 
 def _settings(**overrides: object) -> ApiSettings:
