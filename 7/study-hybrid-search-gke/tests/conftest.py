@@ -193,7 +193,7 @@ def fake_app(fake_container: Container) -> FastAPI:
     Mirrors ``app.main.create_app`` minus middleware / static / templates
     so handler tests stay focused on JSON I/O.
     """
-    from app.api.handlers import (
+    from app.api.routers import (
         feedback_router,
         health_router,
         rag_router,

@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.handlers import (
+from app.api.routers import (
     feedback_router,
     health_router,
     rag_router,
