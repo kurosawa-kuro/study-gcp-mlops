@@ -65,10 +65,10 @@ raw.properties (upstream ETL)
 | 変更 | 反応するワークフロー | 動作 |
 |---|---|---|
 | `infra/terraform/**` | `terraform.yml` | plan (PR コメント) → push で apply |
-| `app/**`, `ml/**`, `infra/manifests/**` | `deploy-api.yml` | Docker build → Artifact Registry → `kubectl set image deployment/search-api` |
-| `pipeline/data_job/**`, `ml/data/**` | `deploy-encoder-image.yml` | Docker build → push encoder image (Vertex Pipelines で使用) |
-| `pipeline/training_job/**`, `ml/training/**` | `deploy-trainer-image.yml` | Docker build → push KFP trainer image |
-| `ml/serving/**` | `deploy-reranker-image.yml` | Docker build → push reranker image |
+| `app/**`, `ml/**`, `pyproject.toml`, `uv.lock` | `deploy-api.yml` | Docker build → Artifact Registry → `kubectl set image deployment/search-api` (manifest 変更は反応せず、`kubectl apply -k` 別運用) |
+| `ml/serving/**`, `ml/common/**`, `ml/registry/**`, `infra/run/services/encoder/**` | `deploy-encoder-image.yml` | Docker build → push `property-encoder` image (KServe / Vertex Pipelines で使用) |
+| `ml/training/**`, `ml/common/**`, `ml/data/**`, `ml/registry/**` | `deploy-trainer-image.yml` | Docker build → push `property-trainer` image (KFP train job で使用) |
+| `ml/serving/**`, `ml/data/feature_engineering/**`, `ml/registry/**`, `infra/run/services/reranker/**` | `deploy-reranker-image.yml` | Docker build → push `property-reranker` image (KServe で使用) |
 | `pipeline/{data_job,training_job,evaluation_job}/**` | `deploy-pipeline.yml` | KFP templates compile → upload to GCS |
 | `pipeline/data_job/dataform/**` | `deploy-dataform.yml` | `scripts.ci.sync_dataform` → `dataform compile` → Dataform API へ compilationResults POST |
 
