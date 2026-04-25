@@ -39,7 +39,7 @@ NA_TARGETS := up down wait-db free-ports build seed serve test-e2e install-brows
 	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
 	deploy-api-local \
 	api-dev-search-rerank setup-encoder-endpoint setup-reranker-endpoint \
-	ops-monitor ops-monitor-lro ops-enable-search destroy-phase7-learning
+	ops-monitor ops-monitor-lro ops-enable-search
 
 include ../../mk/base.mk
 

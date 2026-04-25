@@ -14,21 +14,21 @@ no Property entity. Add only when a concrete reuse forces it.
 """
 
 from app.domain.candidate import Candidate, RankedCandidate
+from app.domain.retrieval import LexicalResult, SemanticResult
 from app.domain.search import (
     SearchFilters,
     SearchInput,
     SearchOutput,
     SearchResultItem,
 )
-from app.domain.retrieval import LexicalResult, SemanticResult
 
 __all__ = [
     "Candidate",
     "LexicalResult",
     "RankedCandidate",
-    "SemanticResult",
     "SearchFilters",
     "SearchInput",
     "SearchOutput",
     "SearchResultItem",
+    "SemanticResult",
 ]

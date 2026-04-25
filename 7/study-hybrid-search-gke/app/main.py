@@ -35,6 +35,7 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.middleware import RequestLoggingMiddleware
 from app.api.routers import (
     build_ui_router,
     feedback_router,
@@ -44,7 +45,6 @@ from app.api.routers import (
     retrain_router,
     search_router,
 )
-from app.api.middleware import RequestLoggingMiddleware
 from app.composition_root import ContainerBuilder
 from app.observability import Observability
 from app.settings import ApiSettings

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from google.cloud import bigquery
 
-from app.domain.search import SearchFilters
 from app.domain.retrieval import SemanticResult
+from app.domain.search import SearchFilters
 
 
 class BigQuerySemanticSearch:

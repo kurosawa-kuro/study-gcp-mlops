@@ -1,4 +1,5 @@
 """API-side Ports — Protocols consumed by services / handlers."""
+
 from .cache_store import CacheStore
 from .candidate_retriever import CandidateRetriever
 from .encoder_client import EncoderClient

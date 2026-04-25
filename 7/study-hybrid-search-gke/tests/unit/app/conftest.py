@@ -13,6 +13,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api.middleware import RequestLoggingMiddleware
 from app.api.routers import (
     feedback_router,
     health_router,
@@ -20,7 +21,6 @@ from app.api.routers import (
     retrain_router,
     search_router,
 )
-from app.api.middleware import RequestLoggingMiddleware
 from app.domain.candidate import Candidate
 from app.services.noop_adapters import InMemoryTTLCacheStore
 from ml.common.logging import get_logger

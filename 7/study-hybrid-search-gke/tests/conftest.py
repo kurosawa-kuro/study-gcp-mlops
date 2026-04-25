@@ -132,7 +132,7 @@ def fake_container_factory(
     def _build(**overrides: Any) -> Container:
         defaults: dict[str, Any] = {
             "settings": fake_settings,
-            "observability": Observability.from_env(default_service="search-api-test"),
+            "observability": Observability.for_test(),
             "training_runs_table": "mlops-test.mlops.training_runs",
             "retrain_trigger_publisher": fake_retrain_publisher,
             "retrain_queries": fake_retrain_queries,

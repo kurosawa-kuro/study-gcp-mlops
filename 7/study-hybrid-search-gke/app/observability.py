@@ -71,6 +71,17 @@ class Observability:
             logger_factory=get_logger,
         )
 
+    @classmethod
+    def for_test(cls, *, service_name: str = "search-api-test") -> Observability:
+        """Build a test-friendly Observability without reading env.
+
+        ``logging.getLogger`` (stdlib) is used rather than the
+        project-wide ``ml.common.logging.get_logger`` so test runs do not
+        depend on cloud logging configuration. Tests that need to assert
+        log lines should use ``caplog`` against the returned logger.
+        """
+        return cls(service_name=service_name, logger_factory=logging.getLogger)
+
     def get_logger(self, name: str) -> logging.Logger:
         return self.logger_factory(name)
 
