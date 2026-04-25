@@ -1,5 +1,16 @@
 # KServe InferenceService への egress は search namespace の search-api Pod
 # だけに許可 (bilateral: KServe 側も対応 NP を持つ)。
+#
+# Phase 7 Run 1 (B11/B17 系) の追加 egress 許可:
+# - 169.254.20.10 — GKE Autopilot の NodeLocal DNS Cache。Pod の
+#   `/etc/resolv.conf` が `nameserver 169.254.20.10` を指す。これを
+#   通さないと cluster.local / *.svc.cluster.local の名前解決が落ち、
+#   KServe encoder/reranker への HTTP 呼び出しが `Name or service not
+#   known` で 500 になる。
+# - 169.254.169.254 — GKE Autopilot の Workload Identity 用 metadata
+#   server (gke-metadata-server)。Pod から sa-api OIDC token を取るため。
+#   `metadata.google.internal` が DNS resolve できても、これ自体の egress
+#   が無いと `httpx ConnectError`。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -33,7 +44,7 @@ spec:
       ports:
         - protocol: TCP
           port: 443
-    # DNS
+    # DNS — kube-system kube-dns (fallback) + NodeLocal DNS Cache (link-local)
     - to:
         - namespaceSelector:
             matchLabels:
@@ -41,3 +52,22 @@ spec:
       ports:
         - protocol: UDP
           port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 169.254.20.10/32
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Workload Identity metadata server (gke-metadata-server, link-local)
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 988

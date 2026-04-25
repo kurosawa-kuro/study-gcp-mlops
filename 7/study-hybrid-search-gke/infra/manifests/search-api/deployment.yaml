@@ -28,10 +28,12 @@ spec:
           resources:
             requests:
               cpu: "500m"
-              memory: "1Gi"
+              memory: "2Gi"
+              ephemeral-storage: "2Gi"
             limits:
               cpu: "2"
-              memory: "2Gi"
+              memory: "4Gi"
+              ephemeral-storage: "2Gi"
           env:
             - name: PROJECT_ID
               valueFrom:
@@ -48,6 +50,16 @@ spec:
                 configMapKeyRef:
                   name: search-api-config
                   key: meili_base_url
+            # Phase 7 Run 1 (B13): K8s Secret `meili-master-key` (search namespace)
+            # の `MEILI_MASTER_KEY` キーを env に注入。Secret は
+            # `kubectl create secret generic meili-master-key
+            # --from-literal=MEILI_MASTER_KEY=<key>` で別途投入する
+            # (env/secret/README.md 参照)。
+            - name: MEILI_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: meili-master-key
+                  key: MEILI_MASTER_KEY
             - name: RANKING_LOG_TOPIC
               value: "ranking-log"
             - name: FEEDBACK_TOPIC
@@ -61,15 +73,26 @@ spec:
             - name: ENABLE_RERANK
               value: "true"
             # KServe InferenceService の cluster-local エンドポイント
-            # encoder は Phase 5 から継承した Vertex CPR 規約 server (AIP_PREDICT_ROUTE
-            # default=/predict) なので `/predict` を直指定する。reranker は KServe
-            # 公式 MLServer LightGBM runtime なので KServe v1 protocol path。
+            # KServe RawDeployment が作る Service は `<isvc-name>-predictor`
+            # 命名 (Phase 7 Run 1 B15+) — `property-encoder` ではなく
+            # `property-encoder-predictor` を指す必要がある。
+            # encoder は Phase 5 から継承した Vertex CPR 規約 server
+            # (AIP_PREDICT_ROUTE default=/predict)。reranker は KServe stock
+            # MLServer LightGBM runtime → v2 protocol path
+            # (`/v2/models/<name>/infer`、Phase 7 Run 1 B18 で v1 から修正)。
             - name: KSERVE_ENCODER_URL
-              value: "http://property-encoder.kserve-inference.svc.cluster.local/predict"
+              value: "http://property-encoder-predictor.kserve-inference.svc.cluster.local/predict"
             - name: KSERVE_RERANKER_URL
-              value: "http://property-reranker.kserve-inference.svc.cluster.local/v1/models/property-reranker:predict"
+              value: "http://property-reranker-predictor.kserve-inference.svc.cluster.local/v2/models/property-reranker/infer"
             - name: KSERVE_PREDICT_TIMEOUT_SECONDS
               value: "30.0"
+          startupProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /livez

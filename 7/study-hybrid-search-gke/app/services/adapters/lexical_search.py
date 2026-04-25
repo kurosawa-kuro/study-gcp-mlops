@@ -50,15 +50,22 @@ class MeilisearchLexical(LexicalSearchPort):
         top_k: int,
     ) -> list[tuple[str, int]]:
         headers: dict[str, str] = {"content-type": "application/json"}
-        if self._api_key:
-            headers["authorization"] = f"Bearer {self._api_key}"
+        # Meilisearch v1.x はマスターキーを `Authorization: Bearer` で要求するが、
+        # Cloud Run も同じヘッダで OIDC token を要求するため衝突する。
+        # Cloud Run は標準の `Authorization` を validate→strip するので、Meili 側に
+        # マスターキーを届けるためには Cloud Run の代替ヘッダ
+        # `X-Serverless-Authorization` を OIDC 用に使う必要がある (Cloud Run はこの
+        # 別名でも IAM 認証を受け付けるドキュメント記載の代替)。
+        # 参照: docs/04_運用.md / 動作検証結果.md Phase 7 Run 1 (B17)
         if self._require_identity_token:
             try:
                 token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]
-                headers["authorization"] = f"Bearer {token}"
+                headers["x-serverless-authorization"] = f"Bearer {token}"
             except Exception:
                 self._logger.exception("Failed to mint ID token for meili-search")
                 return []
+        if self._api_key:
+            headers["authorization"] = f"Bearer {self._api_key}"
 
         payload: dict[str, Any] = {
             "q": query,

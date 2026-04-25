@@ -49,9 +49,15 @@ spec:
         resources:
           # Autopilot general-purpose class は memory:cpu を 1:1 〜 6.5:1 に
           # 制約。ここは 2:1 で統一。
+          # ephemeral-storage (Phase 7 Run 1 B14): ME5 weights 1.1 GB を
+          # /tmp に download するため Autopilot default 1Gi を超え Pod が
+          # `Pod ephemeral local storage usage exceeds the total limit of
+          # containers 1Gi.` で evict される。3Gi に拡張。
           requests:
             cpu: "1"
             memory: "2Gi"
+            ephemeral-storage: "3Gi"
           limits:
             cpu: "2"
             memory: "4Gi"
+            ephemeral-storage: "3Gi"

@@ -405,10 +405,32 @@ class KServeReranker:
         if not instances:
             logger.warning("reranker.predict called with empty instances")
             return []
-        payload = {"instances": instances}
+        # KServe MLServer (LightGBM stock runtime) は v2 protocol のみサポート
+        # → endpoint URL が `/v2/models/<name>/infer` の場合は v2 payload で送る。
+        # `/v1/models/<name>:predict` の場合は v1 payload (custom Vertex CPR
+        # サーバ向け、Phase 6 ml/serving/reranker.py の互換性維持)。
+        # 動作検証結果.md Phase 7 Run 1 (B18) 参照。
+        is_v2 = "/v2/models/" in self.endpoint_url
+        if is_v2:
+            n_rows = len(instances)
+            n_cols = len(instances[0]) if instances else 0
+            flat = [float(v) for row in instances for v in row]
+            payload: dict[str, Any] = {
+                "inputs": [
+                    {
+                        "name": "input-0",
+                        "shape": [n_rows, n_cols],
+                        "datatype": "FP64",
+                        "data": flat,
+                    }
+                ]
+            }
+        else:
+            payload = {"instances": instances}
         logger.info(
-            "reranker.predict START endpoint=%s batch=%d dims=%d",
+            "reranker.predict START endpoint=%s protocol=%s batch=%d dims=%d",
             self.endpoint_url,
+            "v2" if is_v2 else "v1",
             len(instances),
             len(instances[0]) if instances else -1,
         )
