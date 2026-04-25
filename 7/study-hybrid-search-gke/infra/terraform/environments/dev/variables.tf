@@ -216,3 +216,13 @@ variable "agent_builder_engine_display_name" {
   type        = string
   default     = "properties-search"
 }
+
+# =========================================================================
+# Vertex AI Feature Online Store toggle (Phase 7 — vertex_feature_group.py).
+# =========================================================================
+
+variable "enable_feature_online_store" {
+  description = "Provision the Vertex AI Feature Online Store + FeatureView so /vertex_feature_group.py fetches return featureValues. Default false because the Online Store charges per online query + node hours; flip on when exercising the script."
+  type        = bool
+  default     = false
+}

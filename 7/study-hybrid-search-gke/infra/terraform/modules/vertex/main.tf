@@ -260,6 +260,58 @@ resource "google_vertex_ai_feature_group_feature" "property_features" {
 }
 
 # =========================================================================
+# Feature Online Store + FeatureView — Phase 7 で追加。
+# `vertex_feature_group.py` script が `FetchFeatureValuesRequest` で
+# 1 entity の最新 feature 値を引くために必要。Feature Group (offline、上)
+# だけでは online fetch endpoint が立たないので 501 Not Implemented になる。
+#
+# Optimized 種別 (= node count 自動スケール、課金は読み込みクエリ単位)を
+# 採用。学習リポでは常駐 sync が走り続けるのは過剰なので
+# `enable_feature_online_store` フラグで gate し、必要時のみ apply する。
+# =========================================================================
+
+resource "google_vertex_ai_feature_online_store" "property_features" {
+  count    = var.enable_feature_online_store ? 1 : 0
+  provider = google-beta
+
+  name   = var.feature_online_store_id
+  region = var.vertex_location
+
+  optimized {}
+
+  # 学習リポなので公開は不要 (Pod から VPC 経由で fetch する)。
+  dedicated_serving_endpoint {
+    private_service_connect_config {
+      enable_private_service_connect = false
+    }
+  }
+}
+
+resource "google_vertex_ai_feature_online_store_featureview" "property_features" {
+  count    = var.enable_feature_online_store ? 1 : 0
+  provider = google-beta
+
+  name                 = "property_features"
+  region               = var.vertex_location
+  feature_online_store = google_vertex_ai_feature_online_store.property_features[0].name
+
+  feature_registry_source {
+    feature_groups {
+      feature_group_id = google_vertex_ai_feature_group.property_features[0].name
+      feature_ids      = [for feat in local.feature_group_property_features : feat.name]
+    }
+  }
+
+  # 学習リポ: 1 hour ごとに sync (cron)。実運用なら Dataflow streaming や
+  # `manual` sync (= API 経由で都度トリガ) も選択可。
+  sync_config {
+    cron = "0 * * * *"
+  }
+
+  depends_on = [google_vertex_ai_feature_group_feature.property_features]
+}
+
+# =========================================================================
 # Vertex AI Endpoints — empty shells. Model deployment is handled by the
 # Python SDK (register_reranker KFP component + scripts/setup/create_*.py)
 # because traffic-split / deployed_model nesting in Terraform is immature.

@@ -13,5 +13,6 @@ resources:
   # KServe InferenceService
   - kserve/encoder.yaml
   - kserve/reranker.yaml
+  - kserve/reranker-explain.yaml
   - kserve/networkpolicy.yaml
   - kserve/podmonitoring.yaml

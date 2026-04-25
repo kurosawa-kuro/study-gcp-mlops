@@ -68,6 +68,7 @@ module "vertex" {
   reranker_endpoint_display_name   = "property-reranker-endpoint"
   retrain_trigger_topic_id         = module.runtime.retrain_trigger_topic.id
   retrain_trigger_topic_name       = module.runtime.retrain_trigger_topic.name
+  enable_feature_online_store      = var.enable_feature_online_store
 
   depends_on = [
     google_project_service.enabled,
