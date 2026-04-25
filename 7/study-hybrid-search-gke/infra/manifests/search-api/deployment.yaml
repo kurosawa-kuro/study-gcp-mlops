@@ -78,10 +78,14 @@ spec:
             # (AIP_PREDICT_ROUTE default=/predict)。reranker は KServe stock
             # MLServer LightGBM runtime → v2 protocol path
             # (`/v2/models/<name>/infer`、Phase 7 Run 1 B18 で v1 から修正)。
+            # TreeSHAP explain は stock runtime では返らないため、専用の
+            # `property-reranker-explain` Service へ別 URL で逃がす。
             - name: KSERVE_ENCODER_URL
               value: "http://property-encoder-predictor.kserve-inference.svc.cluster.local/predict"
             - name: KSERVE_RERANKER_URL
               value: "http://property-reranker-predictor.kserve-inference.svc.cluster.local/v2/models/property-reranker/infer"
+            - name: KSERVE_RERANKER_EXPLAIN_URL
+              value: "http://property-reranker-explain.kserve-inference.svc.cluster.local/explain"
             - name: KSERVE_PREDICT_TIMEOUT_SECONDS
               value: "30.0"
           startupProbe:

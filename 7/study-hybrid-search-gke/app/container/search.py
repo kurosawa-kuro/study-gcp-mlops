@@ -145,7 +145,7 @@ class SearchBuilder:
                 "ENABLE_SEARCH=true but KSERVE_ENCODER_URL is empty — encoder client DISABLED. "
                 "Check infra/manifests/search-api/deployment.yaml env `KSERVE_ENCODER_URL`. "
                 "Expected cluster-local: "
-                "http://property-encoder.kserve-inference.svc.cluster.local/predict"
+                "http://property-encoder-predictor.kserve-inference.svc.cluster.local/predict"
             )
             return None, None
         try:
@@ -177,8 +177,8 @@ class SearchBuilder:
             self._logger.warning(
                 "ENABLE_RERANK=true but KSERVE_RERANKER_URL is empty — reranker client DISABLED. "
                 "Expected cluster-local: "
-                "http://property-reranker.kserve-inference.svc.cluster.local"
-                "/v1/models/property-reranker:predict"
+                "http://property-reranker-predictor.kserve-inference.svc.cluster.local"
+                "/v2/models/property-reranker/infer"
             )
             return None, None
         try:

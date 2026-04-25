@@ -87,6 +87,7 @@ def test_search_api_deployment_exposes_kserve_env_vars() -> None:
     required_keys = {
         "KSERVE_ENCODER_URL",
         "KSERVE_RERANKER_URL",
+        "KSERVE_RERANKER_EXPLAIN_URL",
         "ENABLE_SEARCH",
         "ENABLE_RERANK",
         "RANKING_LOG_TOPIC",
@@ -103,6 +104,14 @@ def test_search_api_deployment_exposes_kserve_env_vars() -> None:
     )
     assert "kserve-inference.svc.cluster.local" in by_name["KSERVE_RERANKER_URL"], (
         f"KSERVE_RERANKER_URL must be cluster-local DNS, got {by_name['KSERVE_RERANKER_URL']!r}"
+    )
+    assert "kserve-inference.svc.cluster.local" in by_name["KSERVE_RERANKER_EXPLAIN_URL"], (
+        "KSERVE_RERANKER_EXPLAIN_URL must be cluster-local DNS, "
+        f"got {by_name['KSERVE_RERANKER_EXPLAIN_URL']!r}"
+    )
+    assert by_name["KSERVE_RERANKER_EXPLAIN_URL"].endswith("/explain"), (
+        "KSERVE_RERANKER_EXPLAIN_URL must target the dedicated TreeSHAP route "
+        f"(got {by_name['KSERVE_RERANKER_EXPLAIN_URL']!r})"
     )
 
 
