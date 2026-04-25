@@ -15,7 +15,6 @@ _yaml_get = $(strip $(shell awk -F: '/^$(1):/ {gsub(/^[ "'\'']+|[ "'\'']+$$/,"",
 PROJECT_ID    ?= $(call _yaml_get,project_id)
 REGION        ?= $(call _yaml_get,region)
 API_SERVICE   ?= $(call _yaml_get,api_service)
-TRAINING_JOB  ?= $(call _yaml_get,training_job)
 ARTIFACT_REPO ?= $(call _yaml_get,artifact_repo)
 VERTEX_LOCATION ?= $(call _yaml_get,vertex_location)
 PIPELINE_ROOT_BUCKET ?= $(call _yaml_get,pipeline_root_bucket)
@@ -43,7 +42,7 @@ NA_TARGETS := up down wait-db free-ports build seed serve test-e2e install-brows
 
 include ../../mk/base.mk
 
-export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
+export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT_BUCKET PIPELINE_TEMPLATE_GCS_PATH
 
 .PHONY: help doctor sync test lint fmt fmt-check typecheck check \
         check-layers sync-dataform-config sync-configmap \
