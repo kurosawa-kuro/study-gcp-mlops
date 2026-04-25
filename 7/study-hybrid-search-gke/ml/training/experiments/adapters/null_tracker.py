@@ -27,3 +27,6 @@ class NullExperimentTracker:
 
     def log_metrics(self, metrics: dict[str, float]) -> None:
         pass
+
+    def log_params(self, params: dict[str, object]) -> None:
+        pass
