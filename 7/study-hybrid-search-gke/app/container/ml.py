@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from app.container._optional_adapter import resolve_optional_adapter
+from app.container.internal.optional_adapter import resolve_optional_adapter
 from app.services.protocols.generator import Generator
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.rag_summarizer import RagSummarizer

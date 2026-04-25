@@ -13,7 +13,7 @@ import logging
 
 import pytest
 
-from app.container._optional_adapter import resolve_optional_adapter
+from app.container.internal.optional_adapter import resolve_optional_adapter
 
 
 def test_returns_none_when_disabled_without_calling_factory() -> None:

@@ -8,7 +8,7 @@ Design notes:
 - ``Container`` is a frozen dataclass; we build it directly here rather
   than going through ``ContainerBuilder`` (which would try to construct
   GCP clients).
-- All adapter slots get ``tests.fakes.*`` test doubles by default.
+- All adapter slots get ``tests._fakes.*`` test doubles by default.
   Individual tests can request the lower-level fixtures (``fake_encoder``
   etc.) and inject custom variants by passing ``fake_container_factory``.
 - The ``ApiSettings`` used here disables every flag (``ENABLE_RAG`` /
@@ -31,7 +31,7 @@ from app.services.feedback_service import FeedbackService
 from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.search_service import SearchService
 from app.settings import ApiSettings
-from tests.fakes import (
+from tests._fakes import (
     InMemoryCacheStore,
     InMemoryCandidateRetriever,
     InMemoryFeedbackRecorder,

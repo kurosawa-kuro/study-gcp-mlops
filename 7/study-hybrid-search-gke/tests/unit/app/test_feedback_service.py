@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.services.feedback_service import FeedbackService
-from tests.fakes import InMemoryFeedbackRecorder
+from tests._fakes import InMemoryFeedbackRecorder
 
 
 def test_record_returns_true_on_success() -> None:

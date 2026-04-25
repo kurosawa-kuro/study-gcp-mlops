@@ -7,7 +7,7 @@ from app.domain.search import SearchInput
 from app.services.rag_service import RagService
 from app.services.rag_summarizer import RagSummarizer
 from app.services.search_service import SearchService
-from tests.fakes import (
+from tests._fakes import (
     InMemoryCandidateRetriever,
     InMemoryRankingLogPublisher,
     StubEncoderClient,

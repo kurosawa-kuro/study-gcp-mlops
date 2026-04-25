@@ -13,7 +13,7 @@ import pytest
 from app.domain.candidate import Candidate
 from app.domain.search import SearchInput
 from app.services.search_service import SearchService, SearchServiceUnavailable
-from tests.fakes import (
+from tests._fakes import (
     InMemoryCacheStore,
     InMemoryCandidateRetriever,
     InMemoryRankingLogPublisher,
