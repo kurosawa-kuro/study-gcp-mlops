@@ -68,6 +68,7 @@ def test_kserve_encoder_parses_embedding_dict_response_v1() -> None:
     adapter = KServeEncoder(
         endpoint_url="http://property-encoder.kserve-inference.svc.cluster.local/v1/models/property-encoder:predict",
         client=fake_client,
+        expected_dim=0,  # disable strict 768d check for tiny test vector
     )
     vector = adapter.embed("赤羽駅徒歩10分", "query")
 
@@ -99,7 +100,9 @@ def test_kserve_reranker_parses_scalar_scores_v1() -> None:
 def test_kserve_encoder_parses_v2_open_inference_response() -> None:
     fake_client = _fake_httpx_client({"outputs": [{"name": "embedding", "data": [[0.1, 0.2]]}]})
 
-    adapter = KServeEncoder(endpoint_url="http://x/v1/models/m:predict", client=fake_client)
+    adapter = KServeEncoder(
+        endpoint_url="http://x/v1/models/m:predict", client=fake_client, expected_dim=0
+    )
     vector = adapter.embed("q", "query")
 
     assert vector == [0.1, 0.2]
@@ -212,6 +215,120 @@ def test_kserve_reranker_satisfies_reranker_explainer_protocol() -> None:
     adapter = KServeReranker(endpoint_url="http://r/")
     assert callable(getattr(adapter, "predict", None))
     assert callable(getattr(adapter, "predict_with_explain", None))
+
+
+def test_kserve_encoder_rejects_html_error_page_as_non_json() -> None:
+    """Envoy / Istio 502 often serves HTML. ``response.json()`` on HTML raises
+    ``json.JSONDecodeError`` (a ``ValueError``), which previously propagated
+    as an opaque traceback. Now it surfaces as a ``RuntimeError`` with the
+    HTML body preview + kubectl hint.
+    """
+    fake_response = MagicMock()
+    fake_response.status_code = 502
+    fake_response.text = "<html><body>upstream connect error</body></html>"
+    fake_response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
+    fake_response.headers = {"content-type": "text/html; charset=utf-8"}
+    fake_response.raise_for_status.return_value = None
+    fake_client = MagicMock()
+    fake_client.post.return_value = fake_response
+
+    adapter = KServeEncoder(
+        endpoint_url="http://property-encoder.kserve-inference.svc.cluster.local/predict",
+        client=fake_client,
+        expected_dim=0,
+    )
+    import pytest as _pytest
+
+    with _pytest.raises(RuntimeError, match="non-JSON response"):
+        adapter.embed("query", "query")
+
+
+def test_kserve_encoder_rejects_empty_embedding_vector() -> None:
+    fake_client = _fake_httpx_client({"predictions": [{"embedding": []}]})
+    adapter = KServeEncoder(endpoint_url="http://x/predict", client=fake_client, expected_dim=0)
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="empty embedding"):
+        adapter.embed("q", "query")
+
+
+def test_kserve_encoder_enforces_768d_by_default() -> None:
+    """Default ``expected_dim=768`` (EXPECTED_EMBEDDING_DIM constant) guards
+    the BQ VECTOR_SEARCH contract; a 512d vector must fail loud at the
+    encoder, not silently at BQ.
+    """
+    vec_512 = [0.01] * 512
+    fake_client = _fake_httpx_client({"predictions": [{"embedding": vec_512}]})
+    adapter = KServeEncoder(endpoint_url="http://x/predict", client=fake_client)  # default dim
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="512d embedding, expected 768d"):
+        adapter.embed("q", "query")
+
+
+def test_kserve_encoder_rejects_nan_in_embedding() -> None:
+    fake_client = _fake_httpx_client({"predictions": [{"embedding": [0.1, float("nan"), 0.3]}]})
+    adapter = KServeEncoder(endpoint_url="http://x/predict", client=fake_client, expected_dim=0)
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="NaN at index 1"):
+        adapter.embed("q", "query")
+
+
+def test_kserve_encoder_rejects_inf_in_embedding() -> None:
+    fake_client = _fake_httpx_client({"predictions": [{"embedding": [0.1, float("inf"), 0.3]}]})
+    adapter = KServeEncoder(endpoint_url="http://x/predict", client=fake_client, expected_dim=0)
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="inf at index 1"):
+        adapter.embed("q", "query")
+
+
+def test_kserve_reranker_rejects_score_count_mismatch() -> None:
+    """Ranker contract: one score per instance. A shortfall would IndexError
+    later in ranking.py when zipping with candidates. Fail loud here with
+    the exact shape delta.
+    """
+    fake_client = _fake_httpx_client({"predictions": [0.9]})  # only 1 score
+    adapter = KServeReranker(endpoint_url="http://x/predict", client=fake_client)
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError, match="returned 1 scores for 3 instances"):
+        adapter.predict([[1.0], [2.0], [3.0]])  # 3 instances, got 1 score
+
+
+def test_kserve_reranker_predict_with_explain_logs_count_mismatch_and_degrades(
+    caplog,
+) -> None:
+    """Attribution count mismatch must be logged at ERROR level with the exact
+    delta, even though the final result degrades to empty dicts (preserving
+    200 on ``/search?explain=true``). This separates "runtime ignored explain"
+    (no attributions key at all) from "runtime returned wrong-length array"
+    (off-by-one bug in the container).
+    """
+    import logging as _logging
+
+    fake_client = _fake_httpx_client(
+        {
+            "predictions": [0.5, 0.6],
+            # 3 attribution rows for 2 instances — off-by-one bug
+            "attributions": [
+                {"rent": 0.1, "_baseline": 0.5},
+                {"rent": 0.2, "_baseline": 0.5},
+                {"rent": 0.3, "_baseline": 0.5},
+            ],
+        }
+    )
+    adapter = KServeReranker(endpoint_url="http://r/predict", client=fake_client)
+    with caplog.at_level(_logging.ERROR, logger="app.kserve_prediction"):
+        scores, attrs = adapter.predict_with_explain([[1.0], [2.0]], feature_names=["rent"])
+
+    assert scores == [0.5, 0.6]
+    assert attrs == [{}, {}]  # degraded
+    assert any(
+        "COUNT_MISMATCH" in record.message and "attributions.len=3" in record.message
+        for record in caplog.records
+    ), f"Expected COUNT_MISMATCH ERROR log; got: {[r.message for r in caplog.records]}"
 
 
 def test_kserve_reranker_parses_v2_attributions_output() -> None:

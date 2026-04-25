@@ -102,9 +102,17 @@ def _resolve_latest(display_name: str, *, project_id: str, region: str) -> Model
             _info(f"selected version_id={model.version_id} (via `production` alias)")
             break
     else:
-        _info(
-            f"no `production` alias found — falling back to first (version_id={model.version_id}). "
-            "Run `make ops-promote-reranker` / equivalent to set production alias."
+        # Elevated to WARNING on stderr (not INFO on stdout): deploying the
+        # first-available model when no `production` alias exists is a
+        # significant operational risk — we could roll out a half-tested
+        # version. Operators must see this in error logs / CI output.
+        _error(
+            f"WARNING no `production` alias found for {display_name!r} — "
+            f"falling back to first-listed version (id={model.version_id}). "
+            "This likely deploys a stale or untested model. "
+            "Run `make ops-promote-reranker VERSION=vN APPLY=1` (reranker) "
+            "or the equivalent promote step before `make deploy-kserve-models` "
+            "to avoid this fallback."
         )
 
     artifact_uri = getattr(model, "uri", None) or getattr(model._gca_resource, "artifact_uri", "")

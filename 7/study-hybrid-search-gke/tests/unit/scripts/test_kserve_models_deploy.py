@@ -257,6 +257,40 @@ def test_patch_encoder_storage_uri_keeps_existing_trailing_slash() -> None:
     assert aip_uri == "gs://bucket/encoders/v3/"
 
 
+def test_resolve_latest_warns_on_production_alias_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """When production alias is missing, the script falls back to models[0]
+    — but this is a LOUD warning on stderr, not a silent info log. Operators
+    must see "WARNING no `production` alias" in CI output to know the
+    rollout may deploy a stale model.
+    """
+    from scripts.deploy import kserve_models
+
+    _install_fake_aiplatform(
+        monkeypatch,
+        [
+            _FakeModel(
+                display_name="property-reranker",
+                version_id="v7",
+                uri="gs://bucket/v7",
+                aliases=["staging"],  # no production
+            )
+        ],
+    )
+
+    kserve_models._resolve_latest("property-reranker", project_id="p", region="r")
+
+    captured = capsys.readouterr()
+    # The warning must go to stderr (via _error) — CI systems highlight stderr.
+    assert "WARNING no `production` alias" in captured.err
+    assert "property-reranker" in captured.err
+    assert "ops-promote-reranker" in captured.err, (
+        "The fallback message must point operators at the fix command."
+    )
+
+
 def test_patch_encoder_payload_targets_kserve_container_env() -> None:
     """The encoder patch goes at ``spec.predictor.containers[0].env`` (not
     ``spec.predictor.model.storageUri``) because the encoder uses a custom

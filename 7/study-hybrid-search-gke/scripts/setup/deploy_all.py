@@ -19,6 +19,7 @@ min-instances=1, BQ storage, etc.) — see CLAUDE.md non-negotiables.
 from __future__ import annotations
 
 import subprocess
+import time
 from pathlib import Path
 
 from scripts._common import env, run
@@ -30,12 +31,42 @@ from scripts.setup.tf_plan import main as tf_plan_main
 
 INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 
+# Overall start time; per-step timing relates elapsed time to the wall-clock
+# position in the deploy-all sequence so operators can see WHICH step is slow
+# when a rollout hangs (e.g. Cloud Build wait dominating step 7).
+_DEPLOY_ALL_STARTED_AT: float | None = None
+_STEP_STARTED_AT: float | None = None
+
 
 def _step(n: int, total: int, label: str) -> None:
+    global _DEPLOY_ALL_STARTED_AT, _STEP_STARTED_AT
+    now = time.monotonic()
+    # On first step entry, emit a "prev_step_elapsed" anchor of 0 and start
+    # the overall clock.
+    if _DEPLOY_ALL_STARTED_AT is None:
+        _DEPLOY_ALL_STARTED_AT = now
+    prev_elapsed = now - _STEP_STARTED_AT if _STEP_STARTED_AT is not None else 0.0
+    total_elapsed = now - _DEPLOY_ALL_STARTED_AT
+    _STEP_STARTED_AT = now
     print()
     print("================================================================")
     print(f" deploy-all  step {n}/{total}: {label}")
+    if n > 1:
+        print(f" (prev_step_elapsed={prev_elapsed:.0f}s total_elapsed={total_elapsed:.0f}s)")
     print("================================================================")
+
+
+def _step_done() -> None:
+    """Emit a `step-done` line with elapsed seconds for the step just finished.
+
+    Complements ``_step``: ``_step`` records WHEN a step starts, ``_step_done``
+    records HOW LONG it took. Operators (and ``scripts.deploy.monitor``) can
+    parse these to locate the slow step in a hung deploy-all.
+    """
+    if _STEP_STARTED_AT is None:
+        return
+    elapsed = time.monotonic() - _STEP_STARTED_AT
+    print(f" deploy-all  step-done elapsed={elapsed:.0f}s")
 
 
 def _gcloud_capture(args: list[str]) -> tuple[int, str]:
@@ -170,31 +201,43 @@ def main() -> int:
     _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
     if (rc := tf_bootstrap_main()) != 0:
         return rc
+    _step_done()
 
     _step(2, total, "tf-init (preflight + terraform init)")
     if (rc := tf_init_main()) != 0:
         return rc
+    _step_done()
 
     _step(3, total, "recover WIF pool/provider if soft-deleted (PDCA loop safety)")
     _recover_wif_state(project_id)
+    _step_done()
 
     _step(4, total, "sync-dataform-config (regenerate workflow_settings.yaml)")
     if (rc := sync_dataform_main()) != 0:
         return rc
+    _step_done()
 
     _step(5, total, "tf-plan (saves infra/tfplan)")
     if (rc := tf_plan_main()) != 0:
         return rc
+    _step_done()
 
     _step(6, total, "terraform apply tfplan -auto-approve")
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
+    _step_done()
 
     _step(7, total, "deploy-api (Cloud Build + kubectl rollout search-api)")
     if (rc := deploy_api_main()) != 0:
         return rc
+    _step_done()
 
-    print()
-    print("==> deploy-all complete.")
+    if _DEPLOY_ALL_STARTED_AT is not None:
+        total_elapsed = time.monotonic() - _DEPLOY_ALL_STARTED_AT
+        print()
+        print(f"==> deploy-all complete. total_elapsed={total_elapsed:.0f}s")
+    else:
+        print()
+        print("==> deploy-all complete.")
     print("    Verify with: make ops-livez && make ops-api-url")
     print("    Pipeline submit is separate: make ops-train-now")
     return 0

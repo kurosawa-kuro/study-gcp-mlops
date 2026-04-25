@@ -19,6 +19,7 @@ within the cluster.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import traceback
@@ -27,6 +28,46 @@ from typing import Any, Literal
 import httpx
 
 logger = logging.getLogger("app.kserve_prediction")
+
+
+# Expected embedding dim for multilingual-e5-base. The Phase 7 BQ
+# VECTOR_SEARCH index is created with this exact dim (see
+# docs/04_運用.md STEP 16); a mismatch here means BQ semantic search will
+# fail later in the /search pipeline with an opaque "vector dimension mismatch"
+# error. Guard here so the root cause is visible at encoder.embed time.
+EXPECTED_EMBEDDING_DIM = 768
+
+
+def _safe_json(response: httpx.Response, *, where: str) -> Any:
+    """Parse response body as JSON with a structured error log on failure.
+
+    Envoy / Istio / Gateway often serve HTML 502 / 503 pages when a KServe Pod
+    is CrashLoopBackOff or unresponsive. ``response.json()`` on those bodies
+    raises ``json.JSONDecodeError`` — a subclass of ``ValueError`` that is NOT
+    caught by ``except httpx.HTTPError``. Wrap it here so Phase 7 operators see
+    "KServe returned non-JSON body" with the HTML preview instead of a cryptic
+    ValueError traceback.
+    """
+    try:
+        return response.json()
+    except (json.JSONDecodeError, ValueError) as exc:
+        body_preview = response.text[:500] if response.text else ""
+        content_type = response.headers.get("content-type", "")
+        logger.error(
+            "%s NON_JSON_RESPONSE status=%d content_type=%r body[:500]=%r exc=%s",
+            where,
+            response.status_code,
+            content_type,
+            body_preview,
+            str(exc),
+        )
+        raise RuntimeError(
+            f"KServe {where} returned non-JSON response "
+            f"(status={response.status_code}, content_type={content_type!r}). "
+            f"body preview: {body_preview!r}. Likely: KServe Pod CrashLoop or "
+            f"Envoy/Istio emitting an HTML error page. "
+            f"Check `kubectl -n kserve-inference get pods` and `kubectl logs`."
+        ) from exc
 
 
 def _coerce_float_list(value: Any, *, field_name: str) -> list[float]:
@@ -88,18 +129,24 @@ class KServeEncoder:
         endpoint_url: str,
         timeout_seconds: float = 30.0,
         client: httpx.Client | None = None,
+        expected_dim: int = EXPECTED_EMBEDDING_DIM,
     ) -> None:
         self.endpoint_url = endpoint_url.strip()
         if not self.endpoint_url:
             raise ValueError("KServeEncoder requires a non-empty endpoint_url")
         self.endpoint_name = self.endpoint_url
         self._timeout_seconds = timeout_seconds
+        # `expected_dim` is primarily a test override; production paths stick
+        # with 768 to enforce the BQ VECTOR_SEARCH contract. Set to 0 to
+        # disable the strict dimension check (empty/NaN guards still apply).
+        self._expected_dim = expected_dim
         self._client = client or httpx.Client(timeout=timeout_seconds)
         logger.info(
-            "KServeEncoder init endpoint_url=%s timeout=%.1fs (expect path `/predict` "
-            "for Vertex CPR encoder server)",
+            "KServeEncoder init endpoint_url=%s timeout=%.1fs expected_dim=%d "
+            "(expect path `/predict` for Vertex CPR encoder server)",
             self.endpoint_url,
             timeout_seconds,
+            expected_dim,
         )
 
     def embed(self, text: str, kind: Literal["query", "passage"]) -> list[float]:
@@ -140,7 +187,7 @@ class KServeEncoder:
                 body_preview,
             )
         response.raise_for_status()
-        response_json = response.json()
+        response_json = _safe_json(response, where="encoder.embed")
         predictions = _extract_predictions(response_json)
         if not predictions:
             logger.error(
@@ -155,6 +202,9 @@ class KServeEncoder:
             for key in ("embedding", "embeddings", "values"):
                 if key in first:
                     vec = _coerce_float_list(first[key], field_name=key)
+                    self._validate_embedding(
+                        vec, kind=kind, via=f"dict.{key}", expected_dim=self._expected_dim
+                    )
                     logger.info(
                         "encoder.embed OK endpoint=%s kind=%s dim=%d elapsed_ms=%.0f via_key=%s",
                         self.endpoint_url,
@@ -171,6 +221,7 @@ class KServeEncoder:
             )
             raise KeyError("KServe encoder response dict missing embedding payload")
         vec = _coerce_float_list(first, field_name="prediction")
+        self._validate_embedding(vec, kind=kind, via="bare_list", expected_dim=self._expected_dim)
         logger.info(
             "encoder.embed OK endpoint=%s kind=%s dim=%d elapsed_ms=%.0f via=bare_list",
             self.endpoint_url,
@@ -179,6 +230,68 @@ class KServeEncoder:
             elapsed_ms,
         )
         return vec
+
+    @staticmethod
+    def _validate_embedding(vec: list[float], *, kind: str, via: str, expected_dim: int) -> None:
+        """Validate an embedding vector before returning it upstream.
+
+        Catches three silent failure modes that would otherwise surface as
+        opaque errors downstream:
+
+        1. Empty list — BQ ``VECTOR_SEARCH(..., query_vector => [], ...)``
+           returns zero candidates with no error. Empty query vectors silently
+           break semantic recall.
+        2. Wrong dimension — the ME5-base → BQ index contract is 768d. A 512d
+           vector (e.g., from a wrong Model Registry version) triggers a
+           downstream "vector dimension mismatch" error that points at BQ,
+           not at the encoder. ``expected_dim=0`` disables this check.
+        3. NaN/inf — LightGBM downstream rejects these but the error message
+           is "Invalid input data" without the actual bad row.
+        """
+        if not vec:
+            logger.error(
+                "encoder.embed EMPTY_EMBEDDING kind=%s via=%s — KServe returned a "
+                "zero-length embedding. Downstream BQ VECTOR_SEARCH will silently "
+                "return zero candidates. Check predictor model version.",
+                kind,
+                via,
+            )
+            raise ValueError(f"KServe encoder returned empty embedding (kind={kind})")
+        if expected_dim and len(vec) != expected_dim:
+            logger.error(
+                "encoder.embed DIM_MISMATCH kind=%s via=%s actual_dim=%d expected_dim=%d — "
+                "BQ VECTOR_SEARCH index is built for %dd vectors. Likely: wrong model "
+                "checkpoint loaded (not multilingual-e5-base) or wrong Model Registry "
+                "version. Check KServe InferenceService storageUri.",
+                kind,
+                via,
+                len(vec),
+                expected_dim,
+                expected_dim,
+            )
+            raise ValueError(
+                f"KServe encoder returned {len(vec)}d embedding, "
+                f"expected {expected_dim}d (kind={kind})"
+            )
+        # Check for NaN / inf — iterate once, short-circuit on first bad value.
+        for idx, value in enumerate(vec):
+            if value != value:  # NaN check (NaN != NaN)
+                logger.error(
+                    "encoder.embed NAN_IN_EMBEDDING kind=%s via=%s dim_index=%d",
+                    kind,
+                    via,
+                    idx,
+                )
+                raise ValueError(f"KServe encoder returned NaN at index {idx} (kind={kind})")
+            if value == float("inf") or value == float("-inf"):
+                logger.error(
+                    "encoder.embed INF_IN_EMBEDDING kind=%s via=%s dim_index=%d value=%r",
+                    kind,
+                    via,
+                    idx,
+                    value,
+                )
+                raise ValueError(f"KServe encoder returned {value} at index {idx} (kind={kind})")
 
 
 def _extract_attributions(
@@ -196,23 +309,47 @@ def _extract_attributions(
     operator is still running the MLServer LightGBM runtime, which ignores
     ``parameters.explain=true``). Caller can treat ``None`` as "explain not
     supported by the deployed container — see docs/02_移行ロードマップ.md §4.2 T4".
+
+    Count-mismatch distinction: when an attribution list IS present but its
+    length doesn't match ``n_instances``, this is NOT the same degraded path
+    as "runtime ignored the explain param". Log LOUDLY so operators don't
+    silently lose attributions due to an off-by-one container bug.
     """
     attrs = response_json.get("attributions")
-    if isinstance(attrs, list) and len(attrs) == n_instances:
-        return [
-            {str(k): float(v) for k, v in row.items()} for row in attrs if isinstance(row, dict)
-        ] or None
+    if isinstance(attrs, list):
+        if len(attrs) != n_instances:
+            logger.error(
+                "reranker.explain COUNT_MISMATCH attributions.len=%d != n_instances=%d. "
+                "Response had attribution payload but the row count disagrees with the "
+                "request batch. This is a reranker-server bug, NOT a missing-runtime "
+                "fallback. Dropping attributions to preserve /search response; fix the "
+                "container.",
+                len(attrs),
+                n_instances,
+            )
+        else:
+            return [
+                {str(k): float(v) for k, v in row.items()} for row in attrs if isinstance(row, dict)
+            ] or None
     outputs = response_json.get("outputs")
     if isinstance(outputs, list):
         for out in outputs:
             if isinstance(out, dict) and out.get("name") == "attributions":
                 data = out.get("data")
-                if isinstance(data, list) and len(data) == n_instances:
-                    return [
-                        {str(k): float(v) for k, v in row.items()}
-                        for row in data
-                        if isinstance(row, dict)
-                    ] or None
+                if isinstance(data, list):
+                    if len(data) != n_instances:
+                        logger.error(
+                            "reranker.explain V2_COUNT_MISMATCH "
+                            "outputs[attributions].data.len=%d != n_instances=%d",
+                            len(data),
+                            n_instances,
+                        )
+                    else:
+                        return [
+                            {str(k): float(v) for k, v in row.items()}
+                            for row in data
+                            if isinstance(row, dict)
+                        ] or None
     return None
 
 
@@ -302,8 +439,26 @@ class KServeReranker:
                 instances[0][:5] if instances and instances[0] else [],
             )
         response.raise_for_status()
-        response_json = response.json()
+        response_json = _safe_json(response, where="reranker.predict")
         predictions = _extract_predictions(response_json)
+        if len(predictions) != len(instances):
+            # Length mismatch would IndexError in ranking.py when zipping
+            # scores[] with candidates[]. Log the shape delta + response
+            # summary so operators can diff against the known reranker
+            # contract (LightGBM LambdaRank → one score per instance).
+            logger.error(
+                "reranker.predict SCORE_COUNT_MISMATCH endpoint=%s predictions.len=%d "
+                "instances.len=%d summary=%s — ranker contract violated (expected one "
+                "score per instance). Upstream will IndexError on scores[i] in ranking.py.",
+                self.endpoint_url,
+                len(predictions),
+                len(instances),
+                _response_summary(response_json),
+            )
+            raise ValueError(
+                f"KServe reranker returned {len(predictions)} scores for "
+                f"{len(instances)} instances (expected equal)"
+            )
         scores: list[float] = []
         for idx, prediction in enumerate(predictions):
             if isinstance(prediction, dict):
@@ -401,7 +556,7 @@ class KServeReranker:
                 body_preview,
             )
         response.raise_for_status()
-        response_json = response.json()
+        response_json = _safe_json(response, where="reranker.predict_with_explain")
         attributions = _extract_attributions(response_json, len(instances))
         if use_explain_route:
             # /explain gave us only attributions; fetch scores with a regular
