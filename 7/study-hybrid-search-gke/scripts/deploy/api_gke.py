@@ -159,7 +159,7 @@ def main() -> int:
     _step("[2/4] Cloud Build submit (async)")
     build_id = submit_cloud_build_async(
         project_id=project_id,
-        config="cloudbuild.api.yaml",
+        config="infra/run/services/search_api/cloudbuild.yaml",
         substitutions=f"_IMAGE_URI={image_uri}",
     )
     build_url = (

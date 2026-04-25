@@ -53,21 +53,16 @@ def main() -> int:
 
     # 1. Discover the regional public endpoint via the Admin API.
     admin_endpoint = f"{region}-aiplatform.googleapis.com"
-    admin = FeatureOnlineStoreAdminServiceClient(
-        client_options={"api_endpoint": admin_endpoint}
-    )
-    store_name = (
-        f"projects/{project_id}/locations/{region}/featureOnlineStores/{online_store_id}"
-    )
+    admin = FeatureOnlineStoreAdminServiceClient(client_options={"api_endpoint": admin_endpoint})
+    store_name = f"projects/{project_id}/locations/{region}/featureOnlineStores/{online_store_id}"
     try:
         store = admin.get_feature_online_store(name=store_name)
     except Exception as exc:
         return fail(f"vertex-feature-group: admin lookup failed: {exc}")
 
+    endpoint = getattr(store, "dedicated_serving_endpoint", None)
     public_domain = (
-        getattr(store, "dedicated_serving_endpoint", None)
-        and store.dedicated_serving_endpoint.public_endpoint_domain_name
-        or ""
+        getattr(endpoint, "public_endpoint_domain_name", "") if endpoint is not None else ""
     )
     if not public_domain:
         return fail(
@@ -79,9 +74,7 @@ def main() -> int:
     print(f"vertex-feature-group: public endpoint = {public_domain}")
 
     # 2. Construct the data-plane client against the regional public endpoint.
-    serving = FeatureOnlineStoreServiceClient(
-        client_options={"api_endpoint": public_domain}
-    )
+    serving = FeatureOnlineStoreServiceClient(client_options={"api_endpoint": public_domain})
     feature_view = (
         f"projects/{project_id}/locations/{region}/featureOnlineStores/"
         f"{online_store_id}/featureViews/{feature_view_id}"

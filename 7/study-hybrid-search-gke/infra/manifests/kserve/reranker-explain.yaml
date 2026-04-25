@@ -8,7 +8,7 @@
 #   path keeps using the lgbserver ISVC while /explain comes from
 #   `ml/serving/reranker.py` which knows TreeSHAP.
 #
-# Image: built by cloudbuild.reranker.yaml from infra/run/services/reranker.
+# Image: built by `gcloud builds submit --config=infra/run/services/reranker/cloudbuild.yaml`.
 # Update the image tag below after each build (kubectl set image).
 apiVersion: apps/v1
 kind: Deployment
