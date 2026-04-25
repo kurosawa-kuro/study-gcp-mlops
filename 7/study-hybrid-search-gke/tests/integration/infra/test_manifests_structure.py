@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFESTS_DIR = REPO_ROOT / "infra" / "manifests"
 SEARCH_API_DIR = MANIFESTS_DIR / "search-api"
 KSERVE_DIR = MANIFESTS_DIR / "kserve"
+POLICIES_DIR = MANIFESTS_DIR / "policies"
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -40,7 +41,7 @@ def test_kustomization_lists_every_yaml_under_manifests() -> None:
     listed = {entry for entry in kust.get("resources", [])}
     # Every non-kustomization yaml under infra/manifests/**/*.yaml must be listed
     on_disk: set[str] = set()
-    for subdir in (SEARCH_API_DIR, KSERVE_DIR):
+    for subdir in (SEARCH_API_DIR, KSERVE_DIR, POLICIES_DIR):
         for yml in sorted(subdir.glob("*.yaml")):
             on_disk.add(f"{subdir.name}/{yml.name}")
     missing = on_disk - listed
@@ -165,7 +166,7 @@ def test_search_api_hpa_bounds_and_thresholds() -> None:
 
 
 def test_search_api_networkpolicy_allows_egress_to_kserve_inference() -> None:
-    np = _load(SEARCH_API_DIR / "networkpolicy.yaml")
+    np = _load(POLICIES_DIR / "search-api-networkpolicy.yaml")
     assert np["kind"] == "NetworkPolicy"
     assert np["metadata"]["namespace"] == "search"
     assert "Egress" in np["spec"]["policyTypes"]
@@ -216,7 +217,7 @@ def test_kserve_reranker_uses_lightgbm_model_format() -> None:
 
 
 def test_kserve_networkpolicy_restricts_ingress_to_search_namespace() -> None:
-    np = _load(KSERVE_DIR / "networkpolicy.yaml")
+    np = _load(POLICIES_DIR / "kserve-networkpolicy.yaml")
     assert np["kind"] == "NetworkPolicy"
     assert np["metadata"]["namespace"] == "kserve-inference"
     # Must restrict ingress to search namespace (not allow-all)

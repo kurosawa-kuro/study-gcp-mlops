@@ -77,3 +77,42 @@ def test_step_done_noop_before_any_step() -> None:
     """
     # No _step called → _STEP_STARTED_AT is None → _step_done silently no-ops.
     dall._step_done()  # must not raise
+
+
+def test_resolve_step_ref_accepts_number_and_name() -> None:
+    steps = dall._steps()
+    assert dall._resolve_step_ref("4", steps) == 4
+    assert dall._resolve_step_ref("sync-dataform", steps) == 4
+
+
+def test_main_honors_from_step_and_to_step(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[str] = []
+
+    def _runner(name: str):
+        def _run() -> int:
+            calls.append(name)
+            return 0
+
+        return _run
+
+    steps = [
+        dall.DeployStep(1, "one", "one", _runner("one")),
+        dall.DeployStep(2, "two", "two", _runner("two")),
+        dall.DeployStep(3, "three", "three", _runner("three")),
+    ]
+
+    with (
+        patch(
+            "scripts.setup.deploy_all._parse_args",
+            return_value=type("Args", (), {"from_step": "2", "to_step": "3"})(),
+        ),
+        patch("scripts.setup.deploy_all._steps", return_value=steps),
+    ):
+        rc = dall.main()
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert calls == ["two", "three"]
+    assert "from_step=2 to_step=3" in out

@@ -50,6 +50,7 @@ export PROJECT_ID REGION API_SERVICE TRAINING_JOB ARTIFACT_REPO VERTEX_LOCATION 
 	tf-bootstrap tf-init tf-validate tf-fmt tf-fmt-fix tf-plan \
 	setup-model-monitoring \
         setup-pipeline-schedule \
+        apply-manifests \
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api deploy-kserve-models kube-creds \
@@ -126,6 +127,9 @@ setup-model-monitoring: ## Print resolved Vertex Model Monitoring setup payload
 
 setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payload
 	uv run python -m scripts.setup.create_schedule
+
+apply-manifests: ## Apply infra/manifests via kubectl apply -k
+	kubectl apply -k $(ROOT)/infra/manifests
 
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-apply → kubectl apply -k → kserve_models → api_gke)
 	uv run python -m scripts.setup.deploy_all

@@ -1,4 +1,4 @@
-# K8s manifests (Phase 6)
+# K8s manifests (Phase 7)
 
 `infra/terraform/modules/{gke,kserve}` が作ったクラスタに、アプリケーション
 層（`search-api` + KServe `InferenceService`）を `kubectl apply -k .` で
@@ -8,8 +8,9 @@
 
 ## ディレクトリ
 
-- `search-api/` — FastAPI サービス (Deployment / Service / HPA / Gateway / HTTPRoute / NetworkPolicy / PodMonitoring / IAP BackendConfig / ConfigMap サンプル)
-- `kserve/` — KServe InferenceService (encoder / reranker) + NetworkPolicy + PodMonitoring
+- `search-api/` — FastAPI サービス (Deployment / Service / HPA / Gateway / PodMonitoring / ConfigMap サンプル)
+- `kserve/` — KServe InferenceService (encoder / reranker / reranker-explain) + PodMonitoring
+- `policies/` — namespace 境界ポリシー (`search-api` IAP / search namespace egress / kserve-inference ingress)
 - `kustomization.yaml` — 全リソースを一括 apply する Kustomize root
 
 ## デプロイ
@@ -22,8 +23,8 @@ cd infra/terraform/environments/dev && terraform apply
 gcloud container clusters get-credentials hybrid-search \
   --region asia-northeast1 --project mlops-dev-a
 
-# 3. ConfigMap は env overlay or 明示的に作る (kustomization の example を書き換え or 差分 kustomize)
-kubectl apply -k infra/manifests/
+# 3. manifests 一式を apply
+make apply-manifests
 
 # 4. encoder / reranker モデルは Vertex Model Registry から同期
 uv run python scripts/deploy/kserve_models.py
@@ -31,6 +32,8 @@ uv run python scripts/deploy/kserve_models.py
 # 5. search-api イメージは scripts/deploy/api_gke.py で差し替え
 uv run python scripts/deploy/api_gke.py
 ```
+
+`deploy-all` は manifest apply をあえて内包しない。KServe / Gateway / policy の試行錯誤をしやすくするため、Terraform apply 後に `make apply-manifests` を明示的に叩く運用を正とする。
 
 ## overlay が必要な箇所
 

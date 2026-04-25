@@ -18,8 +18,11 @@ min-instances=1, BQ storage, etc.) — see CLAUDE.md non-negotiables.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from scripts._common import env, run
@@ -36,6 +39,14 @@ INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environme
 # when a rollout hangs (e.g. Cloud Build wait dominating step 7).
 _DEPLOY_ALL_STARTED_AT: float | None = None
 _STEP_STARTED_AT: float | None = None
+
+
+@dataclass(frozen=True)
+class DeployStep:
+    number: int
+    name: str
+    label: str
+    run: Callable[[], int]
 
 
 def _step(n: int, total: int, label: str) -> None:
@@ -194,42 +205,124 @@ def _recover_wif_state(project_id: str) -> None:
         )
 
 
-def main() -> int:
-    total = 7
-    project_id = env("PROJECT_ID")
+def _run_tf_bootstrap() -> int:
+    return tf_bootstrap_main()
 
-    _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
-    if (rc := tf_bootstrap_main()) != 0:
-        return rc
-    _step_done()
 
-    _step(2, total, "tf-init (preflight + terraform init)")
-    if (rc := tf_init_main()) != 0:
-        return rc
-    _step_done()
+def _run_tf_init() -> int:
+    return tf_init_main()
 
-    _step(3, total, "recover WIF pool/provider if soft-deleted (PDCA loop safety)")
-    _recover_wif_state(project_id)
-    _step_done()
 
-    _step(4, total, "sync-dataform-config (regenerate workflow_settings.yaml)")
-    if (rc := sync_dataform_main()) != 0:
-        return rc
-    _step_done()
+def _run_recover_wif() -> int:
+    _recover_wif_state(env("PROJECT_ID"))
+    return 0
 
-    _step(5, total, "tf-plan (saves infra/tfplan)")
-    if (rc := tf_plan_main()) != 0:
-        return rc
-    _step_done()
 
-    _step(6, total, "terraform apply tfplan -auto-approve")
+def _run_sync_dataform() -> int:
+    return sync_dataform_main()
+
+
+def _run_tf_plan() -> int:
+    return tf_plan_main()
+
+
+def _run_tf_apply() -> int:
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
-    _step_done()
+    return 0
 
-    _step(7, total, "deploy-api (Cloud Build + kubectl rollout search-api)")
-    if (rc := deploy_api_main()) != 0:
-        return rc
-    _step_done()
+
+def _run_deploy_api() -> int:
+    return deploy_api_main()
+
+
+def _steps() -> list[DeployStep]:
+    return [
+        DeployStep(
+            1,
+            "tf-bootstrap",
+            "tf-bootstrap (enable APIs + tfstate bucket, idempotent)",
+            _run_tf_bootstrap,
+        ),
+        DeployStep(2, "tf-init", "tf-init (preflight + terraform init)", _run_tf_init),
+        DeployStep(
+            3,
+            "recover-wif",
+            "recover WIF pool/provider if soft-deleted (PDCA loop safety)",
+            _run_recover_wif,
+        ),
+        DeployStep(
+            4,
+            "sync-dataform",
+            "sync-dataform-config (regenerate workflow_settings.yaml)",
+            _run_sync_dataform,
+        ),
+        DeployStep(5, "tf-plan", "tf-plan (saves infra/tfplan)", _run_tf_plan),
+        DeployStep(6, "tf-apply", "terraform apply tfplan -auto-approve", _run_tf_apply),
+        DeployStep(
+            7,
+            "deploy-api",
+            "deploy-api (Cloud Build + kubectl rollout search-api)",
+            _run_deploy_api,
+        ),
+    ]
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run Phase 7 deploy-all flow with optional step slicing."
+    )
+    parser.add_argument(
+        "--from-step",
+        default="1",
+        help="Start from this step number or name (e.g. 4, sync-dataform, tf-apply).",
+    )
+    parser.add_argument(
+        "--to-step",
+        default="7",
+        help="Stop after this step number or name (e.g. 5, tf-plan, deploy-api).",
+    )
+    return parser.parse_args()
+
+
+def _resolve_step_ref(ref: str, steps: list[DeployStep]) -> int:
+    raw = ref.strip()
+    if raw.isdigit():
+        step_no = int(raw)
+        if any(step.number == step_no for step in steps):
+            return step_no
+    lowered = raw.lower()
+    for step in steps:
+        if lowered == step.name:
+            return step.number
+    valid = ", ".join([str(step.number) for step in steps] + [step.name for step in steps])
+    raise SystemExit(f"[error] unknown step {ref!r}. valid values: {valid}")
+
+
+def main() -> int:
+    global _DEPLOY_ALL_STARTED_AT, _STEP_STARTED_AT
+    _DEPLOY_ALL_STARTED_AT = None
+    _STEP_STARTED_AT = None
+
+    args = _parse_args()
+    steps = _steps()
+    total = len(steps)
+    from_step = _resolve_step_ref(args.from_step, steps)
+    to_step = _resolve_step_ref(args.to_step, steps)
+    if from_step > to_step:
+        raise SystemExit(f"[error] --from-step ({from_step}) must be <= --to-step ({to_step})")
+
+    selected = [step for step in steps if from_step <= step.number <= to_step]
+    print(
+        f"==> deploy-all selection: from_step={from_step} to_step={to_step} "
+        f"steps={[step.name for step in selected]}"
+    )
+
+    for step in selected:
+        _step(step.number, total, step.label)
+        rc = step.run()
+        if rc != 0:
+            return rc
+        _step_done()
 
     if _DEPLOY_ALL_STARTED_AT is not None:
         total_elapsed = time.monotonic() - _DEPLOY_ALL_STARTED_AT

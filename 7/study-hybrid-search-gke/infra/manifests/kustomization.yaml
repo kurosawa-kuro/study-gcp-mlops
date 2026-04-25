@@ -6,13 +6,14 @@ resources:
   - search-api/service.yaml
   - search-api/hpa.yaml
   - search-api/gateway.yaml
-  - search-api/iap-policy.yaml
-  - search-api/networkpolicy.yaml
   - search-api/podmonitoring.yaml
   - search-api/configmap.example.yaml
   # KServe InferenceService
   - kserve/encoder.yaml
   - kserve/reranker.yaml
   - kserve/reranker-explain.yaml
-  - kserve/networkpolicy.yaml
   - kserve/podmonitoring.yaml
+  # Policy manifests
+  - policies/search-api-iap-policy.yaml
+  - policies/search-api-networkpolicy.yaml
+  - policies/kserve-networkpolicy.yaml
