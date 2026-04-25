@@ -247,7 +247,7 @@ pipeline/                         # <verb>_job 命名は維持
 
 - `app/services/protocols/` の各ファイルが 1 Protocol（dataclass 例外あり）
 - `app/services/adapters/` の各ファイルが 1 Adapter
-- `from app.services.adapters import Noop*` で import エラー
+- fake 系は `app.services.fakes` からのみ import 可能
 - `make check-layers` が green
 
 ---
