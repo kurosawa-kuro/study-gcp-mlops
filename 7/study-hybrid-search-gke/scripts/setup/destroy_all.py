@@ -24,8 +24,12 @@ Steps:
    intended. Benign when the bucket is absent.
 4. `terraform apply -auto-approve -var=enable_deletion_protection=false
    -target=<each>` — flip `deletion_protection` to false on every
-   server-side-protected resource (`PROTECTED_TARGETS`: 10 BQ tables +
-   1 GKE cluster). `-target` is **load-bearing**: a bare apply would
+   server-side-protected resource currently **in state**
+   (`PROTECTED_TARGETS`: 10 BQ tables + 1 GKE cluster, filtered by
+   `_filter_targets_in_state` so already-destroyed resources are skipped
+   — without that filter `-target` pulls in the dependency closure and
+   *recreates* the targets, hitting WIF pool soft-delete on re-run.
+   Phase 7 Run 4 fix). `-target` is **load-bearing**: a bare apply would
    also try to (re)create any resource that drifted out of state from a
    previous half-destroy (e.g. SAs whose IAM bindings linger as
    `deleted:serviceaccount:...?uid=...`). The GKE cluster was added in
@@ -158,6 +162,48 @@ def _kserve_state_remaining(infra_dir: Path) -> list[str]:
     return [line for line in proc.stdout.splitlines() if line.startswith(prefix)]
 
 
+def _state_size(infra_dir: Path) -> int:
+    """Return the number of address lines in `terraform state list`.
+
+    Used to skip the destroy pipeline when the previous run already cleared
+    everything (idempotent destroy-all). Without this guard, re-running
+    `make destroy-all` on an empty state walks step 4/6 into a `-target`
+    apply that **recreates** the targeted resources (dependency closure)
+    and tends to crash on WIF pool 30-day soft-delete (ADR 0003).
+    """
+    proc = subprocess.run(
+        ["terraform", f"-chdir={infra_dir}", "state", "list"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return 0
+    return sum(1 for line in proc.stdout.splitlines() if line.strip())
+
+
+def _filter_targets_in_state(infra_dir: Path, candidates: list[str]) -> list[str]:
+    """Filter ``candidates`` to keep only addresses that actually exist in
+    the current state.
+
+    Step 4/6 declares "state-flip only, no recreate" — to honour that we
+    must not pass a `-target` for a resource missing from state, otherwise
+    Terraform pulls in its full dependency closure and creates fresh
+    instances of dependencies. Pre-filtering keeps the apply truly
+    no-op-ish on resources already destroyed by a previous run.
+    """
+    proc = subprocess.run(
+        ["terraform", f"-chdir={infra_dir}", "state", "list"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return []
+    in_state = {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+    return [t for t in candidates if t in in_state]
+
+
 def _state_rm_kserve_resources(infra_dir: Path) -> None:
     """Remove **all** module.kserve entries from state.
 
@@ -275,6 +321,16 @@ def main() -> int:
 
     print(f"==> destroy-all on project {project_id!r}")
 
+    # 既に state が空なら destroy は何もすることがない。`-target` apply が
+    # 依存ごと resource を recreate してしまう副作用 (Phase 7 Run 4 で
+    # WIF pool 30 日 soft-delete に再衝突した事故) を避けるため early-return。
+    state_count = _state_size(INFRA)
+    if state_count == 0:
+        print("==> state list is empty — nothing to destroy. (前回の destroy-all で完了済)")
+        print("    Re-provision with: make deploy-all")
+        return 0
+    print(f"==> state has {state_count} address(es) — proceeding")
+
     print("==> [1/6] seed-test-clean (drop out-of-TF tables that block dataset destroy)")
     seed_clean_main()
 
@@ -292,22 +348,33 @@ def main() -> int:
     for suffix in BUCKET_SUFFIXES:
         _wipe_bucket(project_id, f"{project_id}-{suffix}")
 
-    print(
-        f"==> [4/6] terraform apply -target=<{len(PROTECTED_TARGETS)} resources "
-        "with deletion_protection> -var=enable_deletion_protection=false "
-        "(state-flip only, no recreate)"
-    )
-    targets = [arg for tgt in PROTECTED_TARGETS for arg in ("-target", tgt)]
-    run(
-        [
-            "terraform",
-            f"-chdir={INFRA}",
-            "apply",
-            "-auto-approve",
-            *common_vars,
-            *targets,
-        ]
-    )
+    # state に実存する PROTECTED_TARGETS のみ flip 対象に。state にないものを
+    # `-target` で渡すと Terraform は依存閉包を pull して **recreate** に走る
+    # (Phase 7 Run 4 で empty-state の destroy-all 再走 → 12 resources added の
+    # 事故)。filter で「flip だけ」に絞る。
+    flip_targets = _filter_targets_in_state(INFRA, list(PROTECTED_TARGETS))
+    if flip_targets:
+        print(
+            f"==> [4/6] terraform apply -target=<{len(flip_targets)}/{len(PROTECTED_TARGETS)} "
+            "in-state resources with deletion_protection> "
+            "-var=enable_deletion_protection=false (state-flip only, no recreate)"
+        )
+        targets = [arg for tgt in flip_targets for arg in ("-target", tgt)]
+        run(
+            [
+                "terraform",
+                f"-chdir={INFRA}",
+                "apply",
+                "-auto-approve",
+                *common_vars,
+                *targets,
+            ]
+        )
+    else:
+        print(
+            f"==> [4/6] state-flip skipped — "
+            f"PROTECTED_TARGETS ({len(PROTECTED_TARGETS)}) はいずれも state 不在"
+        )
 
     print(
         "==> [5/6] terraform destroy -target=module.kserve "
