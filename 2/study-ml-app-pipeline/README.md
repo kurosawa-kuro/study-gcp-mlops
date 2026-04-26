@@ -1,34 +1,35 @@
-# study-ml-app-pipeline (Phase 2)
+# study-ml-app-pipeline
 
-MLOps 学習 Phase 2 — **App (API 連携) / Pipeline (ジョブ分離) / Port-Adapter** を導入するデザインパターン Phase。題材は Phase 1 と同じカリフォルニア住宅価格予測（LightGBM 回帰）。
+Phase 2 は、Phase 1 の California Housing 回帰を土台に、**App / Pipeline / Port-Adapter** を導入するフェーズ。
 
-## Phase 2 の位置付け
+不変の中核:
 
-Phase 1 → 2 → 3 → 4 → 5 の 5 フェーズ構成の 2 番目。
+- California Housing
+- LightGBM 回帰
+- preprocess / evaluation / artifact 出力
 
-- Phase 1 (`1/study-ml-foundations/`) — ML 基礎（trainer / evaluation / preprocess / feature_engineering）
-- **Phase 2 (本 repo)** — 同じ題材で App / Pipeline / Port-Adapter を導入
-- Phase 3 (`3/study-hybrid-search-local/`) — 不動産ハイブリッド検索 Local。本 Phase の Port/Adapter 構造を引き継ぎ、adapter を Meilisearch / Redis / ME5 に差し替える
-- Phase 4/5 — GCP / Vertex 化
+変えるのは ML コアではなく、呼び出し方と依存方向。
 
-## 学習ゴール
+## Phase 2 の主役
 
-1. **FastAPI + lifespan による DI 配線** — グローバル状態なしで `app.state` にモデル / adapter を保持
-2. **Inbound/Outbound Port** — HTTP / pipeline job は Inbound Adapter、DB / ファイル / tracker は Outbound Port + Adapter
-3. **依存方向の制御** — `core → ports ← adapters` の方向性を崩さない
-4. **Phase 3 への接続性** — Port 粒度を「実装依存しない pure-data」で切ることで adapter 差し替えの学びに繋がる
+| 技術 | 役割 |
+|---|---|
+| FastAPI | API 入口 |
+| lifespan DI | 依存配線 |
+| Port-Adapter | 依存方向整理 |
+| job 分離 | API と学習処理の分離 |
+| container | adapter 配線 |
 
-## 現状
+## この Phase でやらないこと
 
-Port/Adapter 骨格に加えて、`core` / `ports` / `adapters` / `container` / `pipeline` の最小実装を反映済み。
-詳細な設計意図と target layout は `CLAUDE.md` を参照。
+- Meilisearch / multilingual-e5 / Redis
+- 不動産検索ドメイン
+- Cloud Run / BigQuery / GCS / Pub/Sub
+- Terraform / WIF / Secret Manager
+- Vertex AI / BQML / Dataflow / RAG / GKE
 
-## Commands
+## ドキュメント
 
-```bash
-make build   # Docker イメージビルド
-make seed    # PostgreSQL に California Housing 投入
-make train   # LightGBM 学習
-make serve   # FastAPI 起動 (:8000)
-make test    # pytest
-```
+- [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md): Phase 2 の決定的仕様
+- [docs/01_仕様と設計.md](docs/01_仕様と設計.md): 実装配置
+- [CLAUDE.md](CLAUDE.md): 作業ガイド

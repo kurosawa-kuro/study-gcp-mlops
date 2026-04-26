@@ -1,11 +1,8 @@
 """Port for semantic candidate-search backends.
 
-Phase 6 T3 — extracted from the monolithic ``BigQueryCandidateRetriever``
-so Vertex AI Vector Search (Matching Engine) can be swapped in behind the
-same interface. ``BigQueryCandidateRetriever`` now composes one
-``SemanticSearchPort`` implementation at runtime; the default Phase 5
-choice (``BigQuerySemanticSearch``) keeps the existing ``/search``
-behaviour unchanged.
+Phase 6 keeps the semantic search step behind a Protocol so the
+``BigQueryCandidateRetriever`` composes a dedicated semantic adapter instead
+of inlining query construction.
 """
 
 from __future__ import annotations

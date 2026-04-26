@@ -128,40 +128,6 @@ variable "slo_rolling_period_days" {
 }
 
 # =========================================================================
-# Phase 6 T3 — Vertex AI Vector Search scaffold toggles.
-# =========================================================================
-
-variable "enable_vector_search" {
-  description = "Provision the Matching Engine index + endpoint module (Phase 6 T3). Default false because a deployed index endpoint incurs constant replica cost; flip to true only while learning T3."
-  type        = bool
-  default     = false
-}
-
-variable "vector_search_index_display_name" {
-  description = "Matching Engine index display name (shown in Vertex AI UI)."
-  type        = string
-  default     = "property-vector-search-index"
-}
-
-variable "vector_search_endpoint_display_name" {
-  description = "Matching Engine IndexEndpoint display name."
-  type        = string
-  default     = "property-vector-search-endpoint"
-}
-
-variable "vector_search_embedding_dimensions" {
-  description = "Embedding vector size. multilingual-e5-base = 768."
-  type        = number
-  default     = 768
-}
-
-variable "vector_search_contents_delta_uri" {
-  description = "Optional GCS URI (gs://...) for initial index build. Empty = create an empty index and ingest later via upsert-datapoints or the deploy script."
-  type        = string
-  default     = ""
-}
-
-# =========================================================================
 # Phase 6 T2 — Dataflow streaming toggles.
 # =========================================================================
 
@@ -181,32 +147,4 @@ variable "streaming_flex_template_gcs_path" {
   description = "GCS path to the compiled Flex Template spec JSON (built out-of-band by scripts/local/setup/build_streaming_template.py). Empty suppresses the Dataflow job resource."
   type        = string
   default     = ""
-}
-
-# =========================================================================
-# Phase 6 T7 — Agent Builder scaffold toggle.
-# =========================================================================
-
-variable "enable_agent_builder" {
-  description = "Provision the Agent Builder (Discovery Engine) module: data store + engine for the副 (副-経路) lexical backend. Default false; flip on when exploring T7."
-  type        = bool
-  default     = false
-}
-
-variable "agent_builder_location" {
-  description = "Discovery Engine collection location. Most APIs are only available in ``global`` today."
-  type        = string
-  default     = "global"
-}
-
-variable "agent_builder_data_store_display_name" {
-  description = "Display name for the Discovery Engine DataStore hosting property documents."
-  type        = string
-  default     = "properties-datastore"
-}
-
-variable "agent_builder_engine_display_name" {
-  description = "Display name for the Search Engine wired to the DataStore."
-  type        = string
-  default     = "properties-search"
 }

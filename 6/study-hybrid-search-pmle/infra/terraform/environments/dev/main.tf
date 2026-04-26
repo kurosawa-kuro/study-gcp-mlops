@@ -146,40 +146,6 @@ module "streaming" {
   ]
 }
 
-# Phase 6 T7 — Agent Builder (Discovery Engine)副経路 scaffold.
-# Datastore + Engine only; document ingest is out-of-band.
-module "agent_builder" {
-  count  = var.enable_agent_builder ? 1 : 0
-  source = "../../modules/agent_builder"
-
-  project_id              = var.project_id
-  location                = var.agent_builder_location
-  data_store_display_name = var.agent_builder_data_store_display_name
-  engine_display_name     = var.agent_builder_engine_display_name
-
-  depends_on = [google_project_service.enabled]
-}
-
-# Phase 6 T3 — Matching Engine index + endpoint, scaffold for the
-# alternative semantic backend (SEMANTIC_BACKEND=vertex). Disabled by
-# default (enable_vector_search=false) since a deployed index incurs
-# ongoing replica cost; flip enable_vector_search=true when actively
-# learning/testing.
-module "vector_search" {
-  count  = var.enable_vector_search ? 1 : 0
-  source = "../../modules/vector_search"
-
-  project_id = var.project_id
-  region     = var.region
-
-  index_display_name    = var.vector_search_index_display_name
-  endpoint_display_name = var.vector_search_endpoint_display_name
-  embedding_dimensions  = var.vector_search_embedding_dimensions
-  contents_delta_uri    = var.vector_search_contents_delta_uri
-
-  depends_on = [google_project_service.enabled]
-}
-
 # Phase 6 T5 — formal SLOs (availability + latency) + burn-rate alerts on
 # search-api Cloud Run. Reuses the notification channel created by
 # module.monitoring so operators do not receive duplicate emails.

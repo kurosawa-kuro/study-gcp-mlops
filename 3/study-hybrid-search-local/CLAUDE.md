@@ -1,138 +1,33 @@
 # CLAUDE.md
 
-本リポジトリで作業する Claude Code 向けのガイド。**非負制約 / 設計テーゼ / 主要コマンド** を最優先で載せる。
+Phase 3 (`study-hybrid-search-local`) の作業ガイド。正本は [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md)。
 
-ドキュメント全般の運用規約は [`docs/README.md`](docs/README.md)、スコープの決定権は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md)、実装の逐一は [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md)。本 CLAUDE.md はそれらに従属する。
+## 最初に読むもの
 
----
+1. [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md)
+2. [docs/01_仕様と設計.md](docs/01_仕様と設計.md)
+3. [docs/03_実装カタログ.md](docs/03_実装カタログ.md)
+4. [docs/04_運用.md](docs/04_運用.md)
 
-## 最初に読むもの (順番)
+## 不変ルール
 
-1. [`README.md`](README.md) — Phase 実装範囲 / セットアップ / 主要 make コマンド
-2. [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md) — 仕様の決定事項（3 段構成 / LambdaRank / 特徴量 / DB 設計 / KPI）
-3. [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) — Phase 0→6 の実装履歴と意思決定
-4. [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) — ディレクトリ / ファイル / DB テーブル / API / make ターゲット
-5. [`docs/04_運用.md`](docs/04_運用.md) — セットアップ手順と日次 / 週次運用
+- 題材は不動産ハイブリッド検索
+- Local 中核は `Meilisearch + multilingual-e5 + Redis + LightGBM LambdaRank`
+- `Meilisearch` は `Elasticsearch` より導入しやすいため採用
+- Phase 3 はローカル実行基盤を学ぶフェーズ
+- Cloud / Vertex / GKE 系の責務は持ち込まない
 
----
+## Phase 3 の対象
 
-## Phase 3 の設計テーゼ (題材: 不動産ハイブリッド検索 Local 版)
+- Meilisearch
+- multilingual-e5
+- Redis
+- LightGBM LambdaRank
+- PostgreSQL
+- Docker Compose
 
-- **題材**: 自由文クエリ + フィルタ → 物件ランキング上位 20 件。3 段構成 = (1) Meilisearch BM25、(2) multilingual-e5 の cosine 類似度、(3) LightGBM `lambdarank` 再ランク
-- **Local 完結**: WSL + Docker Compose で `postgres / pgadmin / meilisearch / redis / api` を 1 コマンド起動。クラウド・IaC は含まない
-- **lexical × semantic 融合は "特徴量化" で止める**: `me5_score` を LightGBM の 1 特徴量として渡し、混ぜ方をモデルに委ねる。RRF による rank 事前融合は **Phase 4 で導入**（本 Phase ではやらない）
-- **LambdaRank + NDCG**: `ml/training/trainer.py` の `objective: lambdarank` / `metric: ndcg` で検索結果の順序を最適化。`group_sizes` によるクエリ単位グルーピングが load-bearing
-- **フォールバック可用性**: LightGBM モデル未配置でも `/search` は動く（`ctr*0.4 + fav_rate*0.2 + inquiry_rate*0.2 + me5_score*0.2` の重み付き和で暫定順位）
-- **Port/Adapter 設計**: `common/src/common/ports/` と `pipeline/batch_serving_job/adapters/` で検索エンジン / 埋め込み / reranker / キャッシュを抽象化
-- **スコープ固定**: Local 検証 + 学習用ポートフォリオ。クラウド化は Phase 4 (`4/study-hybrid-search-gcp`) で実施
+## 実装ルール
 
----
-
-## 非負制約 (User 確認無しに変えない)
-
-| 項目 | 値 | 理由 |
-|---|---|---|
-| Python | 3.11+ (開発は 3.12 想定) | uv / pyproject.toml 構成 |
-| パッケージ管理 | uv + `pyproject.toml` | Phase 4/5 と同じ依存管理方式に統一 |
-| DB | PostgreSQL 16 (docker-compose `postgres` サービス) | Phase 4 では BigQuery に置換、本 Phase は保持 |
-| Lexical 検索 | Meilisearch v1.7 (docker-compose `meilisearch` サービス) | BM25、Elasticsearch 非採用方針 |
-| Embedding | `intfloat/multilingual-e5-large` (ME5) | `query:` / `passage:` prefix 必須 |
-| Reranker 目的関数 | LightGBM `objective: lambdarank` + `metric: ndcg` + `ndcg_eval_at: [10]` | ランキング学習。回帰 (`regression_l2`) や分類には戻さない |
-| キャッシュ | Redis (TTL 120 秒、graceful fallback、ヒット時はログ保存 skip) | Memorystore は本 Phase 対象外 |
-| 設定値 2 分割 | `env/config/setting.yaml` (non-credential) / `env/secret/credential.yaml` (gitignored) | Phase 4/5 と共通のパターン |
-| docker-compose 起動 | `scripts/local/setup/compose.sh` 経由（`credential.yaml` を env に export するラッパー） | 直接 `docker compose up` を叩くと `POSTGRES_PASSWORD` 未設定で起動失敗 |
-
----
-
-## 開発コマンド（詳細は `Makefile` / `make help`）
-
-| target | 用途 |
-|---|---|
-| `make sync` | uv sync --dev（Local 環境構築） |
-| `make up` / `make build` / `make down` / `make logs` | docker compose ライフサイクル（`scripts/local/setup/compose.sh` 経由） |
-| `make ops-livez` | API ヘルスチェック（`scripts/local/ops/health_check.py`）|
-| `make test` | pytest |
-| `make check-layers` | AST で layer 依存ルール違反を検出（`scripts/ci/layers.py`） |
-| `make ops-bootstrap` | 初期セットアップ一括（migrations → seed → index → 初回学習） |
-| `make ops-daily` | 日次運用（ops-sync / features-daily / ops-embed / kpi-daily） |
-| `make ops-weekly` | 週次運用（eval-compare / eval-offline / eval-weekly-report / ops-retrain） |
-| `make verify-pipeline` | 代表 E2E smoke（check-layers → ops-livez → ops-search → ops-feedback → ops-ranking → ops-ranking-verbose → eval-compare → eval-offline） |
-| `make ops-search` / `ops-feedback` / `ops-ranking` / `ops-ranking-verbose` | 各エンドポイント smoke（Phase 4/5 と命名揃い） |
-| `make ops-sync` / `ops-embed` | Meilisearch 同期 / ME5 embedding 生成（`ml/data/`） |
-| `make ops-train-build` / `ops-train-fit` / `ops-train-fit-safe` / `ops-retrain` | 学習データ生成 / LightGBM 学習 / 安全学習判定 / 週次再学習オーケストレーション（`ml/training/`） |
-| `make ops-label-seed` | 学習用 feedback ラベルのシード投入 |
-
----
-
-## ディレクトリ構造
-
-```
-app/                  FastAPI エントリ + routes
-common/               core / clients / ports / dtos
-definitions/          PostgreSQL マイグレーション SQL
-ml/                   ML 実装
-  ├── data/                前処理 / 特徴量 / embedding 補助
-  ├── training/            LightGBM LambdaRank 学習（`ops-train-*` / `ops-retrain`）
-  ├── evaluation/          metrics / report / validators
-  ├── registry/            モデル採用判定 / registry 補助
-  ├── serving/             検索 / 再ランキング補助
-  └── common/              config / logging / utils
-pipeline/batch/       非 ML バッチ
-  ├── features/       property_stats / property_features 日次更新
-  ├── evaluation/     eval-compare / eval-offline / kpi-daily / eval-weekly-report
-  └── maintenance/    DB migration ランナー
-pipeline/batch_serving_job/
-  ├── adapters/       search / ranking / embeddings / cache / persistence
-  ├── application/    search_properties / record_feedback
-  ├── repositories/   search_log / embeddings / evaluation reports
-  └── services/       search / ranking / embeddings / evaluation
-```
-
-```
-scripts/
-├── ci/layers.py            AST で layer 依存ルール検査（Makefile check-layers）
-├── local/setup/compose.sh  credential.yaml → env export → docker compose 起動
-└── local/ops/*.py          各 make ops-* target の実装
-```
-
----
-
-## 参照すべき他 Phase
-
-| 役割 | パス | 引用ポイント |
-|---|---|---|
-| クラウド移行先 | `/home/ubuntu/repos/study-gcp-mlops/4/study-hybrid-search-gcp` | 本 Phase の検索スタックを BigQuery `VECTOR_SEARCH` + RRF + Cloud Run で再実装した後継 Phase |
-| Vertex 版 | `/home/ubuntu/repos/study-gcp-mlops/5/study-hybrid-search-vertex` | Phase 4 の GCP 構成を Vertex AI 中心へ拡張した後継 Phase |
-| ML 基礎（前提講義） | `/home/ubuntu/repos/study-gcp-mlops/1/study-ml-foundations` | LightGBM 回帰・評価・推論 API の基本語彙 |
-
----
-
-## リポジトリ状態
-
-- Phase 0–6 実装済（`docs/02_移行ロードマップ.md` 参照）
-- `make verify-pipeline` / `make ops-bootstrap` が代表スモーク
-- LambdaRank + NDCG で実装済（`ml/training/trainer.py` の `objective: lambdarank`）
-- RRF は **Phase 4 で新規登場**（本 Phase では `me5_score` を LightGBM 特徴量に入れる方式）
-- `scripts/` は 2026-04-21 に lifecycle 別再分類（`ci/` / `local/ops/` / `local/setup/`）を実施
-- 非 ML バッチは `pipeline/batch/{features,evaluation,maintenance}/` にあり、検索アプリケーション層は `pipeline/batch_serving_job/` 配下に置く
-- `make` コマンド名は Phase 4/5 と整合済（`ops-livez` / `ops-search` / `ops-feedback` / `ops-ranking` / `ops-label-seed` / `ops-sync` / `ops-embed` / `ops-train-*` / `ops-retrain`）
-
----
-
-## 紛らわしい点
-
-- **`scripts/local/setup/compose.sh` は docker compose のラッパー**。直接 `docker compose` を叩くと `POSTGRES_PASSWORD` が空になり postgres コンテナが起動失敗する。必ず `make up` / `make down` / `make logs` / `make build` など Makefile ターゲット経由で使う
-- **`me5_score` を直接順位に使わない**。Meilisearch のスコアも直接は使わず、両方とも LightGBM の特徴量として渡す
-- **LambdaRank の `group` は `request_id`**（query 単位）。行単位の回帰とは学習構造が違う
-- **Phase 4 への移行で "検索コアは不変、実装基盤だけ置換"**：設計思想は Phase 4 に引き継がれる。`02_移行ロードマップ.md` の「引き継ぐもの / 置き換えるもの」対比を参照
-- **学習コードは `ml/training/` に集約**。`pipeline/batch/training/` は存在しない。古い docs の `python -m training.lgbm_trainer` / `python -m training.training_dataset_builder` 記述は、現行では `ml/training/trainer.py` / `ml/training/model_builder.py` 相当として読む
-
----
-
-## 書き方（docs 全般のルール）
-
-- 日本語で書く。技術用語は英語のまま（`LightGBM`, `LambdaRank`, `Booster`, `Meilisearch`, `ME5`, `RRF`）
-- コマンドは `make` ターゲット優先。生 `docker compose` / `bq` / `terraform` は動的引数が必要な場合のみ
-- 識別子は固有名を使う（テーブル名 / カラム名 / エンドポイント名）
-- 番号付き STEP は上から叩けば成立する順序
-- 推測で書かない。コマンドを書いたら実際に叩いて確認する
+- ローカルで検索・学習・評価が一巡する構成を維持する
+- Cloud 前提の責務は入れない
+- まず差分修正を優先し、E2E / CI/CD 検証は後段へ回す

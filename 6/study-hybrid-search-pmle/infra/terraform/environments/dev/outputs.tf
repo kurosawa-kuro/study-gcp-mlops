@@ -147,21 +147,6 @@ output "slo_latency_name" {
 }
 
 # =========================================================================
-# Phase 6 T3 — Matching Engine index + endpoint IDs (only populated when
-# enable_vector_search=true).
-# =========================================================================
-
-output "vector_search_index_id" {
-  description = "Short Matching Engine index ID (empty when enable_vector_search=false)"
-  value       = var.enable_vector_search ? module.vector_search[0].index_id : ""
-}
-
-output "vector_search_index_endpoint_id" {
-  description = "Short Matching Engine IndexEndpoint ID. Register as env var VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID on search-api."
-  value       = var.enable_vector_search ? module.vector_search[0].index_endpoint_id : ""
-}
-
-# =========================================================================
 # Phase 6 T2 — Dataflow streaming (populated only when enable_streaming=true).
 # =========================================================================
 
@@ -173,18 +158,4 @@ output "streaming_service_account" {
 output "streaming_job_name" {
   description = "Dataflow streaming job name — empty unless enable_streaming_job=true."
   value       = var.enable_streaming ? module.streaming[0].job_name : ""
-}
-
-# =========================================================================
-# Phase 6 T7 — Agent Builder (Discovery Engine) scaffold.
-# =========================================================================
-
-output "agent_builder_engine_id" {
-  description = "Discovery Engine search engine id. Register as VERTEX_AGENT_BUILDER_ENGINE_ID on search-api."
-  value       = var.enable_agent_builder ? module.agent_builder[0].engine_id : ""
-}
-
-output "agent_builder_data_store_id" {
-  description = "Discovery Engine data store id (holds property documents)."
-  value       = var.enable_agent_builder ? module.agent_builder[0].data_store_id : ""
 }

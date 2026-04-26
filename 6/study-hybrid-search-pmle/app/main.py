@@ -55,7 +55,6 @@ from app.services.protocols import (
 )
 from app.services.protocols.generator import Generator
 from app.services.protocols.popularity_scorer import PopularityScorer
-from app.services.protocols.semantic_search import SemanticSearchPort
 from app.services.rag_summarizer import RagSummarizer
 from app.services.ranking import normalize_search_cache_key, run_search
 from app.services.retrain_policy import evaluate as evaluate_retrain
@@ -84,8 +83,6 @@ def _build_feedback_recorder(settings: ApiSettings) -> FeedbackRecorder:
 
 def _build_candidate_retriever(
     settings: ApiSettings,
-    *,
-    override_lexical: LexicalSearchPort | None = None,
 ) -> BigQueryCandidateRetriever:
     embeddings_table = (
         f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
@@ -100,11 +97,7 @@ def _build_candidate_retriever(
         f"{settings.bq_table_properties_cleaned}"
     )
     lexical: LexicalSearchPort
-    if override_lexical is not None:
-        # Phase 6 T7 — build a sibling retriever with the alt lexical
-        # backend; never replaces the primary Meilisearch path.
-        lexical = override_lexical
-    elif settings.meili_base_url:
+    if settings.meili_base_url:
         # meili_master_key (Secret Manager) を優先、未設定時は meili_api_key にフォールバック。
         _meili_key = settings.meili_master_key.get_secret_value() or settings.meili_api_key
         lexical = MeilisearchLexical(
@@ -116,61 +109,13 @@ def _build_candidate_retriever(
     else:
         lexical = NoopLexicalSearch()
 
-    # Phase 6 T3 — pick semantic backend; default keeps Phase 5 BQ path.
-    semantic = _build_semantic_search(settings, properties_table=properties_table)
     return BigQueryCandidateRetriever(
         project_id=settings.project_id,
         lexical=lexical,
         embeddings_table=embeddings_table,
         features_table=features_table,
         properties_table=properties_table,
-        semantic=semantic,
     )
-
-
-def _build_semantic_search(
-    settings: ApiSettings,
-    *,
-    properties_table: str,
-) -> SemanticSearchPort | None:
-    """Select the SemanticSearchPort implementation.
-
-    Returns ``None`` to let :class:`BigQueryCandidateRetriever` construct the
-    Phase 5 default (``BigQuerySemanticSearch``) lazily from the injected
-    BigQuery client. Returns a concrete adapter when
-    ``settings.semantic_backend == "vertex"`` and the Matching Engine
-    endpoint / deployed_index IDs are configured.
-    """
-    logger = get_logger("app")
-    if settings.semantic_backend == "vertex":
-        if not settings.vertex_vector_search_index_endpoint_id:
-            logger.warning(
-                "SEMANTIC_BACKEND=vertex but VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID is empty; "
-                "falling back to BigQuery VECTOR_SEARCH"
-            )
-            return None
-        if not settings.vertex_vector_search_deployed_index_id:
-            logger.warning(
-                "SEMANTIC_BACKEND=vertex but VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID is empty; "
-                "falling back to BigQuery VECTOR_SEARCH"
-            )
-            return None
-        from google.cloud import bigquery
-
-        from app.services.adapters.semantic_search import VertexVectorSearchSemantic
-
-        return VertexVectorSearchSemantic(
-            project_id=settings.project_id,
-            location=settings.vertex_location,
-            index_endpoint_id=settings.vertex_vector_search_index_endpoint_id,
-            deployed_index_id=settings.vertex_vector_search_deployed_index_id,
-            properties_table=properties_table,
-            client=bigquery.Client(project=settings.project_id),
-        )
-    # "bq" (default) — let BigQueryCandidateRetriever construct the default
-    # BigQuerySemanticSearch internally, so we don't need to manage a second
-    # BQ client lifecycle here.
-    return None
 
 
 def _build_search_cache(settings: ApiSettings) -> CacheStore:
@@ -270,33 +215,6 @@ def _build_popularity_scorer(settings: ApiSettings) -> PopularityScorer | None:
         return None
 
 
-def _build_agent_builder_lexical(settings: ApiSettings) -> LexicalSearchPort | None:
-    """Phase 6 T7 — optional Discovery Engine-backed lexical adapter.
-
-    Returned adapter is attached to ``app.state.lexical_alt`` and only
-    reached when the caller opts in via ``/search?lexical=agent_builder``.
-    """
-    logger = get_logger("app")
-    if settings.lexical_backend != "agent_builder":
-        return None
-    if not settings.vertex_agent_builder_engine_id:
-        logger.warning("LEXICAL_BACKEND=agent_builder but VERTEX_AGENT_BUILDER_ENGINE_ID is empty")
-        return None
-    try:
-        from app.services.adapters.agent_builder_lexical import AgentBuilderLexicalRetriever
-
-        return AgentBuilderLexicalRetriever(
-            project_id=settings.project_id,
-            location=settings.vertex_agent_builder_location,
-            engine_id=settings.vertex_agent_builder_engine_id,
-            collection_id=settings.vertex_agent_builder_collection_id,
-            serving_config_id=settings.vertex_agent_builder_serving_config_id,
-        )
-    except Exception:
-        logger.exception("Failed to initialize Agent Builder lexical adapter")
-        return None
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
@@ -318,20 +236,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.candidate_retriever = _build_candidate_retriever(settings)
         app.state.encoder_client = encoder_client
         app.state.encoder_model_path = encoder_model_path
-        # Phase 6 T7 — parallel retriever using the Agent Builder lexical
-        # adapter. Built only when a valid adapter is configured. Default
-        # lexical remains Meilisearch (親リポ non-negotiable); this is the
-        # 副-経路 reached via ?lexical=agent_builder.
-        alt_lexical = _build_agent_builder_lexical(settings)
-        if alt_lexical is not None:
-            app.state.candidate_retriever_alt = _build_candidate_retriever(
-                settings, override_lexical=alt_lexical
-            )
-        else:
-            app.state.candidate_retriever_alt = None
     else:
         app.state.candidate_retriever = None
-        app.state.candidate_retriever_alt = None
         app.state.encoder_client = None
         app.state.encoder_model_path = None
 
@@ -340,7 +246,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.model_path = model_path
     app.state.rag_summarizer = _build_rag_summarizer(settings)
     app.state.popularity_scorer = _build_popularity_scorer(settings)
-    app.state.lexical_alt = _build_agent_builder_lexical(settings)
 
     app.state.ranking_log_publisher = _build_ranking_log_publisher(settings)
     app.state.feedback_recorder = _build_feedback_recorder(settings)
@@ -376,24 +281,24 @@ def create_app() -> FastAPI:
         encoder_client = getattr(request.app.state, "encoder_client", None)
         if retriever is None or encoder_client is None:
             return JSONResponse({"status": "loading"}, status_code=503)
-        
+
         # Pre-flight publisher topic checks (best-effort; failures are warnings, not 503s)
         settings: ApiSettings = request.app.state.settings
         publisher_checks = {}
         logger = get_logger("app")
-        
+
         try:
-            from google.cloud import pubsub_v1
             from google.api_core.exceptions import NotFound, PermissionDenied
-            
+            from google.cloud import pubsub_v1
+
             subscriber = pubsub_v1.SubscriberClient()
-            
+
             for topic_name_attr in ["ranking_log_topic", "retrain_topic", "feedback_topic"]:
                 topic = getattr(settings, topic_name_attr, None)
                 if not topic:
                     publisher_checks[topic_name_attr] = "not_configured"
                     continue
-                
+
                 try:
                     topic_path = subscriber.topic_path(settings.project_id, topic)
                     # Try to describe the topic to verify it exists and we have access
@@ -411,7 +316,7 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.warning(f"Publisher pre-flight check failed (import or initialization): {e}")
             publisher_checks["_error"] = str(e)
-        
+
         reranker = getattr(request.app.state, "reranker_client", None)
         return JSONResponse(
             {
@@ -488,25 +393,8 @@ def create_app() -> FastAPI:
         req: SearchRequest,
         request: Request,
         explain: bool = False,
-        lexical: str = "meili",
     ) -> SearchResponse | JSONResponse:
-        # Phase 6 T7 — ``?lexical=agent_builder`` routes to a sibling
-        # candidate retriever backed by Discovery Engine. Default stays
-        # Meilisearch (親リポ non-negotiable).
-        if lexical == "agent_builder":
-            retriever = getattr(request.app.state, "candidate_retriever_alt", None)
-            if retriever is None:
-                return JSONResponse(
-                    {
-                        "detail": (
-                            "/search?lexical=agent_builder unavailable "
-                            "(LEXICAL_BACKEND != agent_builder or engine not configured)"
-                        )
-                    },
-                    status_code=503,
-                )
-        else:
-            retriever = getattr(request.app.state, "candidate_retriever", None)
+        retriever = getattr(request.app.state, "candidate_retriever", None)
         encoder_client = getattr(request.app.state, "encoder_client", None)
         if retriever is None or encoder_client is None:
             return JSONResponse(
@@ -518,9 +406,7 @@ def create_app() -> FastAPI:
         search_cache: CacheStore = request.app.state.search_cache
         cache_key = normalize_search_cache_key(
             query=req.query,
-            # Include the lexical backend in the cache key so meili/
-            # agent_builder results do not shadow each other.
-            filters={**req.filters.model_dump(), "_lexical": lexical},
+            filters=req.filters.model_dump(),
             top_k=req.top_k,
         )
         # Phase 6 T4 — explain=True bypasses the cache. Attributions must be

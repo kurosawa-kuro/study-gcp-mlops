@@ -1,135 +1,30 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Phase 2 (`study-ml-app-pipeline`) の作業ガイド。正本は [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md)。
 
-## Project Overview
+## 最初に読むもの
 
-MLOps 学習 Phase 2。**題材は Phase 1 と同じ** カリフォルニア住宅価格予測（LightGBM 回帰）。Phase 1 の ML コアを引き継ぎつつ、**App (API 連携) / Pipeline (ジョブ分離) / Port-Adapter (依存方向の制御)** を導入する「デザインパターン導入 Phase」。
+1. [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md)
+2. [docs/01_仕様と設計.md](docs/01_仕様と設計.md)
+3. [README.md](README.md)
 
-### Phase 1 → 2 の差分（何が新しく入るか）
+## 不変ルール
 
-| 要素 | Phase 1 | Phase 2 |
-|---|---|---|
-| モデル学習 | `pipeline/training_job` (スクリプト) | `pipeline/training_job` + Inbound Adapter (pipeline handler) → `ml/core` ユースケース呼び出し |
-| 推論 | （Phase 1 には無くなった。Phase 2 新規） | `app/` FastAPI + Inbound Adapter (HTTP) → `ml/core` 予測ユースケース |
-| データ取得 | `ml/data/loaders/repository.py` を直接 import | Outbound Port `DatasetReader` + Adapter `PostgresDatasetReader` |
-| モデル保存/読込 | `ml/registry/artifact_store.py` を直接 import | Outbound Port `ModelStore` + Adapter `FilesystemModelStore` |
-| 設定注入 | グローバル `BaseAppSettings` | `ml/container.py` で DI 配線 |
-| パイプライン起動 | `pipeline/main.py` 1 ファイル | `pipeline/{data,training,batch_serving}_job/main.py` × 3 entrypoint |
+- 題材は California Housing 回帰
+- ML コアは LightGBM 回帰
+- Phase 2 は App / Pipeline / Port-Adapter を学ぶフェーズ
+- 検索ドメインやクラウド責務は持ち込まない
 
-Phase 1 のコア（`ml/training/trainer.py` / `ml/evaluation/` / `ml/data/preprocess` / `ml/data/feature_engineering`）は**そのまま**持ち込む。変えるのは「どう呼び出すか」だけ。
+## Phase 2 の対象
 
-## Architecture — 3 層軽量 Port/Adapter
+- FastAPI
+- lifespan DI
+- Port-Adapter
+- job 分離
+- container 配線
 
-```
-┌─ Inbound Adapters ─────────────────┐
-│  app/api/*           (HTTP)         │
-│  pipeline/*_job/main (CLI / job)    │
-└────────────┬────────────────────────┘
-             │ 呼び出し
-             ▼
-┌─ ml/core ──────────────────────────┐
-│  trainer / evaluator / preprocess   │  純粋ロジック（I/O に依存しない）
-│  feature_engineering                │
-└────────────┬────────────────────────┘
-             │ 抽象経由
-             ▼
-┌─ ml/ports (Protocol 定義のみ) ──────┐
-│  DatasetReader                      │
-│  ModelStore                         │
-│  Predictor                          │
-└────────────┬────────────────────────┘
-             │ 実装
-             ▼
-┌─ ml/adapters (concrete 実装) ───────┐
-│  PostgresDatasetReader              │
-│  FilesystemModelStore               │
-│  ModelStorePredictor                │
-└─────────────────────────────────────┘
+## 実装ルール
 
-ml/container.py ─ DI 配線（port ↔ adapter）、FastAPI lifespan / job entrypoint から参照
-```
-
-**依存方向ルール**（import は下方向のみ。逆流禁止）:
-- `app/`, `pipeline/` → `ml/core`, `ml/container`
-- `ml/core` → `ml/ports`（Protocol のみ、外部 SDK 非依存）
-- `ml/adapters` → `ml/ports` を実装、外部 SDK（sqlalchemy / psycopg 等）使用可
-- `ml/ports` → Python 標準のみ
-- `ml/core` は `ml/adapters` を import しない
-
-### Phase 3 (`3/study-hybrid-search-local`) への接続
-
-本 Phase の Port/Adapter 3 層構造は Phase 3 でそのまま継承される。Phase 3 では adapters が Meilisearch / Redis / multilingual-e5 に差し替わり、**「adapter だけ差し替えて core は動く」を体感する教材**になる。本 Phase で `ml/ports` の粒度設計をミスると Phase 3 の移植コストが跳ねるため、**Port の引数/返り値は I/O 実装を想定しない pure-data（DataFrame / dataclass / primitive）で閉じる**。
-
-## Source Layout（current）
-
-```
-2/study-ml-app-pipeline/
-├── app/                    # Inbound Adapter (HTTP) — Phase 1 から migrate
-│   ├── main.py             # FastAPI + lifespan (container 組み立て)
-│   ├── config.py
-│   ├── api/                # HTTP ルータ → inbound port 呼び出し
-│   ├── schemas/            # API 専用 DTO
-│   ├── services/           # 薄いオーケストレーション
-│   ├── static/
-│   └── templates/
-├── ml/
-│   ├── core/               # Port/Adapter 化した純粋ロジック
-│   │   ├── trainer.py
-│   │   ├── evaluation.py
-│   │   ├── preprocess.py
-│   │   └── feature_engineering.py
-│   ├── ports/              # Protocol 定義のみ（外部 SDK 非依存）
-│   │   ├── dataset.py      # DatasetReader.load() -> DataFrame
-│   │   ├── model_store.py  # ModelStore.save/load(run_id, path)
-│   │   └── predictor.py    # Predictor.predict()
-│   ├── adapters/           # ports の具象実装
-│   │   ├── postgres_dataset.py
-│   │   ├── filesystem_model_store.py
-│   │   └── predictor.py
-│   ├── data/               # Phase 1 由来の ML 実装が残る移行中ディレクトリ
-│   ├── training/
-│   ├── evaluation/
-│   ├── registry/
-│   ├── serving/
-│   └── registry_legacy/
-├── pipeline/               # Inbound Adapter (pipeline job) — entrypoint のみ
-│   ├── data_job/main.py
-│   ├── training_job/main.py
-│   └── batch_serving_job/main.py
-├── common/                 # settings / logging / schema / run_id
-├── infra/
-│   └── run/
-│       ├── services/api/Dockerfile
-│       └── jobs/trainer/Dockerfile
-├── tests/
-│   ├── unit/               # core / ports / adapters 単体
-│   └── integration/        # api / pipeline 通し
-├── docker-compose.yml
-├── Makefile
-└── pyproject.toml
-```
-
-## 非負制約（User 確認無しに変えない）
-
-- **題材**: California Housing 回帰（Phase 1 から継承）
-- **ランタイム**: Docker Compose（Phase 3 以降とは異なり、uv workspace ではない）
-- **言語**: Python 3.10+（Phase 1 と同じ）
-- **ML エンジン**: LightGBM（Phase 1 と同じ）
-- **DB**: PostgreSQL 16（Phase 1 と同じ）
-- **依存方向**: 上記 4 層依存図。AST / lint チェックは Phase 3 以降で追加予定、本 Phase は手動レビュー
-
-## 現状（2026-04-25 時点）
-
-**transition phase**。Port/Adapter 導入は始まっているが、Phase 1 由来ディレクトリもまだ残る。
-- 実体の pipeline は `data_job` `training_job` `batch_serving_job`
-- `ml/core` `ml/ports` `ml/adapters` は導入済み
-- 一方で `ml/data` `ml/training` `ml/evaluation` `ml/registry` `ml/serving` も共存している
-- `scripts/` はまだ `core.py` + `scripts/local/*` 中心
-
-今後の収束先:
-- `ml/` は機能別標準に寄せつつ、Port/Adapter は各機能の内側へ閉じ込める
-- `pipeline/` は `data_job` `training_job` `evaluation_job` `batch_serving_job` `workflow` の最大集合へ寄せる
-- `scripts/` は後続 phase の `setup/deploy/ops/ci` 構成へ近づける
-
-Phase 1 からのコード複製方針：**Phase 1 `ml/*` をそのまま import せず、Phase 2 内に複製してから Port/Adapter に沿って切り分ける**（各 phase 独立原則）。
+- Phase 1 の ML コアは維持する
+- 入口と依存方向だけ整理する
+- まず差分修正を優先し、E2E / CI/CD 検証は後段へ回す

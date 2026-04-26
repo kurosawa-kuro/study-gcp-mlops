@@ -12,7 +12,7 @@ from typing import Any, Protocol
 
 @dataclass(frozen=True)
 class Candidate:
-    """One candidate property returned from the lexical / vector search step."""
+    """One candidate property returned from lexical + semantic retrieval."""
 
     property_id: str
     # BM25-side rank from lexical retrieval (Meilisearch).
