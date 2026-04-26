@@ -42,11 +42,6 @@ output "feedback_events_table" {
   value = google_bigquery_table.feedback_events
 }
 
-# Phase 6 T8 — Gemini-enriched property metadata table.
-output "properties_enriched_table" {
-  value = google_bigquery_table.properties_enriched
-}
-
 # Phase 6 T2 — Dataflow streaming aggregate sink.
 output "ranking_log_hourly_ctr_table" {
   value = google_bigquery_table.ranking_log_hourly_ctr
