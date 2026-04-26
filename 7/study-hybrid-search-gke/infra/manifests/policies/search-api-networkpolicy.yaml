@@ -28,3 +28,13 @@ spec:
           port: 53
         - protocol: TCP
           port: 443
+    # Phase 7 Run 1 (B12 backport / Run 4 補完): GKE metadata server access for
+    # Workload Identity. Without this, Pod's metadata.google.internal name
+    # resolution succeeds but TCP 80 fetch is blocked → lifespan hangs at
+    # google-cloud-* SDK init.
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - protocol: TCP
+          port: 80
