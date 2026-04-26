@@ -84,6 +84,12 @@ def test_rank_train_produces_booster(tmp_path: Path) -> None:
     assert artifacts.model_path.is_file()
     assert (artifacts.artifacts_dir / "metrics.json").is_file()
     assert (artifacts.artifacts_dir / "feature_importance.csv").is_file()
+    # KServe LGBServer requires `.bst` extension — write_artifacts now
+    # produces both files so the same artifact_uri serves both the CLI
+    # consumers (model.txt) and the KServe Pod (model.bst). Pin both.
+    bst_path = artifacts.artifacts_dir / "model.bst"
+    assert bst_path.is_file(), "model.bst missing — KServe LGBServer cannot load this version"
+    assert bst_path.read_bytes() == artifacts.model_path.read_bytes()
 
 
 def test_rank_train_missing_columns_raises() -> None:

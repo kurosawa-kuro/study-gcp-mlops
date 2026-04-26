@@ -64,7 +64,6 @@ RULES: dict[str, frozenset[str]] = {
     "app/services/search_service.py": ADAPTER_BANS | frozenset({"sentence_transformers"}),
     # --- app/schemas (Pydantic + extra bans) ---
     "app/schemas/search.py": ADAPTER_BANS | frozenset({"lightgbm", "numpy"}),
-    "app/schemas/rag.py": ADAPTER_BANS | frozenset({"lightgbm", "numpy"}),
 }
 
 

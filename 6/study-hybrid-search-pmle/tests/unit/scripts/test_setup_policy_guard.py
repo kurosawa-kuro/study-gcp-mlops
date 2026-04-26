@@ -14,14 +14,12 @@ def test_setup_scripts_use_canonical_and_ci_import_paths() -> None:
     destroy_all = _read("scripts/setup/destroy_all.py")
 
     assert "from scripts.ci.sync_dataform import main as sync_dataform_main" in deploy_all
-    assert "from scripts.deploy.api_local import main as deploy_api_main" in deploy_all
+    assert "from scripts.deploy.api_gke import main as deploy_api_main" in deploy_all
     assert "from scripts.setup.tf_bootstrap import main as tf_bootstrap_main" in deploy_all
     assert "from scripts.setup.tf_init import main as tf_init_main" in deploy_all
     assert "from scripts.setup.tf_plan import main as tf_plan_main" in deploy_all
-    assert "scripts.local.setup" not in deploy_all
 
     assert "from scripts.setup.seed_minimal_clean import main as seed_clean_main" in destroy_all
-    assert "scripts.local.setup.seed_minimal_clean" not in destroy_all
 
 
 def test_setup_scripts_target_dev_terraform_environment() -> None:
@@ -31,7 +29,7 @@ def test_setup_scripts_target_dev_terraform_environment() -> None:
     tf_plan = _read("scripts/setup/tf_plan.py")
 
     expected = (
-        'Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"'
+        'Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"'
     )
     assert expected in deploy_all
     assert expected in destroy_all
@@ -39,13 +37,13 @@ def test_setup_scripts_target_dev_terraform_environment() -> None:
     assert expected in tf_plan
 
 
-def test_api_deploy_enforces_search_env_and_public_access() -> None:
-    api_local = _read("scripts/deploy/api_local.py")
+def test_api_deploy_targets_gke_rollout_path() -> None:
+    api_gke = _read("scripts/deploy/api_gke.py")
 
-    assert "ENABLE_SEARCH=true" in api_local
-    assert "VERTEX_ENCODER_ENDPOINT_ID" in api_local
-    assert "--allow-unauthenticated" in api_local
-    assert "--no-allow-unauthenticated" not in api_local
+    assert "kubectl" in api_gke
+    assert "rollout status" in api_gke
+    assert "deployment/search-api" in api_gke or 'DEPLOYMENT = "search-api"' in api_gke
+    assert "gcloud run deploy" not in api_gke
 
 
 def test_makefile_has_canonical_ops_targets() -> None:

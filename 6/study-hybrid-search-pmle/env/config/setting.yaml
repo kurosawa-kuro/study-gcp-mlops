@@ -6,9 +6,10 @@
 # 既存値を変えた場合の影響範囲:
 #   project_id     — 全 gcloud / bq 呼び出し、Terraform var, infra/main.tf
 #   region         — Cloud Run / Artifact Registry / Cloud Build / BQ ロケーション
-#   api_service    — Cloud Run Service 名 (`gcloud run services describe …`)
-#   training_job   — Cloud Run Job 名 (`gcloud run jobs execute …`)
+#   api_service    — GKE Deployment 名 (`kubectl set image deployment/<name>`)
 #   artifact_repo  — Artifact Registry リポジトリ ID (`<region>-docker.pkg.dev/<proj>/<repo>`)
+#   このファイルは scripts/_common.py の簡易 parser 前提:
+#                  top-level の flat `key: value` と block-style list のみ対応
 #
 # Credentials / secrets は **ここに置かない**。Secret Manager か env/secret/ に
 # 個別のファイルを置き、env/secret/ 自体は .gitignore する想定。
@@ -16,11 +17,13 @@
 project_id: mlops-dev-a
 region: asia-northeast1
 api_service: search-api
-training_job: training-job
 artifact_repo: mlops
 vertex_location: asia-northeast1
-encoder_endpoint_display_name: property-encoder-endpoint
-reranker_endpoint_display_name: property-reranker-endpoint
+# Phase 7 は KServe serving であり Vertex Endpoint は deploy しない。
+# Vertex Endpoint shell の display_name は `enable_vertex_endpoint_shell=true`
+# の時にのみ使われ、値は `infra/terraform/environments/dev/main.tf` の
+# module 呼び出しで literal 指定 (`property-{encoder,reranker}-endpoint`)。
+# setting.yaml への二重宣言は値の drift を生むため置かない。
 pipeline_root_bucket: mlops-dev-a-pipeline-root
 pipeline_template_gcs_path: gs://mlops-dev-a-pipeline-root/templates
 

@@ -7,20 +7,22 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token, print_pretty
+from scripts._common import fail, http_json, print_pretty, resolve_api_target
 
 
 def main() -> int:
     query = os.environ.get("QUERY", "品川駅")
     action = os.environ.get("ACTION", "click")
 
-    url = cloud_run_url()
-    token = identity_token()
+    try:
+        target = resolve_api_target()
+    except Exception as exc:
+        return fail(f"feedback config error: {exc}")
 
     status, body = http_json(
         "POST",
-        f"{url}/search",
-        token=token,
+        f"{target.url}/search",
+        token=target.token,
         payload={"query": query, "top_k": 1},
     )
     if status != 200:
@@ -37,8 +39,8 @@ def main() -> int:
 
     fb_status, fb_body = http_json(
         "POST",
-        f"{url}/feedback",
-        token=token,
+        f"{target.url}/feedback",
+        token=target.token,
         payload={"request_id": request_id, "property_id": property_id, "action": action},
     )
     if fb_status != 200:

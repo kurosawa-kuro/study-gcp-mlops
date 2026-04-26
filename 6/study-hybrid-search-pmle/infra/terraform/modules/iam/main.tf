@@ -45,6 +45,11 @@ resource "google_service_account" "pipeline_trigger" {
   display_name = "Vertex pipeline trigger runtime SA"
 }
 
+resource "google_service_account" "external_secrets" {
+  account_id   = "sa-external-secrets"
+  display_name = "External Secrets Operator controller SA"
+}
+
 # ----- Workload Identity Federation for GitHub Actions -----
 
 resource "google_iam_workload_identity_pool" "github" {
@@ -120,6 +125,24 @@ resource "google_project_iam_member" "api_bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.api.email}"
+}
+
+# GKE Autopilot's Managed Prometheus collector runs in the gke-gmp-system
+# namespace using the node's default compute engine SA. Phase 7's IAM
+# lockdown stripped the project's default `roles/monitoring.metricWriter`
+# binding, which causes GMP to silently drop all `prometheus.googleapis.com/*`
+# metrics — the upstream cause of `module.slo` apply failing with
+# "0 series found" on http_requests_total / http_request_duration_seconds.
+# Re-grant the writer role to the compute default SA so /metrics scraped
+# from search-api / property-* surface in Cloud Monitoring.
+resource "google_project_iam_member" "gmp_compute_metric_writer" {
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+data "google_project" "current" {
+  project_id = var.project_id
 }
 
 resource "google_project_iam_member" "api_aiplatform_user" {
@@ -217,4 +240,3 @@ resource "google_project_iam_member" "endpoint_reranker_logging_writer" {
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.endpoint_reranker.email}"
 }
-

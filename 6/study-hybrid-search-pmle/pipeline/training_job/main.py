@@ -39,8 +39,6 @@ def property_search_train_pipeline(
     experiment_name: str = "property-reranker-lgbm",
     baseline_hyperparameters_json: str = '{"num_leaves":31,"learning_rate":0.05,"feature_fraction":0.9,"bagging_fraction":0.8,"min_data_in_leaf":50,"lambdarank_truncation_level":20}',
     enable_tuning: bool = False,
-    vizier_max_trials: int = 8,
-    vizier_parallel_trials: int = 2,
     gate_metric_name: str = "ndcg_at_10",
     gate_threshold: float = 0.6,
     model_display_name: str = "property-reranker",
@@ -64,9 +62,9 @@ def property_search_train_pipeline(
         baseline_hyperparameters_json=baseline_hyperparameters_json,
         project_id=project_id,
         vertex_location=vertex_location,
-        study_display_name=f"{model_display_name}-vizier",
-        max_trial_count=vizier_max_trials,
-        parallel_trial_count=vizier_parallel_trials,
+        study_display_name=model_display_name,
+        max_trial_count=0,
+        parallel_trial_count=0,
     )
     train_task = train_reranker(
         trainer_image=trainer_image,

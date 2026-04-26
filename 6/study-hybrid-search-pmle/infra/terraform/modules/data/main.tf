@@ -101,7 +101,7 @@ resource "google_bigquery_table" "training_runs" {
 #   ml/data/feature_engineering/ranker_features.py::build_ranker_features
 #   ml/data/feature_engineering/schema.py::FEATURE_COLS_RANKER
 #   THIS file (ranking_log.features RECORD)
-#   monitoring/validate_feature_skew.sql
+#   infra/sql/monitoring/validate_feature_skew.sql
 # =========================================================================
 
 resource "google_bigquery_table" "property_features_daily" {
@@ -263,6 +263,7 @@ resource "google_bigquery_table" "model_monitoring_alerts" {
   dataset_id          = google_bigquery_dataset.mlops.dataset_id
   table_id            = "model_monitoring_alerts"
   deletion_protection = var.enable_deletion_protection
+  description         = "Phase 7 drift alert sink. Legacy Vertex Model Monitoring v2 writes may still arrive if endpoint-based monitoring is re-enabled; current primary writer is the self-managed Scheduled Query that derives KServe drift signals from mlops.ranking_log."
 
   time_partitioning {
     type  = "DAY"
@@ -281,7 +282,7 @@ resource "google_bigquery_table" "model_monitoring_alerts" {
 }
 
 # Phase 6 T8 — Gemini enrichment sink. Populated by
-# scripts/local/enrichment/run_enrichment.py (optionally as a KFP
+# scripts/enrichment/run_enrichment.py (optionally as a KFP
 # pre-process component in embed_pipeline). Kept beside raw.properties
 # in the feature_mart dataset so downstream consumers can JOIN by
 # property_id without dataset hops.
@@ -403,6 +404,13 @@ resource "google_secret_manager_secret" "meili_master_key" {
   }
 }
 
+resource "google_secret_manager_secret" "search_api_iap_oauth_client_secret" {
+  secret_id = "search-api-iap-oauth-client-secret"
+  replication {
+    auto {}
+  }
+}
+
 # =========================================================================
 # IAM — runtime SAs ↔ data resources
 # =========================================================================
@@ -433,6 +441,18 @@ resource "google_secret_manager_secret_iam_member" "api_meili_master_key_access"
   secret_id = google_secret_manager_secret.meili_master_key.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.service_accounts.api.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "external_secrets_meili_master_key_access" {
+  secret_id = google_secret_manager_secret.meili_master_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_accounts.external_secrets.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "external_secrets_search_api_iap_oauth_client_secret_access" {
+  secret_id = google_secret_manager_secret.search_api_iap_oauth_client_secret.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.service_accounts.external_secrets.email}"
 }
 
 # sa-job-train: read feature mart, write models + training_runs, read secrets.

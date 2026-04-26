@@ -1,13 +1,11 @@
-"""API-side Ports — Protocols consumed by services/entrypoints."""
+"""API-side Ports — Protocols consumed by services / handlers."""
 
 from .cache_store import CacheStore
-from .candidate_retriever import (
-    Candidate,
-    CandidateRetriever,
-)
+from .candidate_retriever import CandidateRetriever
 from .encoder_client import EncoderClient
 from .feedback_recorder import FeedbackRecorder
 from .lexical_search import LexicalSearchPort
+from .popularity_scorer import PopularityScorer
 from .publisher import NoopPublisher, PredictionPublisher
 from .ranking_log_publisher import RankingLogPublisher
 from .reranker_client import RerankerClient, RerankerExplainer
@@ -16,12 +14,12 @@ from .semantic_search import SemanticSearchPort
 
 __all__ = [
     "CacheStore",
-    "Candidate",
     "CandidateRetriever",
     "EncoderClient",
     "FeedbackRecorder",
     "LexicalSearchPort",
     "NoopPublisher",
+    "PopularityScorer",
     "PredictionPublisher",
     "RankingLogPublisher",
     "RerankerClient",

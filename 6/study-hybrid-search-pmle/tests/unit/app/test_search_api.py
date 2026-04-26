@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+from app.services.search_service import SearchService
+
 
 def _search_payload() -> dict:
     return {
@@ -9,6 +13,23 @@ def _search_payload() -> dict:
         "filters": {"max_rent": 150_000, "pet_ok": True},
         "top_k": 3,
     }
+
+
+def _replace_search_container(app, **updates: object) -> None:
+    container = replace(app.state.container, **updates)
+    container = replace(
+        container,
+        search_service=SearchService(
+            retriever_default=container.candidate_retriever,
+            encoder=container.encoder_client,
+            publisher=container.ranking_log_publisher,
+            reranker=container.reranker_client,
+            popularity_scorer=container.popularity_scorer,
+            cache=container.search_cache,
+            cache_ttl_seconds=container.settings.search_cache_ttl_seconds,
+        ),
+    )
+    app.state.container = container
 
 
 def test_search_returns_200_with_results(search_client) -> None:
@@ -31,17 +52,15 @@ def test_search_results_preserve_lexical_rank_when_rerank_disabled(search_client
 def test_search_emits_ranking_log(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.post("/search", json=_search_payload())
+    with TestClient(app_with_search_stub) as client:
+        r = client.post("/search", json=_search_payload())
     assert r.status_code == 200
-    publisher = app_with_search_stub.state.ranking_log_publisher
+    publisher = app_with_search_stub.state.container.ranking_log_publisher
     assert len(publisher.calls) == 1
     call = publisher.calls[0]
-    # All 3 retrieved candidates are logged, not just top_k — so offline eval
-    # keeps the full pool even when top_k < 100.
-    assert len(call["candidates"]) == 3
-    assert call["final_ranks"] == [1, 2, 3]
-    assert call["model_path"] is None
+    assert len(call.candidates) == 3
+    assert call.final_ranks == (1, 2, 3)
+    assert call.model_path is None
 
 
 def test_search_top_k_truncates_response(search_client) -> None:
@@ -55,14 +74,14 @@ def test_search_top_k_truncates_response(search_client) -> None:
 def test_search_cache_hit_skips_second_retrieval(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    payload = _search_payload()
-    r1 = client.post("/search", json=payload)
-    assert r1.status_code == 200
-    r2 = client.post("/search", json=payload)
-    assert r2.status_code == 200
+    with TestClient(app_with_search_stub) as client:
+        payload = _search_payload()
+        r1 = client.post("/search", json=payload)
+        assert r1.status_code == 200
+        r2 = client.post("/search", json=payload)
+        assert r2.status_code == 200
 
-    retriever = app_with_search_stub.state.candidate_retriever
+    retriever = app_with_search_stub.state.container.candidate_retriever
     assert len(retriever.calls) == 1
 
 
@@ -76,42 +95,45 @@ def test_search_rejects_empty_query(search_client) -> None:
 def test_search_503_when_disabled(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    app_with_search_stub.state.encoder_client = None
-    client = TestClient(app_with_search_stub)
-    r = client.post("/search", json=_search_payload())
+    _replace_search_container(app_with_search_stub, encoder_client=None)
+    with TestClient(app_with_search_stub) as client:
+        r = client.post("/search", json=_search_payload())
     assert r.status_code == 503
 
 
 def test_feedback_accepts_click(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.post(
-        "/feedback",
-        json={"request_id": "abc", "property_id": "P-001", "action": "click"},
-    )
+    with TestClient(app_with_search_stub) as client:
+        r = client.post(
+            "/feedback",
+            json={"request_id": "abc", "property_id": "P-001", "action": "click"},
+        )
     assert r.status_code == 200
     assert r.json() == {"accepted": True}
-    recorder = app_with_search_stub.state.feedback_recorder
-    assert recorder.events == [{"request_id": "abc", "property_id": "P-001", "action": "click"}]
+    recorder = app_with_search_stub.state.container.feedback_recorder
+    assert len(recorder.events) == 1
+    assert recorder.events[0].request_id == "abc"
+    assert recorder.events[0].property_id == "P-001"
+    assert recorder.events[0].action == "click"
 
 
 def test_feedback_rejects_unknown_action(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.post(
-        "/feedback",
-        json={"request_id": "abc", "property_id": "P-001", "action": "teleport"},
-    )
+    with TestClient(app_with_search_stub) as client:
+        r = client.post(
+            "/feedback",
+            json={"request_id": "abc", "property_id": "P-001", "action": "teleport"},
+        )
     assert r.status_code == 422
 
 
 def test_readyz_ok_when_search_enabled(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.get("/readyz")
+    with TestClient(app_with_search_stub) as client:
+        r = client.get("/readyz")
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ready"
@@ -121,26 +143,26 @@ def test_readyz_ok_when_search_enabled(app_with_search_stub) -> None:
 def test_readyz_503_when_retriever_missing(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    app_with_search_stub.state.candidate_retriever = None
-    client = TestClient(app_with_search_stub)
-    r = client.get("/readyz")
+    _replace_search_container(app_with_search_stub, candidate_retriever=None)
+    with TestClient(app_with_search_stub) as client:
+        r = client.get("/readyz")
     assert r.status_code == 503
 
 
 def test_readyz_503_when_encoder_missing(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    app_with_search_stub.state.encoder_client = None
-    client = TestClient(app_with_search_stub)
-    r = client.get("/readyz")
+    _replace_search_container(app_with_search_stub, encoder_client=None)
+    with TestClient(app_with_search_stub) as client:
+        r = client.get("/readyz")
     assert r.status_code == 503
 
 
 def test_healthz_unconditional(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    r = client.get("/healthz")
+    with TestClient(app_with_search_stub) as client:
+        r = client.get("/healthz")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
 
@@ -148,8 +170,8 @@ def test_healthz_unconditional(app_with_search_stub) -> None:
 def test_readyz_reports_rerank_disabled_when_client_missing(app_with_search_stub) -> None:
     from fastapi.testclient import TestClient
 
-    client = TestClient(app_with_search_stub)
-    body = client.get("/readyz").json()
+    with TestClient(app_with_search_stub) as client:
+        body = client.get("/readyz").json()
     assert body["rerank_enabled"] is False
     assert body["model_path"] is None
 
@@ -163,9 +185,14 @@ def test_readyz_reports_rerank_enabled_when_client_set(app_with_search_stub) -> 
         def predict(self, instances: list[list[float]]) -> list[float]:
             return [-row[8] for row in instances]
 
-    app_with_search_stub.state.reranker_client = _StubReranker()
-    client = TestClient(app_with_search_stub)
-    body = client.get("/readyz").json()
+    reranker = _StubReranker()
+    _replace_search_container(
+        app_with_search_stub,
+        reranker_client=reranker,
+        model_path=reranker.model_path,
+    )
+    with TestClient(app_with_search_stub) as client:
+        body = client.get("/readyz").json()
     assert body["rerank_enabled"] is True
     assert body["model_path"] == "projects/p/locations/l/endpoints/123"
 
@@ -179,10 +206,15 @@ def test_search_returns_scores_when_reranker_loaded(app_with_search_stub) -> Non
         def predict(self, instances: list[list[float]]) -> list[float]:
             return [-row[8] for row in instances]
 
-    app_with_search_stub.state.reranker_client = _StubReranker()
+    reranker = _StubReranker()
+    _replace_search_container(
+        app_with_search_stub,
+        reranker_client=reranker,
+        model_path=reranker.model_path,
+    )
 
-    client = TestClient(app_with_search_stub)
-    r = client.post("/search", json=_search_payload())
+    with TestClient(app_with_search_stub) as client:
+        r = client.post("/search", json=_search_payload())
     assert r.status_code == 200
     body = r.json()
     assert body["model_path"] == "projects/p/locations/l/endpoints/456"
@@ -199,10 +231,15 @@ def test_ranking_log_receives_scores_when_reranker_loaded(app_with_search_stub) 
         def predict(self, instances: list[list[float]]) -> list[float]:
             return [-row[8] for row in instances]
 
-    app_with_search_stub.state.reranker_client = _StubReranker()
-    client = TestClient(app_with_search_stub)
-    client.post("/search", json=_search_payload())
-    publisher = app_with_search_stub.state.ranking_log_publisher
+    reranker = _StubReranker()
+    _replace_search_container(
+        app_with_search_stub,
+        reranker_client=reranker,
+        model_path=reranker.model_path,
+    )
+    with TestClient(app_with_search_stub) as client:
+        client.post("/search", json=_search_payload())
+    publisher = app_with_search_stub.state.container.ranking_log_publisher
     call = publisher.calls[-1]
-    assert all(isinstance(s, float) for s in call["scores"])
-    assert call["model_path"] == "projects/p/locations/l/endpoints/789"
+    assert all(isinstance(s, float) for s in call.scores)
+    assert call.model_path == "projects/p/locations/l/endpoints/789"

@@ -17,7 +17,6 @@ from app.api.middleware import RequestLoggingMiddleware
 from app.api.routers import (
     feedback_router,
     health_router,
-    rag_router,
     retrain_router,
     search_router,
 )
@@ -61,7 +60,6 @@ def app_with_search_stub(
     app.add_middleware(RequestLoggingMiddleware, logger=get_logger("app"))
     app.include_router(health_router)
     app.include_router(search_router)
-    app.include_router(rag_router)
     app.include_router(feedback_router)
     app.include_router(retrain_router)
     return app

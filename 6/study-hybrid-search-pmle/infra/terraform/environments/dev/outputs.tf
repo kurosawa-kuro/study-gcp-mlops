@@ -37,15 +37,15 @@ output "model_monitoring_alerts_table" {
 }
 
 output "ranking_log_topic" {
-  value = module.runtime.ranking_log_topic.name
+  value = module.messaging.ranking_log_topic.name
 }
 
 output "search_feedback_topic" {
-  value = module.runtime.search_feedback_topic.name
+  value = module.messaging.search_feedback_topic.name
 }
 
 output "retrain_trigger_topic" {
-  value = module.runtime.retrain_trigger_topic.name
+  value = module.messaging.retrain_trigger_topic.name
 }
 
 output "service_accounts" {
@@ -59,6 +59,7 @@ output "service_accounts" {
     endpoint_encoder  = module.iam.service_accounts.endpoint_encoder.email
     endpoint_reranker = module.iam.service_accounts.endpoint_reranker.email
     pipeline_trigger  = module.iam.service_accounts.pipeline_trigger.email
+    external_secrets  = module.iam.service_accounts.external_secrets.email
   }
 }
 
@@ -85,6 +86,11 @@ output "model_monitoring_alerts_topic" {
 output "model_monitoring_alerts_subscription" {
   description = "BigQuery subscription for Vertex model monitoring alerts"
   value       = module.vertex.monitoring_alerts_subscription.name
+}
+
+output "model_output_drift_check_config_id" {
+  description = "Scheduled Query config ID for the self-managed KServe drift substitute"
+  value       = module.monitoring.model_output_drift_check_config_id
 }
 
 output "pipeline_trigger_function_name" {
@@ -127,35 +133,22 @@ output "meili_data_bucket" {
   value       = module.meilisearch.meili_data_bucket.name
 }
 
-# =========================================================================
-# Phase 6 T5 — SLO identifiers (used by `make ops-slo-status`).
-# =========================================================================
-
-output "slo_service_id" {
-  description = "Cloud Monitoring custom-service anchoring the search-api SLOs"
-  value       = module.slo.service_id
+output "gke_cluster_name" {
+  description = "GKE Autopilot cluster name"
+  value       = module.gke.cluster_name
 }
 
-output "slo_availability_name" {
-  description = "Full resource name of the availability SLO (projects/.../services/.../serviceLevelObjectives/...)"
-  value       = module.slo.availability_slo_name
+output "gke_cluster_location" {
+  description = "GKE Autopilot cluster location"
+  value       = module.gke.cluster_location
 }
 
-output "slo_latency_name" {
-  description = "Full resource name of the latency SLO"
-  value       = module.slo.latency_slo_name
+output "kserve_search_namespace" {
+  description = "Namespace hosting search-api"
+  value       = module.kserve.search_namespace
 }
 
-# =========================================================================
-# Phase 6 T2 — Dataflow streaming (populated only when enable_streaming=true).
-# =========================================================================
-
-output "streaming_service_account" {
-  description = "sa-dataflow email. Grant Pub/Sub subscriber, BQ data editor, Storage objectAdmin."
-  value       = var.enable_streaming ? module.streaming[0].service_account_email : ""
-}
-
-output "streaming_job_name" {
-  description = "Dataflow streaming job name — empty unless enable_streaming_job=true."
-  value       = var.enable_streaming ? module.streaming[0].job_name : ""
+output "kserve_inference_namespace" {
+  description = "Namespace hosting KServe InferenceService resources"
+  value       = module.kserve.inference_namespace
 }

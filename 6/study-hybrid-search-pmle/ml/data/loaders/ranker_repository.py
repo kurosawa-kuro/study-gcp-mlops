@@ -176,28 +176,30 @@ class BigQueryRankerRepository:
         metrics: dict[str, float],
         hyperparams: dict[str, object],
     ) -> None:
+        """Dual-write metrics / params to Vertex AI Experiments.
+
+        Run 3 で `aiplatform.*` 直叩きを `VertexExperimentsTracker` adapter
+        (`ml/training/experiments/adapters/vertex_experiments_tracker.py`)
+        に外出し。Repository は env→adapter 構築 + try/except のみ担う。
+        """
         experiment_name = os.getenv("VERTEX_EXPERIMENT_NAME", "").strip()
         if not experiment_name:
             return
         try:
-            from google.cloud import aiplatform
+            # Lazy import: keep the Vertex SDK off the import path of plain
+            # repository unit tests (those construct the class with an
+            # injected fake BQ client and never reach this branch).
+            from ml.training.experiments.adapters.vertex_experiments_tracker import (
+                VertexExperimentsTracker,
+            )
 
-            aiplatform.init(project=self._project_id, experiment=experiment_name)
-            with aiplatform.start_run(run=run_id, resume=True):
-                aiplatform.log_params(
-                    {
-                        k: v
-                        for k, v in hyperparams.items()
-                        if isinstance(v, float | int | str) and v is not None
-                    }
-                )
-                aiplatform.log_metrics(
-                    {
-                        key: float(value)
-                        for key, value in metrics.items()
-                        if isinstance(value, int | float)
-                    }
-                )
+            with VertexExperimentsTracker(
+                project_id=self._project_id,
+                experiment_name=experiment_name,
+                run_id=run_id,
+            ) as tracker:
+                tracker.log_params(hyperparams)
+                tracker.log_metrics(metrics)
         except Exception:
             logger.exception("Vertex Experiments logging failed for run %s", run_id)
 

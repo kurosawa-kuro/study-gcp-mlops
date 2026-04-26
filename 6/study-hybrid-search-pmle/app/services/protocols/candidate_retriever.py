@@ -1,58 +1,46 @@
-"""Ports for candidate retrieval + ranking-log / feedback persistence.
+"""``CandidateRetriever`` Port — hybrid lexical + semantic candidate retrieval.
 
-Defined as Protocols so the /search service can be exercised by unit tests
-without pulling ``google.cloud.bigquery``.
+Implementations: ``BigQueryCandidateRetriever`` (production; runs Meilisearch
+or Agent Builder for BM25, BigQuery ``VECTOR_SEARCH`` or Vertex Vector
+Search for semantic, then RRF-fuses and enriches with property features
+from BigQuery).
+
+Failure semantics: implementations raise on transient backend failures
+(empty result is allowed and represented by an empty list). The service
+layer is responsible for converting to HTTP 503 / 5xx as appropriate.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
-
-@dataclass(frozen=True)
-class Candidate:
-    """One candidate property returned from lexical + semantic retrieval."""
-
-    property_id: str
-    # BM25-side rank from lexical retrieval (Meilisearch).
-    lexical_rank: int
-    # VECTOR_SEARCH-side rank from semantic retrieval.
-    semantic_rank: int
-    me5_score: float
-    property_features: dict[str, Any]
+from app.domain.candidate import Candidate
+from app.domain.search import SearchFilters
 
 
 class CandidateRetriever(Protocol):
+    """Hybrid retrieval Port.
+
+    ``query_vector`` is the multilingual-e5 embedding of ``query_text``
+    (encoder responsibility, see ``EncoderClient``). The retriever fuses
+    lexical + semantic results via RRF then enriches each property_id with
+    ``property_features`` (rent, walk_min, age_years, area_m2, ctr, ...)
+    pulled from ``properties_cleaned`` / ``property_features_daily``.
+
+    The list is bounded by ``top_k`` after RRF fusion; lexical/semantic
+    backends fetch their own internal candidate counts (typically larger
+    than ``top_k``) before fusion.
+
+    ``filters`` is a ``SearchFilters`` TypedDict (Phase B-4). At runtime
+    it is a plain dict, so adapters that look up keys defensively keep
+    working unchanged.
+    """
+
     def retrieve(
         self,
         *,
         query_text: str,
         query_vector: list[float],
-        filters: dict[str, Any],
+        filters: SearchFilters,
         top_k: int,
     ) -> list[Candidate]: ...
-
-
-class FeedbackRecorder(Protocol):
-    """Writes a feedback event (click / favorite / inquiry) to the log sink."""
-
-    def record(self, *, request_id: str, property_id: str, action: str) -> None: ...
-
-
-class RankingLogPublisher(Protocol):
-    """Writes one row per (request_id, property_id) candidate to the ranking log.
-
-    ``scores`` is ``[None, None, ...]`` in Phase 4 fallback mode (no booster);
-    in Phase 6 rerank mode each entry matches the candidate by index.
-    """
-
-    def publish_candidates(
-        self,
-        *,
-        request_id: str,
-        candidates: list[Candidate],
-        final_ranks: list[int],
-        scores: list[float | None],
-        model_path: str | None,
-    ) -> None: ...

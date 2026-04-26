@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -91,13 +93,14 @@ def _pred_contrib(
     return attributions
 
 
-app = FastAPI(title="vertex-reranker-server")
-app.state.booster = None
-
-
-@app.on_event("startup")
-def _startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.booster = _load_booster()
+    yield
+
+
+app = FastAPI(title="vertex-reranker-server", lifespan=lifespan)
+app.state.booster = None
 
 
 @app.get(os.getenv("AIP_HEALTH_ROUTE", "/health"))

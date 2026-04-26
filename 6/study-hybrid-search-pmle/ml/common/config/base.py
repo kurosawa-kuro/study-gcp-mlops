@@ -1,9 +1,9 @@
 """Base settings — env-var / credential.yaml driven via pydantic-settings.
 
 優先度 (高 → 低):
-    1. 環境変数 (本番は Secret Manager / ConfigMap 相当から注入)
+    1. 環境変数 (本番は GKE ConfigMap / Secret 経由で注入)
     2. env/secret/credential.yaml (ローカル開発用シークレット)
-    3. .env (ローカル override 用、commit 禁止)
+    3. .env (ローカル override 用、commit 禁止 → root .gitignore で覆う)
     4. field default
 """
 

@@ -15,31 +15,74 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from collections.abc import Sequence
 from typing import Any
 
-from app.services.protocols.candidate_retriever import (
-    Candidate,
-    CandidateRetriever,
-    RankingLogPublisher,
-)
+from app.domain.candidate import Candidate, RankedCandidate
+from app.domain.search import SearchFilters
+from app.services.protocols.candidate_retriever import CandidateRetriever
+from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient, RerankerExplainer
+from ml.common.logging import get_logger
 from ml.data.feature_engineering import FEATURE_COLS_RANKER, build_ranker_features
+
+logger = get_logger("app.ranking")
+
+
+def _safe_publish_candidates(
+    publisher: RankingLogPublisher,
+    *,
+    request_id: str,
+    candidates: list[Candidate],
+    final_ranks: list[int],
+    scores: list[float | None],
+    model_path: str | None,
+) -> None:
+    """Publish ranking_log rows; swallow failures so /search keeps serving.
+
+    Adapter-level (``PubSubRankingLogPublisher.publish_candidates``)
+    raises with a loud ``log_publish_failure`` ERROR log + IAM hints
+    (Phase 6 Run 1 incident pattern). At the service-orchestration layer
+    we swallow so a Pub/Sub topic / IAM regression does not turn /search
+    into a 500 for end users — matching ``FeedbackService.record`` which
+    already treats publish as best-effort telemetry.
+
+    The ERROR log is still emitted by ``log_publish_failure`` so
+    operators see it; ranking_log just gets gaps until ops restores the
+    publish path.
+    """
+    try:
+        publisher.publish_candidates(
+            request_id=request_id,
+            candidates=candidates,
+            final_ranks=final_ranks,
+            scores=scores,
+            model_path=model_path,
+        )
+    except Exception:
+        logger.exception(
+            "ranking_log publish failed — continuing /search (request_id=%s, "
+            "candidates=%d). Adapter ERROR log carries the IAM / topic hint.",
+            request_id,
+            len(candidates),
+        )
+
 
 RRF_K: int = 60
 DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
 
-
-@dataclass(frozen=True)
-class RankedCandidate:
-    candidate: Candidate
-    final_rank: int
-    score: float | None
-    # Phase 6 T4 — per-feature TreeSHAP contributions. Populated only when
-    # ``run_search(..., want_explanations=True)`` AND the reranker implements
-    # ``RerankerExplainer``. ``None`` otherwise, leaving SearchResultItem
-    # attributions null for non-explain responses.
-    attributions: dict[str, float] | None = None
+# Phase E moved ``RankedCandidate`` to ``app.domain.candidate``. Re-exported
+# here for legacy callers (``rag_summarizer`` etc.); Phase D-1 sweeps these
+# into ``SearchService`` directly.
+__all__ = [
+    "DEFAULT_SEARCH_CACHE_TTL_SECONDS",
+    "RRF_K",
+    "Candidate",
+    "RankedCandidate",
+    "normalize_search_cache_key",
+    "rrf_fuse",
+    "run_search",
+]
 
 
 def _build_feature_matrix(candidates: list[Candidate]) -> list[list[float]]:
@@ -76,7 +119,7 @@ def run_search(
     request_id: str,
     query_text: str,
     query_vector: list[float],
-    filters: dict[str, Any],
+    filters: SearchFilters,
     top_k: int,
     reranker: RerankerClient | None = None,
     model_path: str | None = None,
@@ -101,7 +144,8 @@ def run_search(
         top_k=top_k,
     )
     if not candidates:
-        publisher.publish_candidates(
+        _safe_publish_candidates(
+            publisher,
             request_id=request_id,
             candidates=[],
             final_ranks=[],
@@ -126,7 +170,8 @@ def run_search(
         # publish in lexical (original) order so ranking_log matches the
         # candidates' `lexical_rank` column 1:1.
         scores_nullable: list[float | None] = list(scores)
-        publisher.publish_candidates(
+        _safe_publish_candidates(
+            publisher,
             request_id=request_id,
             candidates=candidates,
             final_ranks=[final_rank_by_index[i] for i in range(len(candidates))],
@@ -146,7 +191,8 @@ def run_search(
 
     # Fallback: rerank disabled or reranker missing.
     final_ranks = [c.lexical_rank for c in candidates]
-    publisher.publish_candidates(
+    _safe_publish_candidates(
+        publisher,
         request_id=request_id,
         candidates=candidates,
         final_ranks=final_ranks,
@@ -174,8 +220,8 @@ def normalize_search_cache_key(*, query: str, filters: dict[str, Any], top_k: in
 
 def rrf_fuse(
     *,
-    lexical_results: list[tuple[str, int]],
-    semantic_results: list[tuple[str, int]],
+    lexical_results: Sequence[tuple[str, int]],
+    semantic_results: Sequence[tuple[str, int]],
     top_n: int,
     k: int = RRF_K,
 ) -> list[str]:

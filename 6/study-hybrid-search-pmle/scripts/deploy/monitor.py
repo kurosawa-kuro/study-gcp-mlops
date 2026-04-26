@@ -1,24 +1,15 @@
-"""Real-time monitor for long-running deploy / verification commands (Phase 6 generic).
+"""Real-time deploy monitor for in-progress deploy-all (Phase 7 port).
 
-Usage (deploy-all, 既定):
+Usage:
   make ops-deploy-monitor
   uv run python -m scripts.deploy.monitor
 
-Usage (任意コマンドをラップ):
-  make ops-monitor CMD="make deploy-api-local"
-  make ops-monitor LABEL=bqml CMD="make bqml-train-popularity"
-  uv run python -m scripts.deploy.monitor --label bqml -- make bqml-train-popularity
-
 Behavior:
-1) Starts the target command as a child process (unbuffered output).
-2) Streams logs in real time and extracts current step context (`step N/M: ...`).
+1) Starts deploy-all as a child process (unbuffered output).
+2) Streams logs in real time and extracts current step context.
 3) During Cloud Build wait, periodically prints build status/log URL.
-4) Detects long silent periods and reports where execution is stuck.
-5) On failure, prints likely root cause with step/build context.
-
-Phase 6 では deploy-all 以外の細かい target (make deploy-api-local / make
-tf-apply 相当 / make seed-test / make bqml-train-popularity 等) にも一律に
-monitor を被せてトライアンドエラーできるよう、汎用 CLI に拡張している。
+4) Detects long silent periods and reports where deployment is stuck.
+5) On failure, prints likely timeout root cause with step/build context.
 """
 
 from __future__ import annotations
@@ -28,7 +19,6 @@ import json
 import os
 import re
 import select
-import shlex
 import subprocess
 import time
 from dataclasses import dataclass
@@ -36,14 +26,9 @@ from datetime import datetime, timezone
 
 from scripts._common import env, fail, run
 
-_DEFAULT_CMD: list[str] = ["uv", "run", "python", "-u", "-m", "scripts.setup.deploy_all"]
-_DEFAULT_LABEL = "deploy-all"
-
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Monitor a long-running deploy / verification command in real time."
-    )
+    parser = argparse.ArgumentParser(description="Monitor deploy-all in real time.")
     parser.add_argument(
         "--poll-sec",
         type=int,
@@ -61,31 +46,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Do not print every raw line; print only heartbeat/summary logs",
     )
-    parser.add_argument(
-        "--label",
-        default=None,
-        help=(
-            "Label used in monitor prints (default: 'deploy-all' when running "
-            "the default command, otherwise 'cmd')."
-        ),
-    )
-    parser.add_argument(
-        "cmd",
-        nargs=argparse.REMAINDER,
-        help=(
-            "Command to monitor. Pass after `--`, e.g. "
-            "`uv run python -m scripts.deploy.monitor -- make deploy-api-local`. "
-            "Omit to default to deploy-all."
-        ),
-    )
     return parser.parse_args(argv)
 
 
 def _build_describe(project_id: str, build_id: str) -> tuple[str, str]:
-    # Phase 6 Run 2 修正: 旧 session で拾った build_id が既に削除されていると
-    # `gcloud builds describe` が NOT_FOUND で exit 1 を返す。check=True のまま
-    # だと monitor プロセスごと落ちて wrapping している destroy-all / deploy-all
-    # が途中で abort する事故が再発するので、NOT_FOUND を許容して空を返す。
     proc = run(
         [
             "gcloud",
@@ -96,10 +60,7 @@ def _build_describe(project_id: str, build_id: str) -> tuple[str, str]:
             "--format=json",
         ],
         capture=True,
-        check=False,
     )
-    if proc.returncode != 0:
-        return "", ""
     try:
         payload = json.loads(proc.stdout or "{}")
     except json.JSONDecodeError:
@@ -109,12 +70,8 @@ def _build_describe(project_id: str, build_id: str) -> tuple[str, str]:
     return status, log_url
 
 
-# `<label> step N/M: description` をキャプチャ (deploy-all / 任意 label どちらも対応)。
-# 例: "deploy-all step 3/7: recover WIF" / "verify step 2/5: ops-search-components"
-_STEP_RE = re.compile(r"\bstep\s+(\d+)/(\d+):\s+(.+)$")
+_STEP_RE = re.compile(r"deploy-all\s+step\s+(\d+)/(\d+):\s+(.+)$")
 _BUILD_WAIT_RE = re.compile(r"Cloud Build wait id=([a-z0-9-]+)\s+timeout=(\d+)s")
-# gcloud run deploy / gcloud builds submit 途中の build-id 検知 (deploy-api-local 単体でも拾えるよう追加)
-_GCLOUD_BUILD_ID_RE = re.compile(r"builds/([a-z0-9-]{20,})")
 
 
 @dataclass
@@ -151,29 +108,14 @@ def _maybe_parse_step(line: str, state: MonitorState) -> None:
 
 def _maybe_parse_build_wait(line: str, state: MonitorState, now_ts: float) -> None:
     m = _BUILD_WAIT_RE.search(line)
-    if m:
-        state.current_build_id = m.group(1)
-        state.current_build_timeout_sec = int(m.group(2))
-        state.current_build_started_at = now_ts
-        print(
-            f"[monitor] build-wait-start build_id={state.current_build_id} "
-            f"timeout_sec={state.current_build_timeout_sec} step={state.current_step_no}"
-        )
+    if not m:
         return
-    # `gcloud builds submit` / `gcloud run deploy` は標準出力に build id を含む URL を出す。
-    # 汎用 monitor では timeout がわからないので 0 のまま build_id だけ拾って heartbeat で
-    # status を追えるようにする (第二候補: timeout 検知のための別系統を確保する目的)。
-    if state.current_build_id:
-        return
-    m2 = _GCLOUD_BUILD_ID_RE.search(line)
-    if not m2:
-        return
-    state.current_build_id = m2.group(1)
-    state.current_build_timeout_sec = 0
+    state.current_build_id = m.group(1)
+    state.current_build_timeout_sec = int(m.group(2))
     state.current_build_started_at = now_ts
     print(
-        f"[monitor] build-id-detected build_id={state.current_build_id} "
-        f"step={state.current_step_no} (timeout unknown — gcloud inline build)"
+        f"[monitor] build-wait-start build_id={state.current_build_id} "
+        f"timeout_sec={state.current_build_timeout_sec} step={state.current_step_no}"
     )
 
 
@@ -208,26 +150,6 @@ def _print_heartbeat(
         )
 
 
-def _resolve_cmd(raw: list[str]) -> tuple[list[str], bool]:
-    """Resolve user-provided command (after argparse REMAINDER).
-
-    - `[]` → default deploy-all command, is_default=True.
-    - leading `--` is stripped (argparse.REMAINDER quirk with explicit separator).
-    - Single-token that contains whitespace is re-split via shlex so that
-      `make ops-monitor CMD="make deploy-api-local"` works without array quoting.
-    """
-    if not raw:
-        return list(_DEFAULT_CMD), True
-    tokens = list(raw)
-    if tokens and tokens[0] == "--":
-        tokens = tokens[1:]
-    if len(tokens) == 1 and any(ch.isspace() for ch in tokens[0]):
-        tokens = shlex.split(tokens[0])
-    if not tokens:
-        return list(_DEFAULT_CMD), True
-    return tokens, False
-
-
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     project_id = env("PROJECT_ID")
@@ -236,12 +158,10 @@ def main(argv: list[str] | None = None) -> int:
     state.last_line_at = now
     state.current_step_label = "launching"
 
-    cmd, is_default = _resolve_cmd(args.cmd or [])
-    label = args.label or (_DEFAULT_LABEL if is_default else "cmd")
-
     child_env = dict(os.environ)
     child_env["PYTHONUNBUFFERED"] = "1"
-    print(f"[monitor] start label={label} command={' '.join(cmd)}")
+    cmd = ["uv", "run", "python", "-u", "-m", "scripts.setup.deploy_all"]
+    print(f"[monitor] start deploy-all command={' '.join(cmd)}")
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -279,23 +199,23 @@ def main(argv: list[str] | None = None) -> int:
     rc = proc.wait()
     if rc == 0:
         print(
-            f"[monitor] {label} succeeded "
+            "[monitor] deploy-all succeeded "
             f"final_step={state.current_step_no}/{state.current_step_total} "
             f"label={state.current_step_label}"
         )
         return 0
 
-    failure_reason = f"{label} returned non-zero (rc={rc})"
+    failure_reason = "deploy-all returned non-zero"
     if state.current_build_id:
         status, log_url = _build_describe(project_id, state.current_build_id)
         if status in {"WORKING", "QUEUED"}:
             failure_reason = (
-                f"{label} failed during cloud-build wait "
+                "deploy-all failed during cloud-build wait "
                 f"(build_id={state.current_build_id}, status={status}, step={state.current_step_no})"
             )
         else:
             failure_reason = (
-                f"{label} failed after cloud-build completed "
+                "deploy-all failed after cloud-build completed "
                 f"(build_id={state.current_build_id}, status={status}, step={state.current_step_no}, "
                 f"last_line={state.last_line})"
             )
@@ -305,13 +225,9 @@ def main(argv: list[str] | None = None) -> int:
             failure_reason += " timeout detected in Cloud Build"
     elif state.current_step_no > 0:
         failure_reason = (
-            f"{label} failed at step {state.current_step_no}/{state.current_step_total} "
+            f"deploy-all failed at step {state.current_step_no}/{state.current_step_total} "
             f"({state.current_step_label})"
         )
-    else:
-        # 第二候補: step も build id もない → 直近の非空出力行をヒントとして残す。
-        if state.last_line:
-            failure_reason += f" last_line={state.last_line!r}"
     return fail(f"[monitor] {failure_reason}")
 
 

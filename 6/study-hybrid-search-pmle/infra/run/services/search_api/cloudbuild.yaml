@@ -1,20 +1,25 @@
-# Cloud Build config for the search-api image.
-# Invoke with:
-#   gcloud builds submit --config=infra/run/services/search_api/cloudbuild.yaml \
-#     --substitutions=_URI=<ar-uri> .
+# Cloud Build config for the search-api image used by `make deploy-api`.
+# Substitution `_IMAGE_URI` is the fully-qualified image URI with immutable
+# tag (`<sha>-<epoch>`); see `scripts/deploy/api_gke.py`.
+#
+# Build context = repository root. Dockerfile path is the canonical Phase 5
+# layout (`infra/run/services/search_api/Dockerfile`) which has been copied
+# into Phase 7 verbatim — both phases share the same FastAPI search-api
+# package layout (`app/`, `ml/`, `pyproject.toml`).
 
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - --file=infra/run/services/search_api/Dockerfile
-      - --tag=${_URI}
+      - --tag=${_IMAGE_URI}
       - .
+
 images:
-  - ${_URI}
+  - ${_IMAGE_URI}
 
 options:
   logging: CLOUD_LOGGING_ONLY
 
 substitutions:
-  _URI: ""
+  _IMAGE_URI: ""

@@ -1,7 +1,7 @@
 [project]
-name = "study-hybrid-search-vertex"
+name = "study-hybrid-search-gke"
 version = "0.1.0"
-description = "Hybrid search (Meilisearch BM25 + BigQuery VECTOR_SEARCH + RRF) with LightGBM LambdaRank rerank, migrating to Vertex AI"
+description = "Hybrid search (Meilisearch BM25 + BigQuery VECTOR_SEARCH + RRF) with LightGBM LambdaRank rerank, serving layer on GKE + KServe (inherits Vertex AI Pipelines / Feature Group / Model Registry + PMLE technology integrations from Phase 6)"
 requires-python = ">=3.12"
 dependencies = [
     # --- shared (ml.common / ml.registry / ml.data) ---
@@ -25,6 +25,7 @@ dependencies = [
     "numpy>=2.0",
     "google-cloud-pubsub>=2.23",
     "google-cloud-run>=0.10",
+    "prometheus-fastapi-instrumentator>=7.0",
     # --- ml serving / training ---
     "lightgbm>=4.5",
     "sentence-transformers>=3.0",

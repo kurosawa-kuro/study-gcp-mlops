@@ -11,8 +11,8 @@ Design notes:
 - All adapter slots get ``tests._fakes.*`` test doubles by default.
   Individual tests can request the lower-level fixtures (``fake_encoder``
   etc.) and inject custom variants by passing ``fake_container_factory``.
-- The ``ApiSettings`` used here disables every flag (``ENABLE_RAG`` /
-  ``BQML_POPULARITY_ENABLED`` etc.) so the Container stays stateless;
+- The ``ApiSettings`` used here disables every flag
+  (``BQML_POPULARITY_ENABLED`` etc.) so the Container stays stateless;
   tests that need a flag flipped should override the settings explicitly.
 """
 
@@ -54,7 +54,6 @@ def fake_settings() -> ApiSettings:
         project_id="mlops-test",
         enable_search=True,
         enable_rerank=False,
-        enable_rag=False,
         bqml_popularity_enabled=False,
         ranking_log_topic="",
         feedback_topic="",
@@ -141,15 +140,14 @@ def fake_container_factory(
             "encoder_model_path": "stub-encoder",
             "reranker_client": fake_reranker,
             "model_path": "stub-reranker",
-            "rag_summarizer": None,
             "popularity_scorer": None,
             "ranking_log_publisher": fake_ranking_log_publisher,
             "feedback_recorder": fake_feedback_recorder,
             "search_cache": fake_search_cache,
         }
         defaults.update(overrides)
-        # Build SearchService / FeedbackService / RagService from the
-        # composed adapters so handler tests see the full stack.
+        # Build SearchService / FeedbackService from the composed adapters so
+        # handler tests see the full stack.
         defaults.setdefault(
             "search_service",
             SearchService(
@@ -166,7 +164,6 @@ def fake_container_factory(
             "feedback_service",
             FeedbackService(recorder=defaults["feedback_recorder"]),
         )
-        defaults.setdefault("rag_service", None)
         defaults.setdefault(
             "model_metrics_service",
             ModelMetricsService(
@@ -196,7 +193,6 @@ def fake_app(fake_container: Container) -> FastAPI:
     from app.api.routers import (
         feedback_router,
         health_router,
-        rag_router,
         retrain_router,
         search_router,
     )
@@ -205,7 +201,6 @@ def fake_app(fake_container: Container) -> FastAPI:
     app.state.container = fake_container
     app.include_router(health_router)
     app.include_router(search_router)
-    app.include_router(rag_router)
     app.include_router(feedback_router)
     app.include_router(retrain_router)
     return app

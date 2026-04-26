@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from app.services.protocols.candidate_retriever import Candidate
+from app.domain.candidate import Candidate
 from app.services.ranking import run_search
 
 
@@ -112,6 +112,40 @@ def test_run_search_final_rank_equals_lexical_rank_without_reranker() -> None:
     assert call["final_ranks"] == [1, 2, 3, 4]
     assert call["scores"] == [None, None, None, None]
     assert call["model_path"] is None
+
+
+def test_run_search_continues_when_publisher_raises() -> None:
+    """Publish failures must NOT propagate as 500 to /search users.
+
+    Adapter-level (``PubSubRankingLogPublisher.publish_candidates``)
+    raises with a loud ERROR log + IAM hint so ops sees the breakage.
+    But ranking_log is observability — losing rows must not turn
+    /search into a 500. ``ranking._safe_publish_candidates`` catches.
+    """
+
+    class _FailingPublisher:
+        def __init__(self) -> None:
+            self.attempts = 0
+
+        def publish_candidates(self, **_kwargs: object) -> None:
+            self.attempts += 1
+            raise RuntimeError("simulated Pub/Sub topic permission denial")
+
+    retriever = _FakeRetriever(candidates=[_candidate(i) for i in range(1, 4)])
+    publisher = _FailingPublisher()
+    out = run_search(
+        retriever=retriever,
+        publisher=publisher,
+        request_id="req-degraded",
+        query_text="駅近",
+        query_vector=[0.0],
+        filters={},
+        top_k=2,
+    )
+    # Search still serves the user with results despite publisher failure.
+    assert len(out) == 2
+    # Publisher was actually attempted (we did not skip the side-effect).
+    assert publisher.attempts == 1
 
 
 def test_run_search_publishes_full_pool_not_just_top_k() -> None:

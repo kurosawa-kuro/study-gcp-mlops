@@ -19,7 +19,7 @@ variable "output_table_fqn" {
 }
 
 variable "flex_template_gcs_path" {
-  description = "GCS path of the compiled Flex Template spec JSON (e.g. gs://mlops-dev-a-artifacts/dataflow/ranking-log-hourly-ctr.json). Built by scripts/local/setup/build_streaming_template.py — module creates the SA but does not build the template."
+  description = "GCS path of the compiled Flex Template spec JSON (e.g. gs://mlops-dev-a-artifacts/dataflow/ranking-log-hourly-ctr.json). Built by scripts/setup/build_streaming_template.py — module creates the SA but does not build the template."
   type        = string
   default     = ""
 }

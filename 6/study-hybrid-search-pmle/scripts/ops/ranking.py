@@ -8,17 +8,24 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import cloud_run_url, fail, http_json, identity_token
+from scripts._common import fail, http_json, resolve_api_target
 
 
 def main() -> int:
     query = os.environ.get("QUERY", "新宿駅 1LDK")
     top_k = int(os.environ.get("TOP_K", "5"))
 
-    url = cloud_run_url()
-    token = identity_token()
+    try:
+        target = resolve_api_target()
+    except Exception as exc:
+        return fail(f"ranking config error: {exc}")
     payload = {"query": query, "top_k": top_k}
-    status, body = http_json("POST", f"{url}/search", token=token, payload=payload)
+    status, body = http_json(
+        "POST",
+        f"{target.url}/search",
+        token=target.token,
+        payload=payload,
+    )
     if status != 200:
         return fail(f"search returned HTTP {status}: {body}")
 

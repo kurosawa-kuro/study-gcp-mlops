@@ -28,3 +28,20 @@
 # ----- VCS / CI metadata (Cloud Build が独自に処理) -----
 .git/
 .github/
+
+# ----- wandb の transient run log (W&B 削除後も残る) -----
+# Phase 7 Run 1: hatchling が `ml/wandb/wandb/wandb/latest-run/logs/`
+# を walk して symlink/transient log を含めようとし、ファイルが消える
+# タイミングで `FileNotFoundError` で fail する。W&B は教材から外した
+# (動作検証結果.md A1) ので run log 自体不要。
+ml/wandb/
+
+# ----- runs/ — local training run artifact (Phase 1-3 系) -----
+runs/
+
+# ----- 巨大な encoder cache (Phase 5/6/7 reuse 用、image には不要) -----
+.cache/
+**/encoder-assets/
+
+# ----- monitor / build log -----
+logs/

@@ -7,7 +7,7 @@ This module is the **HTTP server entrypoint only**. DI wiring lives in
 
 Route surfaces (kept disjoint to avoid cross-concern collision):
 
-- **App API** — ``/search`` ``/feedback`` ``/rag`` ``/jobs/check-retrain``
+- **App API** — ``/search`` ``/feedback`` ``/jobs/check-retrain``
 - **Probes** — ``/livez`` ``/healthz`` ``/readyz`` (k8s)
 - **Prom exposition** — ``/metrics`` (GMP / SLO scrape target)
 - **Operator UI** — ``/ui/`` ``/ui/metrics`` ``/ui/data``
@@ -15,8 +15,8 @@ Route surfaces (kept disjoint to avoid cross-concern collision):
 
 The Pod keeps only retrieval / orchestration concerns. Query embeddings
 and rerank scoring are delegated to KServe InferenceService (cluster-local
-HTTP) when configured. PMLE technology integrations (RAG, BQML) are wired
-in as optional adapters per Phase 6 — see ``ContainerBuilder``.
+HTTP) when configured. PMLE technology integrations (BQML popularity) are
+wired in as optional adapters per Phase 6 — see ``ContainerBuilder``.
 
 Observability (logging / metrics / future tracing) is bundled in
 ``app.observability.Observability`` and shared between this entrypoint and
@@ -41,7 +41,6 @@ from app.api.routers import (
     feedback_router,
     health_router,
     model_router,
-    rag_router,
     retrain_router,
     search_router,
 )
@@ -73,7 +72,6 @@ def create_app() -> FastAPI:
     # App API + probes (no path prefix — these are the public contracts).
     app.include_router(health_router)
     app.include_router(search_router)
-    app.include_router(rag_router)
     app.include_router(feedback_router)
     app.include_router(retrain_router)
     app.include_router(model_router)

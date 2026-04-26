@@ -1,38 +1,44 @@
-"""Shared fixtures for the /search + /feedback FastAPI tests."""
+"""HTTP-level fixtures for ``tests/unit/app/``.
+
+Builds a FastAPI app whose handler stack mirrors ``create_app()`` but
+runs against a fake Container (no real GCP / KServe). Tests reach the
+container via ``request.app.state.container`` like production handlers.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.main import create_app
-from app.services.adapters.cache_store import InMemoryTTLCacheStore
-from app.services.config import ApiSettings
+from app.api.middleware import RequestLoggingMiddleware
+from app.api.routers import (
+    feedback_router,
+    health_router,
+    rag_router,
+    retrain_router,
+    search_router,
+)
+from app.domain.candidate import Candidate
+from app.services.noop_adapters import InMemoryTTLCacheStore
+from ml.common.logging import get_logger
 
 
-class _StubEncoderClient:
-    def embed(self, text: str, kind: str) -> list[float]:
-        assert kind == "query"
-        assert text
-        return [1.0, 0.0, 0.0, 0.0]
-
-
-class _StubRerankerClient:
-    model_path = "projects/p/locations/l/endpoints/stub"
-
-    def predict(self, instances: list[list[float]]) -> list[float]:
-        return [-row[8] for row in instances]
-
-
-class _StubCandidateRetriever:
-    def __init__(self):
-        self.calls: list[dict] = []
-
-    def retrieve(self, *, query_text, query_vector, filters, top_k):
-        from app.services.protocols.candidate_retriever import Candidate
-
-        self.calls.append({"filters": filters, "top_k": top_k})
-        return [
+@pytest.fixture
+def app_with_search_stub(
+    fake_container_factory: Callable[..., object],
+) -> FastAPI:
+    """FastAPI app using the new DI container, with old state mirrors."""
+    container = fake_container_factory(
+        reranker_client=None,
+        model_path=None,
+        search_cache=InMemoryTTLCacheStore(default_ttl_seconds=120),
+    )
+    candidate_retriever = container.candidate_retriever
+    if candidate_retriever is not None and hasattr(candidate_retriever, "_candidates"):
+        candidate_retriever._candidates = [
             Candidate(
                 property_id=f"P-{i:03d}",
                 lexical_rank=i,
@@ -50,59 +56,18 @@ class _StubCandidateRetriever:
             )
             for i in range(1, 4)
         ]
-
-
-class _StubRankingLogPublisher:
-    def __init__(self):
-        self.calls: list[dict] = []
-
-    def publish_candidates(self, *, request_id, candidates, final_ranks, scores, model_path):
-        self.calls.append(
-            {
-                "request_id": request_id,
-                "candidates": list(candidates),
-                "final_ranks": list(final_ranks),
-                "scores": list(scores),
-                "model_path": model_path,
-            }
-        )
-
-
-class _StubFeedbackRecorder:
-    def __init__(self):
-        self.events: list[dict] = []
-
-    def record(self, *, request_id, property_id, action):
-        self.events.append({"request_id": request_id, "property_id": property_id, "action": action})
-
-
-@pytest.fixture
-def app_with_search_stub():
-    """App wired up with fake encoder + retriever + publishers (no BQ / torch).
-
-    ``reranker_client`` / ``model_path`` default to None → rerank-off.
-    Tests that want rerank-on can assign a stub reranker onto app.state.
-    """
-    from contextlib import asynccontextmanager
-
-    app = create_app()
-    app.state.encoder_client = _StubEncoderClient()
-    app.state.candidate_retriever = _StubCandidateRetriever()
-    app.state.ranking_log_publisher = _StubRankingLogPublisher()
-    app.state.feedback_recorder = _StubFeedbackRecorder()
-    app.state.search_cache = InMemoryTTLCacheStore(default_ttl_seconds=120)
-    app.state.settings = ApiSettings()
-    app.state.reranker_client = None
-    app.state.model_path = None
-
-    @asynccontextmanager
-    async def noop_lifespan(_app):
-        yield
-
-    app.router.lifespan_context = noop_lifespan
+    app = FastAPI()
+    app.state.container = container
+    app.add_middleware(RequestLoggingMiddleware, logger=get_logger("app"))
+    app.include_router(health_router)
+    app.include_router(search_router)
+    app.include_router(rag_router)
+    app.include_router(feedback_router)
+    app.include_router(retrain_router)
     return app
 
 
 @pytest.fixture
-def search_client(app_with_search_stub):
-    return TestClient(app_with_search_stub)
+def search_client(app_with_search_stub: FastAPI) -> TestClient:
+    with TestClient(app_with_search_stub) as client:
+        yield client

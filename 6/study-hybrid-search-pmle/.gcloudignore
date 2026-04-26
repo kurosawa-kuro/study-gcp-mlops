@@ -1,6 +1,7 @@
-# Cloud Build の source upload ではローカル `.venv` (5.5 GB) を絶対に含めない。
-# gcloud は `.dockerignore` を自動で尊重するが、念のため `.gcloudignore` を
-# 明示して upload 対象を確実に絞る。
+# Phase 7: Cloud Build submission archive 用の除外。.dockerignore と同方針。
+# Run 1 で `.cache/encoder-assets/` (1.1 GiB) が Cloud Build archive を膨らませて
+# stall した教訓 (動作検証結果.md §5.13.2 B5) の恒久対処。
+# Cloud Build は .gcloudignore があると `gcloud builds submit` が自動で参照する。
 
 # ----- Python bytecode / caches -----
 **/__pycache__/
@@ -8,12 +9,9 @@
 **/.pytest_cache/
 **/.ruff_cache/
 **/.mypy_cache/
-
-# ----- Python virtualenv (必ず除外、巨大) -----
-.venv/
 **/.venv/
 
-# ----- Terraform local state (巨大 + 秘密情報) -----
+# ----- Terraform local state (巨大 / 秘密情報) -----
 **/.terraform/
 **/*.tfstate*
 
@@ -21,7 +19,15 @@
 .git/
 .github/
 
-# ----- ML experiment trackers / artifact dumps -----
+# ----- wandb の transient run log -----
 ml/wandb/
-**/wandb/
-dist/
+
+# ----- runs/ — local training run artifact (Phase 1-3 系) -----
+runs/
+
+# ----- 巨大な encoder cache (Phase 5/6/7 reuse 用、image には不要) -----
+.cache/
+**/encoder-assets/
+
+# ----- monitor / build log -----
+logs/

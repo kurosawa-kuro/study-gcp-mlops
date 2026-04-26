@@ -12,9 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.services.protocols.candidate_retriever import Candidate
+from app.domain.candidate import Candidate, RankedCandidate
 from app.services.rag_summarizer import RagSummarizer, build_prompt
-from app.services.ranking import RankedCandidate, run_search
+from app.services.ranking import run_search
 
 # --- Fakes mirroring tests/unit/app/test_ranking_service.py shape -----------
 

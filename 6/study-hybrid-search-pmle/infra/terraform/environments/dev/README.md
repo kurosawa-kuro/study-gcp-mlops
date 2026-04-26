@@ -11,12 +11,12 @@ infra/
 ├── provider.tf       # google provider + data.google_project.current
 ├── variables.tf      # project_id / region / github_repo / 各種名称
 ├── versions.tf       # terraform >= 1.6 / google ~> 5.40
-├── main.tf           # 4 モジュール呼び出し (iam → data → runtime / monitoring)
+├── main.tf           # 4 モジュール呼び出し (iam → data → messaging / monitoring)
 ├── outputs.tf        # ルート集約 outputs (GitHub Actions vars 向け含む)
 └── modules/
     ├── iam/          # Service Accounts (5 SA 分離) + WIF + 共通プロジェクト IAM
     ├── data/         # BigQuery / GCS / Artifact Registry / Secret Manager + データ IAM
-    ├── runtime/      # Cloud Run Service & Job / Pub/Sub / Scheduler / Eventarc + invoker IAM
+    ├── messaging/    # Pub/Sub / Scheduler / BQ Subscription
     └── monitoring/   # log-based metrics / alert policies / Scheduled Query (property feature skew)
 ```
 
@@ -26,7 +26,7 @@ infra/
 apis.enabled
   └─▶ iam (SA / WIF / 共通 IAM)
         └─▶ data (BQ / GCS / AR / Secret + SA-data IAM)
-              ├─▶ runtime (Cloud Run / Pub/Sub / Scheduler / Eventarc)
+              ├─▶ messaging (Pub/Sub / Scheduler)
               └─▶ monitoring (log metrics / alerts / skew scheduled query)
 ```
 
@@ -55,7 +55,7 @@ terraform -chdir=infra apply
 |---|---|
 | `iam` | 5 ランタイム SA (`sa-api` / `sa-job-train` / `sa-job-embed` / `sa-dataform` / `sa-scheduler`) + `sa-github-deployer` + WIF pool + provider |
 | `data` | BQ datasets (`mlops` / `feature_mart` / `predictions`) + tables (`training_runs` / `search_logs` / `ranking_log` / `feedback_events` / `validation_results` / `property_features_daily` / `property_embeddings`) + GCS (`mlops-dev-a-models` / `-artifacts`) + Artifact Registry (`mlops`) + Secret Manager (`meili-master-key`) + Dataform repository + BQ/GCS/Secret ↔ SA IAM |
-| `runtime` | Cloud Run Service `search-api` + Job `training-job` + Pub/Sub topics (`ranking-log` / `search-feedback` / `retrain-trigger`) + BQ Subscriptions + Cloud Scheduler `check-retrain-daily` + Eventarc `retrain-trigger` + invoker IAM |
+| `messaging` | Pub/Sub topics (`ranking-log` / `search-feedback` / `retrain-trigger`) + BQ Subscriptions + Cloud Scheduler `check-retrain-daily` |
 | `monitoring` | log-based metrics (`search_api_5xx` / `search_api_latency_ms`) + email 通知チャネル + 2 alert policies + Scheduled Query `property_feature_skew_check` |
 
 全リソース・スキーマの逐一掲載は [`docs/03_実装カタログ.md §6`](../docs/03_実装カタログ.md)。
@@ -64,7 +64,7 @@ terraform -chdir=infra apply
 
 - **入力**: モジュールは `project_id` / `region` などスカラー値、および上流モジュールの object 出力 (`module.iam.service_accounts`) を受け取る
 - **出力**: 各モジュールの `outputs.tf` が下流で必要な最小セットを公開。ルート `outputs.tf` はそれらを GitHub Actions 向けや運用向けに整形
-- `data.google_project.current` は `runtime` モジュールが Pub/Sub service agent を合成するために再宣言 (モジュール境界を越えない)
+- `data.google_project.current` は `messaging` モジュールが Pub/Sub service agent を合成するために再宣言 (モジュール境界を越えない)
 
 ## 注意
 

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Data · Phase5{% endblock %}
+
+{% block content %}
+<h1>Payload Catalog</h1>
+<p>表示中 {{ rows|length }} / 全 {{ total }} 件</p>
+<figure>
+  <table>
+    <thead>
+      <tr>
+        {% for col in columns %}
+        <th>{{ col }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {% for col in columns %}
+        <td>{{ row[col] }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</figure>
+{% endblock %}

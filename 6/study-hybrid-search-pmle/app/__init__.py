@@ -1,1 +1,1 @@
-"""Hybrid-search FastAPI application (Cloud Run Service)."""
+"""Hybrid-search FastAPI application (GKE Deployment)."""

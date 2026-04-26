@@ -8,6 +8,7 @@ on:
       - ml/**
       - pyproject.toml
       - uv.lock
+      - infra/manifests/**
       - .github/workflows/deploy-api.yml
       - .github/actions/**
   workflow_dispatch:
@@ -21,6 +22,7 @@ env:
   PROJECT_ID: mlops-dev-a
   REPO: mlops
   SERVICE: search-api
+  NAMESPACE: search
 
 jobs:
   build-and-deploy:
@@ -45,25 +47,22 @@ jobs:
           image: ${{ env.SERVICE }}
           dockerfile: infra/run/services/search_api/Dockerfile
 
-      - name: Deploy to Cloud Run
-        env:
-          # VERTEX_* envs are supplied by GitHub Actions repository variables so
-          # deployments can point at the right Endpoint ID after Phase 3 / 6
-          # create the resources via the Python SDK.
-          STATIC_ENV: "PROJECT_ID=${{ env.PROJECT_ID }}|RANKING_LOG_TOPIC=ranking-log|FEEDBACK_TOPIC=search-feedback|RETRAIN_TOPIC=retrain-trigger|LOG_AS_JSON=1|GCP_LOGGING_ENABLED=1|VERTEX_LOCATION=${{ vars.VERTEX_LOCATION }}|VERTEX_ENCODER_ENDPOINT_ID=${{ vars.VERTEX_ENCODER_ENDPOINT_ID }}|VERTEX_RERANKER_ENDPOINT_ID=${{ vars.VERTEX_RERANKER_ENDPOINT_ID }}|ENABLE_RERANK=true"
+      - name: Install gke-gcloud-auth-plugin
         run: |
-          # gcloud `^|^` prefix lets us use `|` as the delimiter between KEY=value
-          # pairs, which keeps values containing `,` intact.
-          gcloud run deploy ${{ env.SERVICE }} \
-            --region ${{ env.REGION }} \
-            --image "${{ steps.build.outputs.image_uri }}" \
-            --service-account sa-api@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
-            --cpu 2 --memory 2Gi \
-            --concurrency 80 \
-            --min-instances 1 --max-instances 10 \
-            --cpu-boost \
-            --execution-environment gen2 \
-            --no-allow-unauthenticated \
-            --set-env-vars "^|^${STATIC_ENV}" \
-            --set-secrets "MEILI_MASTER_KEY=meili-master-key:latest" \
-            --labels "git-sha=${GITHUB_SHA::8}"
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
+      - name: Get kubeconfig
+        run: |
+          gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER_NAME }} \
+            --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }}
+
+      - name: Roll search-api image
+        run: |
+          kubectl set image \
+            deployment/${{ env.SERVICE }} \
+            ${{ env.SERVICE }}=${{ steps.build.outputs.image_uri }} \
+            --namespace ${{ env.NAMESPACE }}
+          kubectl rollout status \
+            deployment/${{ env.SERVICE }} \
+            --namespace ${{ env.NAMESPACE }} \
+            --timeout=300s

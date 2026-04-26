@@ -41,6 +41,12 @@ variable "github_repo" {
   default     = "your-org/study-gcp-mlops-hybrid-search-cloud"
 }
 
+variable "admin_user_emails" {
+  description = "Developer user account emails that need to impersonate sa-api for local one-off ops (e.g. Meilisearch document sync that requires OIDC token with audience=meili-search URL). Empty list disables the binding. Forwarded to module.iam."
+  type        = list(string)
+  default     = []
+}
+
 variable "dataform_repository_id" {
   description = "Dataform repository name. Must match .github/workflows/deploy-dataform.yml env.REPOSITORY"
   type        = string
@@ -69,32 +75,38 @@ variable "enable_deletion_protection" {
   default     = true
 }
 
-variable "admin_user_emails" {
-  description = "Developer user accounts that need to impersonate sa-api for local one-off ops (e.g. Meilisearch document sync needing OIDC token with audience=meili-search URL). Forwarded to the iam module."
-  type        = list(string)
-  default     = []
-}
-
-variable "search_cache_ttl_seconds" {
-  description = "Default /search cache TTL seconds passed to search-api"
-  type        = number
-  default     = 120
-}
-
 variable "vertex_location" {
-  description = "Vertex AI location for endpoint calls"
+  description = "Vertex AI location for Pipelines / Feature Group / Model Registry (inherited from Phase 5)"
   type        = string
   default     = "asia-northeast1"
 }
 
 variable "vertex_encoder_endpoint_id" {
-  description = "Vertex AI encoder endpoint ID or full resource name"
+  description = "Vertex AI encoder endpoint ID (legacy — retained for Phase 5 compatibility; Phase 7 uses KServe)"
   type        = string
   default     = ""
 }
 
 variable "vertex_reranker_endpoint_id" {
-  description = "Vertex AI reranker endpoint ID or full resource name"
+  description = "Vertex AI reranker endpoint ID (legacy — retained for Phase 5 compatibility; Phase 7 uses KServe)"
+  type        = string
+  default     = ""
+}
+
+variable "enable_vertex_endpoint_shell" {
+  description = "When true, create empty Vertex AI Endpoint shells for encoder/reranker. Default false because Phase 7 serves via GKE + KServe."
+  type        = bool
+  default     = false
+}
+
+variable "gke_cluster_name" {
+  description = "GKE Autopilot cluster name for Phase 7 serving"
+  type        = string
+  default     = "hybrid-search"
+}
+
+variable "api_external_url" {
+  description = "Public HTTPS URL of search-api GKE Gateway. Leave empty on initial apply; fill after Gateway has provisioned and re-apply to materialize Cloud Scheduler."
   type        = string
   default     = ""
 }
@@ -144,7 +156,17 @@ variable "enable_streaming_job" {
 }
 
 variable "streaming_flex_template_gcs_path" {
-  description = "GCS path to the compiled Flex Template spec JSON (built out-of-band by scripts/local/setup/build_streaming_template.py). Empty suppresses the Dataflow job resource."
+  description = "GCS path to the compiled Flex Template spec JSON (built out-of-band by scripts/setup/build_streaming_template.py). Empty suppresses the Dataflow job resource."
   type        = string
   default     = ""
+}
+
+# =========================================================================
+# Vertex AI Feature Online Store toggle (Phase 7 — vertex_feature_group.py).
+# =========================================================================
+
+variable "enable_feature_online_store" {
+  description = "Provision the Vertex AI Feature Online Store + FeatureView so /vertex_feature_group.py fetches return featureValues. Default false because the Online Store charges per online query + node hours; flip on when exercising the script."
+  type        = bool
+  default     = false
 }

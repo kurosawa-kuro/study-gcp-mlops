@@ -70,7 +70,8 @@ output "artifact_registry" {
 
 output "secrets" {
   value = {
-    meili_master_key = google_secret_manager_secret.meili_master_key
+    meili_master_key                   = google_secret_manager_secret.meili_master_key
+    search_api_iap_oauth_client_secret = google_secret_manager_secret.search_api_iap_oauth_client_secret
   }
 }
 

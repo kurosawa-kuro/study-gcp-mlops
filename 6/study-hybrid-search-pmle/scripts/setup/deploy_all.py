@@ -9,7 +9,7 @@
 4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
 6. `terraform apply tfplan -auto-approve` — apply infra
-7. `deploy/api_local` — Cloud Build + gcloud run deploy search-api
+7. `deploy/api_gke` — Cloud Build + kubectl rollout search-api
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the moment infra is created (Cloud Run
@@ -18,89 +18,66 @@ min-instances=1, BQ storage, etc.) — see CLAUDE.md non-negotiables.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from scripts._common import env, run
 from scripts.ci.sync_dataform import main as sync_dataform_main
-from scripts.deploy.api_local import main as deploy_api_main
+from scripts.deploy.api_gke import main as deploy_api_main
 from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
 from scripts.setup.tf_init import main as tf_init_main
 from scripts.setup.tf_plan import main as tf_plan_main
 
-INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
-TFLOCK_PATH = INFRA / ".terraform.lock.hcl"
-TFSTATE_LOCK_PATH = INFRA / ".terraform/terraform.tfstate.lock.hcl"
+INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
+
+# Overall start time; per-step timing relates elapsed time to the wall-clock
+# position in the deploy-all sequence so operators can see WHICH step is slow
+# when a rollout hangs (e.g. Cloud Build wait dominating step 7).
+_DEPLOY_ALL_STARTED_AT: float | None = None
+_STEP_STARTED_AT: float | None = None
+
+
+@dataclass(frozen=True)
+class DeployStep:
+    number: int
+    name: str
+    label: str
+    run: Callable[[], int]
 
 
 def _step(n: int, total: int, label: str) -> None:
+    global _DEPLOY_ALL_STARTED_AT, _STEP_STARTED_AT
+    now = time.monotonic()
+    # On first step entry, emit a "prev_step_elapsed" anchor of 0 and start
+    # the overall clock.
+    if _DEPLOY_ALL_STARTED_AT is None:
+        _DEPLOY_ALL_STARTED_AT = now
+    prev_elapsed = now - _STEP_STARTED_AT if _STEP_STARTED_AT is not None else 0.0
+    total_elapsed = now - _DEPLOY_ALL_STARTED_AT
+    _STEP_STARTED_AT = now
     print()
     print("================================================================")
     print(f" deploy-all  step {n}/{total}: {label}")
+    if n > 1:
+        print(f" (prev_step_elapsed={prev_elapsed:.0f}s total_elapsed={total_elapsed:.0f}s)")
     print("================================================================")
 
 
-def _check_stale_terraform_lock() -> None:
-    """Detect and warn about (or auto-recover) stale Terraform state locks.
-    
-    If .terraform/terraform.tfstate.lock.hcl exists and is >24 hours old,
-    this indicates a previous terraform operation crashed or was orphaned
-    without releasing the lock. The lock blocks the next tf-plan.
-    
-    Behavior:
-    - Warn user about the stale lock age
-    - If ALLOW_FORCE_UNLOCK=1 env is set, call 'terraform force-unlock <lock-id>'
-    - Otherwise, require user to manually investigate or set ALLOW_FORCE_UNLOCK=1
+def _step_done() -> None:
+    """Emit a `step-done` line with elapsed seconds for the step just finished.
+
+    Complements ``_step``: ``_step`` records WHEN a step starts, ``_step_done``
+    records HOW LONG it took. Operators (and ``scripts.deploy.monitor``) can
+    parse these to locate the slow step in a hung deploy-all.
     """
-    stale_threshold_sec = 86400  # 24 hours
-    
-    # Try multiple possible lock file paths (varies by Terraform version/backend)
-    lock_candidates = [TFSTATE_LOCK_PATH]
-    
-    for lock_path in lock_candidates:
-        if not lock_path.exists():
-            continue
-        
-        mtime = lock_path.stat().st_mtime
-        age_sec = time.time() - mtime
-        age_hours = age_sec / 3600
-        
-        if age_sec > stale_threshold_sec:
-            print(f"\n⚠️  WARNING: Stale Terraform state lock detected!")
-            print(f"   Lock file: {lock_path}")
-            print(f"   Age: {age_hours:.1f} hours (threshold: 24h)")
-            print(f"   This typically means a prior tf-apply/tf-plan crashed without cleanup.")
-            print()
-            
-            # Try to extract lock ID from lock file for force-unlock
-            try:
-                lock_content = lock_path.read_text()
-                # Lock file format: ID = "XXXXXXXXX" (9 chars)
-                import re
-                match = re.search(r'ID\s*=\s*"([^"]+)"', lock_content)
-                if match:
-                    lock_id = match.group(1)
-                    print(f"   Lock ID: {lock_id}")
-                    
-                    allow_force = env.get("ALLOW_FORCE_UNLOCK", "0") == "1"
-                    if allow_force:
-                        print(f"   ALLOW_FORCE_UNLOCK=1 detected. Forcing unlock...")
-                        run([
-                            "terraform",
-                            f"-chdir={INFRA}",
-                            "force-unlock",
-                            lock_id,
-                            "-force"
-                        ])
-                        print(f"   ✓ Lock released.")
-                    else:
-                        print(f"   To auto-recover, run: ALLOW_FORCE_UNLOCK=1 make deploy-all")
-                        print(f"   Or manually: terraform -chdir={INFRA} force-unlock {lock_id} -force")
-                        raise RuntimeError(f"Stale Terraform lock at {lock_path}. Set ALLOW_FORCE_UNLOCK=1 to proceed.")
-            except Exception as e:
-                print(f"   Error processing lock file: {e}")
-                raise
+    if _STEP_STARTED_AT is None:
+        return
+    elapsed = time.monotonic() - _STEP_STARTED_AT
+    print(f" deploy-all  step-done elapsed={elapsed:.0f}s")
 
 
 def _gcloud_capture(args: list[str]) -> tuple[int, str]:
@@ -228,45 +205,132 @@ def _recover_wif_state(project_id: str) -> None:
         )
 
 
-def main() -> int:
-    total = 8
-    project_id = env("PROJECT_ID")
+def _run_tf_bootstrap() -> int:
+    return tf_bootstrap_main()
 
-    _step(1, total, "tf-bootstrap (enable APIs + tfstate bucket, idempotent)")
-    if (rc := tf_bootstrap_main()) != 0:
-        return rc
 
-    _step(2, total, "tf-init (preflight + terraform init)")
-    if (rc := tf_init_main()) != 0:
-        return rc
+def _run_tf_init() -> int:
+    return tf_init_main()
 
-    _step(3, total, "check-stale-lock (detect orphaned Terraform state locks >24h)")
-    try:
-        _check_stale_terraform_lock()
-    except RuntimeError as e:
-        print(f"❌ {e}")
-        return 1
 
-    _step(4, total, "recover WIF pool/provider if soft-deleted (PDCA loop safety)")
-    _recover_wif_state(project_id)
+def _run_recover_wif() -> int:
+    _recover_wif_state(env("PROJECT_ID"))
+    return 0
 
-    _step(5, total, "sync-dataform-config (regenerate workflow_settings.yaml)")
-    if (rc := sync_dataform_main()) != 0:
-        return rc
 
-    _step(6, total, "tf-plan (saves infra/tfplan)")
-    if (rc := tf_plan_main()) != 0:
-        return rc
+def _run_sync_dataform() -> int:
+    return sync_dataform_main()
 
-    _step(7, total, "terraform apply tfplan -auto-approve")
+
+def _run_tf_plan() -> int:
+    return tf_plan_main()
+
+
+def _run_tf_apply() -> int:
     run(["terraform", f"-chdir={INFRA}", "apply", "-auto-approve", "tfplan"])
+    return 0
 
-    _step(8, total, "deploy-api-local (Cloud Build + run deploy search-api)")
-    if (rc := deploy_api_main()) != 0:
-        return rc
 
-    print()
-    print("==> deploy-all complete.")
+def _run_deploy_api() -> int:
+    return deploy_api_main()
+
+
+def _steps() -> list[DeployStep]:
+    return [
+        DeployStep(
+            1,
+            "tf-bootstrap",
+            "tf-bootstrap (enable APIs + tfstate bucket, idempotent)",
+            _run_tf_bootstrap,
+        ),
+        DeployStep(2, "tf-init", "tf-init (preflight + terraform init)", _run_tf_init),
+        DeployStep(
+            3,
+            "recover-wif",
+            "recover WIF pool/provider if soft-deleted (PDCA loop safety)",
+            _run_recover_wif,
+        ),
+        DeployStep(
+            4,
+            "sync-dataform",
+            "sync-dataform-config (regenerate workflow_settings.yaml)",
+            _run_sync_dataform,
+        ),
+        DeployStep(5, "tf-plan", "tf-plan (saves infra/tfplan)", _run_tf_plan),
+        DeployStep(6, "tf-apply", "terraform apply tfplan -auto-approve", _run_tf_apply),
+        DeployStep(
+            7,
+            "deploy-api",
+            "deploy-api (Cloud Build + kubectl rollout search-api)",
+            _run_deploy_api,
+        ),
+    ]
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run Phase 7 deploy-all flow with optional step slicing."
+    )
+    parser.add_argument(
+        "--from-step",
+        default="1",
+        help="Start from this step number or name (e.g. 4, sync-dataform, tf-apply).",
+    )
+    parser.add_argument(
+        "--to-step",
+        default="7",
+        help="Stop after this step number or name (e.g. 5, tf-plan, deploy-api).",
+    )
+    return parser.parse_args()
+
+
+def _resolve_step_ref(ref: str, steps: list[DeployStep]) -> int:
+    raw = ref.strip()
+    if raw.isdigit():
+        step_no = int(raw)
+        if any(step.number == step_no for step in steps):
+            return step_no
+    lowered = raw.lower()
+    for step in steps:
+        if lowered == step.name:
+            return step.number
+    valid = ", ".join([str(step.number) for step in steps] + [step.name for step in steps])
+    raise SystemExit(f"[error] unknown step {ref!r}. valid values: {valid}")
+
+
+def main() -> int:
+    global _DEPLOY_ALL_STARTED_AT, _STEP_STARTED_AT
+    _DEPLOY_ALL_STARTED_AT = None
+    _STEP_STARTED_AT = None
+
+    args = _parse_args()
+    steps = _steps()
+    total = len(steps)
+    from_step = _resolve_step_ref(args.from_step, steps)
+    to_step = _resolve_step_ref(args.to_step, steps)
+    if from_step > to_step:
+        raise SystemExit(f"[error] --from-step ({from_step}) must be <= --to-step ({to_step})")
+
+    selected = [step for step in steps if from_step <= step.number <= to_step]
+    print(
+        f"==> deploy-all selection: from_step={from_step} to_step={to_step} "
+        f"steps={[step.name for step in selected]}"
+    )
+
+    for step in selected:
+        _step(step.number, total, step.label)
+        rc = step.run()
+        if rc != 0:
+            return rc
+        _step_done()
+
+    if _DEPLOY_ALL_STARTED_AT is not None:
+        total_elapsed = time.monotonic() - _DEPLOY_ALL_STARTED_AT
+        print()
+        print(f"==> deploy-all complete. total_elapsed={total_elapsed:.0f}s")
+    else:
+        print()
+        print("==> deploy-all complete.")
     print("    Verify with: make ops-livez && make ops-api-url")
     print("    Pipeline submit is separate: make ops-train-now")
     return 0

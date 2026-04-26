@@ -12,30 +12,14 @@ file (which is gitignored).
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from scripts.ci.sync_dataform import REQUIRED_KEYS, render
+from tests.integration.parity.parity_invariant import REPO_ROOT, flat_yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 SETTING_YAML = REPO_ROOT / "env" / "config" / "setting.yaml"
 
 
-def _flat_yaml(text: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for raw in text.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if not line or ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key:
-            out[key] = value
-    return out
-
-
 def test_generator_includes_every_required_dataform_key() -> None:
-    rendered = _flat_yaml(render())
+    rendered = flat_yaml(render())
     expected_keys = {
         "defaultProject",
         "defaultLocation",
@@ -48,8 +32,8 @@ def test_generator_includes_every_required_dataform_key() -> None:
 
 
 def test_generator_values_match_setting_yaml() -> None:
-    setting = _flat_yaml(SETTING_YAML.read_text(encoding="utf-8"))
-    rendered = _flat_yaml(render())
+    setting = flat_yaml(SETTING_YAML.read_text(encoding="utf-8"))
+    rendered = flat_yaml(render())
 
     expected = {
         "defaultProject": setting["project_id"],
@@ -67,7 +51,7 @@ def test_generator_values_match_setting_yaml() -> None:
 
 def test_setting_yaml_has_all_required_keys() -> None:
     """Guard against silently dropping a Dataform-relevant key from setting.yaml."""
-    setting = _flat_yaml(SETTING_YAML.read_text(encoding="utf-8"))
+    setting = flat_yaml(SETTING_YAML.read_text(encoding="utf-8"))
     required = {k.lower() for k in REQUIRED_KEYS}
     missing = required - setting.keys()
     assert not missing, f"env/config/setting.yaml is missing keys: {missing}"

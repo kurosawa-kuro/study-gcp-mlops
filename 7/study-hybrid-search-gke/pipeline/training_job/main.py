@@ -16,7 +16,6 @@ from pipeline.training_job.components import (
     evaluate_reranker,
     load_features,
     register_reranker,
-    resolve_hyperparameters,
     train_reranker,
 )
 
@@ -38,9 +37,6 @@ def property_search_train_pipeline(
     trainer_image: str = "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
     experiment_name: str = "property-reranker-lgbm",
     baseline_hyperparameters_json: str = '{"num_leaves":31,"learning_rate":0.05,"feature_fraction":0.9,"bagging_fraction":0.8,"min_data_in_leaf":50,"lambdarank_truncation_level":20}',
-    enable_tuning: bool = False,
-    vizier_max_trials: int = 8,
-    vizier_parallel_trials: int = 2,
     gate_metric_name: str = "ndcg_at_10",
     gate_threshold: float = 0.6,
     model_display_name: str = "property-reranker",
@@ -59,19 +55,10 @@ def property_search_train_pipeline(
         feedback_events_table=feedback_events_table,
         window_days=window_days,
     )
-    hyperparameters = resolve_hyperparameters(
-        enabled=enable_tuning,
-        baseline_hyperparameters_json=baseline_hyperparameters_json,
-        project_id=project_id,
-        vertex_location=vertex_location,
-        study_display_name=f"{model_display_name}-vizier",
-        max_trial_count=vizier_max_trials,
-        parallel_trial_count=vizier_parallel_trials,
-    )
     train_task = train_reranker(
         trainer_image=trainer_image,
         training_frame=features.outputs["training_frame"],
-        hyperparameters_json=hyperparameters.output,
+        hyperparameters_json=baseline_hyperparameters_json,
         experiment_name=experiment_name,
         window_days=window_days,
     )
@@ -112,14 +99,12 @@ def build_pipeline_spec() -> dict[str, object]:
             "window_days": 90,
             "trainer_image": "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
             "experiment_name": "property-reranker-lgbm",
-            "enable_tuning": False,
             "gate_metric_name": "ndcg_at_10",
             "gate_threshold": 0.6,
             "model_display_name": "property-reranker",
         },
         "steps": [
             "load_features",
-            "resolve_hyperparameters",
             "train_reranker",
             "evaluate",
             "register_reranker",

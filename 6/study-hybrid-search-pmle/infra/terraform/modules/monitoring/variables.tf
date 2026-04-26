@@ -14,7 +14,12 @@ variable "mlops_dataset_id" {
 }
 
 variable "ranker_skew_sql_path" {
-  description = "Absolute path to monitoring/validate_feature_skew.sql (ranker-side skew check)"
+  description = "Absolute path to infra/sql/monitoring/validate_feature_skew.sql (ranker-side skew check)"
+  type        = string
+}
+
+variable "model_output_drift_sql_path" {
+  description = "Absolute path to infra/sql/monitoring/validate_model_output_drift.sql (self-managed KServe drift substitute)"
   type        = string
 }
 

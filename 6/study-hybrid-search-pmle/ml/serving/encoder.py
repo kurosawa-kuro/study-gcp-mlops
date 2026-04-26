@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -115,13 +117,14 @@ def _load_encoder() -> E5Encoder:
     return E5Encoder.load(model_dir=model_dir)
 
 
-app = FastAPI(title="vertex-encoder-server")
-app.state.encoder = None
-
-
-@app.on_event("startup")
-def _startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.encoder = _load_encoder()
+    yield
+
+
+app = FastAPI(title="vertex-encoder-server", lifespan=lifespan)
+app.state.encoder = None
 
 
 @app.get(os.getenv("AIP_HEALTH_ROUTE", "/health"))

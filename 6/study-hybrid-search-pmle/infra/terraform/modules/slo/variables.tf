@@ -9,9 +9,38 @@ variable "region" {
 }
 
 variable "service_name" {
-  description = "Cloud Run v2 service name (Phase 5 search-api by default). SLOs attach to this service's built-in run.googleapis.com/* metrics."
+  description = "Target service name (Phase 5 search-api by default). For service_type=\"cloud_run\", this is the Cloud Run v2 service name; for service_type=\"k8s_service\", this is the GKE Service name (namespace is passed via k8s_namespace)."
   type        = string
   default     = "search-api"
+}
+
+variable "service_type" {
+  description = "Which serving layer the SLOs attach to. \"cloud_run\" uses run.googleapis.com/* metrics + cloud_run_revision resource filter (Phase 5/6). \"k8s_service\" uses kubernetes.io/* metrics + k8s_container resource filter (Phase 7 GKE + KServe)."
+  type        = string
+  default     = "cloud_run"
+
+  validation {
+    condition     = contains(["cloud_run", "k8s_service"], var.service_type)
+    error_message = "service_type must be one of: cloud_run, k8s_service."
+  }
+}
+
+variable "k8s_namespace" {
+  description = "Kubernetes namespace hosting the target Service. Only consulted when service_type=\"k8s_service\"."
+  type        = string
+  default     = "search"
+}
+
+variable "gke_cluster_name" {
+  description = "GKE cluster name that hosts service_name. Only consulted when service_type=\"k8s_service\" to populate telemetry.resource_name (//container.googleapis.com/projects/<p>/locations/<r>/clusters/<c>)."
+  type        = string
+  default     = ""
+}
+
+variable "gke_cluster_location" {
+  description = "GKE cluster location (region for Autopilot). Defaults to var.region when empty."
+  type        = string
+  default     = ""
 }
 
 variable "service_id_suffix" {

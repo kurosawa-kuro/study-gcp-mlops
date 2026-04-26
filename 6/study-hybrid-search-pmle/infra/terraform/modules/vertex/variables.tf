@@ -81,8 +81,20 @@ variable "enable_feature_group" {
   default     = true
 }
 
-variable "enable_endpoints" {
-  description = "When true, declare the encoder + reranker Vertex AI Endpoints. Model deployment still happens via the Python SDK."
+variable "enable_feature_online_store" {
+  description = "When true, declare the Vertex AI Feature Online Store + FeatureView so /vertex_feature_group.py can fetch featureValues. Default false because Online Stores incur ongoing per-query cost; flip on when the script needs to be exercised against live data."
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "feature_online_store_id" {
+  description = "Vertex AI Feature Online Store name. Must match VERTEX_FEATURE_ONLINE_STORE_ID env consumed by scripts/ops/vertex/feature_group.py."
+  type        = string
+  default     = "mlops_dev_feature_store"
+}
+
+variable "enable_vertex_endpoint_shell" {
+  description = "When true, declare the encoder + reranker Vertex AI Endpoint shells. Default false in Phase 7 because serving runs on GKE + KServe; enable only when an empty endpoint scaffold is intentionally needed."
+  type        = bool
+  default     = false
 }

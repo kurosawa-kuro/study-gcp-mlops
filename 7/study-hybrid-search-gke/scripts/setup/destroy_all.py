@@ -79,14 +79,13 @@ INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environme
 # append it here.
 #
 # 履歴:
-# - Phase 6 Run 2 で BQ table 2 件 (`properties_enriched` T8、
-#   `ranking_log_hourly_ctr` T2) を追加 → 8 → 10
+# - Phase 6 Run 2 で BQ table `ranking_log_hourly_ctr` (T2) を追加 → 9
 # - Phase 7 Run 4 で **GKE cluster** を追加 (root TF var
 #   `enable_deletion_protection` は `infra/terraform/modules/gke/main.tf` の
 #   `deletion_protection = var.deletion_protection` に配線済だが、`-target`
 #   で flip しないと server-side が `true` のまま残り、本体 destroy が
 #   `Cannot destroy cluster because deletion_protection is set to true.`
-#   で fail していた)。10 → 11
+#   で fail していた)。9 → 10
 PROTECTED_TARGETS = [
     "module.data.google_bigquery_table.training_runs",
     "module.data.google_bigquery_table.search_logs",
@@ -96,7 +95,6 @@ PROTECTED_TARGETS = [
     "module.data.google_bigquery_table.property_features_daily",
     "module.data.google_bigquery_table.property_embeddings",
     "module.data.google_bigquery_table.model_monitoring_alerts",
-    "module.data.google_bigquery_table.properties_enriched",
     "module.data.google_bigquery_table.ranking_log_hourly_ctr",
     "module.gke.google_container_cluster.hybrid_search",
 ]

@@ -10,9 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.container.internal.optional_adapter import resolve_optional_adapter
-from app.services.protocols.generator import Generator
 from app.services.protocols.popularity_scorer import PopularityScorer
-from app.services.rag_summarizer import RagSummarizer
 from app.settings import ApiSettings
 
 
@@ -25,7 +23,6 @@ class MlBuilderContext(Protocol):
 
 @dataclass(frozen=True)
 class MlComponents:
-    rag_summarizer: RagSummarizer | None
     popularity_scorer: PopularityScorer | None
 
 
@@ -43,35 +40,7 @@ class MlBuilder:
 
     def build(self) -> MlComponents:
         return MlComponents(
-            rag_summarizer=self.build_rag_summarizer(),
             popularity_scorer=self.build_popularity_scorer(),
-        )
-
-    def build_rag_summarizer(self) -> RagSummarizer | None:
-        settings = self._settings
-        rag = settings.rag
-
-        def _factory() -> RagSummarizer:
-            from app.services.adapters.gemini_generator import GeminiGenerator
-
-            adapter = GeminiGenerator(
-                project_id=settings.project_id,
-                location=settings.vertex_location,
-                model_name=rag.model_name,
-                temperature=rag.temperature,
-            )
-            adapter.prepare()
-            generator: Generator = adapter
-            return RagSummarizer(
-                generator=generator,
-                max_output_tokens=rag.max_output_tokens,
-            )
-
-        return resolve_optional_adapter(
-            name="Gemini generator for /rag",
-            enabled=rag.enabled,
-            factory=_factory,
-            logger=self._logger,
         )
 
     def build_popularity_scorer(self) -> PopularityScorer | None:
