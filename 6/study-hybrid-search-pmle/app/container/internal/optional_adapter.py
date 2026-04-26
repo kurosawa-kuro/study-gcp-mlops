@@ -1,12 +1,9 @@
-"""Optional-adapter guard helper (Phase 7 Run 3、残作業 #2).
+"""Optional-adapter guard helper.
 
-VS/AB 削除で backend 分岐 (``if backend == "vertex"``) は消えたが、
 ``if not enabled: return None`` → ``try construct: ... except: log + return None``
-という同形の guard が ``MlBuilder`` 系列で 2 連発残っているため、その重複を
-ひとまとめにするための helper。
+という同形の guard を ``MlBuilder`` 系列でひとまとめにするための helper。
 
 対象 (採用):
-- ``MlBuilder.build_rag_summarizer``
 - ``MlBuilder.build_popularity_scorer``
 
 対象外 (採用見送り):

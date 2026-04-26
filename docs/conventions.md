@@ -52,7 +52,6 @@ ml/
 
 - `adapters` `ports` `core` を `ml/` 直下に置かない
 - 必要なら `ml/training/adapters/` のように機能ディレクトリの下へ置く
-- `wandb` は将来的に `experiment` に統一する
 
 ## `pipeline/` 規約
 
@@ -87,7 +86,6 @@ scripts/
 ├── ci/
 ├── sql/
 ├── bqml/
-├── enrichment/
 ├── dev/
 └── local/
 ```

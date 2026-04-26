@@ -15,7 +15,7 @@ Route surfaces (kept disjoint to avoid cross-concern collision):
 
 The service keeps only retrieval / orchestration concerns. Query embeddings
 and rerank scoring are delegated to Vertex AI Endpoints when configured.
-PMLE technology integrations (RAG, BQML) are wired in as optional adapters
+PMLE technology integrations (BQML popularity) are wired in as optional adapters
 per Phase 6 — see ``ContainerBuilder``.
 
 Observability (logging / metrics / future tracing) is bundled in

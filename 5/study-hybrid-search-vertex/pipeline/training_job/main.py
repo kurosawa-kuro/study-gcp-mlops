@@ -105,7 +105,6 @@ def build_pipeline_spec() -> dict[str, object]:
         },
         "steps": [
             "load_features",
-            "resolve_hyperparameters",
             "train_reranker",
             "evaluate",
             "register_reranker",

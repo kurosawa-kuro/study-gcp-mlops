@@ -73,6 +73,5 @@ class SearchOutput:
     request_id: str
     items: list[SearchResultItem]
     model_path: str | None
-    # ``ranked`` carries the underlying ``RankedCandidate`` list, used by
-    # ``RagService`` to build the LLM prompt without re-running search.
+    # ``ranked`` carries the underlying ``RankedCandidate`` list.
     ranked: list[RankedCandidate]

@@ -13,9 +13,6 @@ data/*.db
 # Models
 ml/registry/artifacts/
 
-# W&B
-ml/wandb/
-
 # IDE
 .vscode/
 .idea/

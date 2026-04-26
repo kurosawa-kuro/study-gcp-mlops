@@ -1,10 +1,9 @@
 """Pin the contract of ``resolve_optional_adapter``.
 
 The helper centralises the ``enable_xxx`` guard used by ``MlBuilder``
-(``build_rag_summarizer`` / ``build_popularity_scorer``). These tests
-keep the three observable behaviours in place so a future refactor
-cannot silently start raising on disabled flags or swallow the wrong
-exception class.
+(``build_popularity_scorer``). These tests keep the three observable
+behaviours in place so a future refactor cannot silently start raising
+on disabled flags or swallow the wrong exception class.
 """
 
 from __future__ import annotations

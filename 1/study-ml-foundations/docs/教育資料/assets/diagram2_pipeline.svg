@@ -22,7 +22,7 @@
   <rect x="1180" y="180" width="160" height="70" class="accent"/><text x="1260" y="210" text-anchor="middle" class="txt">評価</text><text x="1260" y="235" text-anchor="middle" class="txt">metrics.py</text>
   <rect x="960" y="330" width="170" height="70" class="db"/><text x="1045" y="360" text-anchor="middle" class="txt">ml/registry/artifacts/{run_id}</text><text x="1045" y="385" text-anchor="middle" class="txt">model.lgb</text>
   <rect x="1180" y="330" width="160" height="70" class="box"/><text x="1260" y="360" text-anchor="middle" class="txt">Phase 2</text><text x="1260" y="385" text-anchor="middle" class="txt">推論APIへ移管</text>
-  <rect x="500" y="330" width="240" height="70" class="db"/><text x="620" y="360" text-anchor="middle" class="txt">W&B / PostgreSQL</text><text x="620" y="385" text-anchor="middle" class="txt">実験管理</text>
+  <rect x="500" y="330" width="240" height="70" class="db"/><text x="620" y="360" text-anchor="middle" class="txt">metrics.json / PostgreSQL</text><text x="620" y="385" text-anchor="middle" class="txt">実験管理</text>
   <line x1="220" y1="215" x2="280" y2="215" class="line"/>
   <line x1="440" y1="215" x2="500" y2="215" class="line"/>
   <line x1="660" y1="215" x2="720" y2="215" class="line"/>

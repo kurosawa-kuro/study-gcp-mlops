@@ -15,7 +15,7 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 - Phase 2: **App / Pipeline / Port-Adapter** を導入
 - Phase 3-5: 不動産検索ドメインで **Local → GCP → Vertex AI** へ展開
 - Phase 6: Phase 5 と**同じ不動産ハイブリッド検索ドメインを維持**し、PMLE 試験範囲の追加技術を Phase 5 実コードに **adapter / 副経路 / 追加エンドポイント / 追加 Terraform** として統合
-- Phase 7: **Phase 6 の serving 層を GKE + KServe に置き換える到達ゴール**(Pipelines / Feature Group / Model Registry / BigQuery / Meilisearch 等は Phase 6 から継承)
+- Phase 7: **Phase 6 の serving 層を GKE + KServe に置き換える到達ゴール**(Vertex AI Pipelines / Feature Group / Model Registry / BigQuery / Meilisearch 等は Phase 6 から継承)
 
 ### 設計思想の不変性
 
@@ -36,11 +36,11 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 |---|---|---|---|---|---|
 | 1 | `1/study-ml-foundations/` | ML 基礎(回帰) | preprocess / feature engineering / training / evaluation / artifact 出力 (model.pkl / metrics.json / params.yaml / `runs/{run_id}/`) | LightGBM, PostgreSQL | Docker Compose |
 | 2 | `2/study-ml-app-pipeline/` | App + Pipeline + Port/Adapter | FastAPI lifespan DI, `core → ports ← adapters`, predictor 経由推論、seed/train/predict job 分離 | FastAPI, LightGBM, PostgreSQL | Docker Compose |
-| 3 | `3/study-hybrid-search-local/` | 不動産ハイブリッド検索(Local) | lexical + semantic + rerank、LambdaRank、Port/Adapter 実践 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis | uv + Docker Compose |
-| 4 | `4/study-hybrid-search-gcp/` | 不動産ハイブリッド検索(GCP) | GCP マネージドサービス化、RRF、再学習ループ、IaC/CI、**Secret Manager → Cloud Run secret injection(必須習得)** | Cloud Run, GCS, BigQuery, Cloud Logging, **Secret Manager**, Terraform, WIF | uv + クラウド実行基盤 |
-| 5 | `5/study-hybrid-search-vertex/` | Vertex AI 標準 MLOps 差分移行 | Vertex Pipelines / Endpoint / Model Registry / Monitoring への adapter 差し替え | Vertex AI, Vertex Pipelines, Endpoint, Model Registry, Monitoring | uv + Vertex AI |
-| 6 | `6/study-hybrid-search-pmle/` | GCP PMLE 追加技術ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 副経路 / 追加エンドポイント / Terraform として統合。default flag では Phase 5 挙動維持。不変はハイブリッド検索中核 (`/search` default) のみ | BQML / Dataflow / Monitoring SLO(補助: Explainable AI / Feature Group) | uv + Vertex AI + Terraform |
-| 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 の serving 層を GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO / Feature Online Store / Vertex CPR explain Pod を追加 | GKE Autopilot, KServe, Gateway API, Workload Identity, Vertex CPR (explain only) | uv + GKE Autopilot/KServe |
+| 3 | `3/study-hybrid-search-local/` | 不動産ハイブリッド検索(Local) | lexical + semantic + rerank、LambdaRank、RRF、Port/Adapter 実践 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis, uv | uv + Docker Compose |
+| 4 | `4/study-hybrid-search-gcp/` | 不動産ハイブリッド検索(GCP) | GCP マネージドサービス化、RRF、再学習ループ、IaC/CI、**Secret Manager → Cloud Run secret injection(必須習得)** | Cloud Run, GCS, BigQuery, Cloud Logging, **Secret Manager**, **Pub/Sub, Eventarc, Cloud Scheduler, Artifact Registry, Cloud Build**, Terraform, WIF, GitHub Actions | uv + クラウド実行基盤 |
+| 5 | `5/study-hybrid-search-vertex/` | Vertex AI 標準 MLOps 差分移行 | Vertex Pipelines (KFP v2) / Endpoint / Model Registry / Monitoring / Dataform への adapter 差し替え | Vertex AI Pipelines, Vertex Endpoint, Vertex Feature Group, Vertex Model Registry, Vertex Model Monitoring, Dataform, Cloud Function (Gen2) | uv + Vertex AI |
+| 6 | `6/study-hybrid-search-pmle/` | GCP PMLE 追加技術ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 副経路 / 追加エンドポイント / Terraform として統合。default flag では Phase 5 挙動維持。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), Monitoring SLO + burn-rate alert, TreeSHAP (Explainable AI), Vertex Feature Group, Scheduled Query | uv + Vertex AI + Terraform |
+| 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 の serving 層を GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、Feature Online Store / KServe `/explain` Pod を追加 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, Vertex Feature Online Store | uv + GKE Autopilot/KServe |
 
 ### Phase 2 → 3 の接続(飛躍を埋める短い説明)
 
@@ -156,7 +156,7 @@ runs/20260424_001/
 ### Phase 7(到達ゴール: GKE + KServe)
 
 - Phase 6 から学習/データ基盤を継承
-- serving 層のみ GKE + KServe に差し替え。Meilisearch master key は GKE 側では Kubernetes Secret 手動同期で注入(External Secrets Operator 導入は未着手)
+- serving 層のみ GKE + KServe に差し替え。Meilisearch master key は External Secrets Operator (ESO) が GCP Secret Manager から `search/meili-master-key` へ自動同期し、`sa-external-secrets` と KSA `external-secrets/external-secrets` の Workload Identity bind で取得する
 
 ### 運用ルール(共通)
 
@@ -197,7 +197,6 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 - `docs/03_実装カタログ.md` — Phase 1〜7 の実装カタログハブ
 - `docs/04_運用.md` — Phase 1〜7 の運用ハブ
 - `docs/05_Docker配置規約.md` — Dockerfile 配置・命名ルール(Phase を跨いで一貫)
-- `docs/phase調整案.md` — W&B / Looker Studio / Doppler 削除と Secret Manager (Meilisearch master key) への転用計画(2026-04-24 一括適用済)
 - `docs/phases/README.md` — Phase 別 docs 入口
 
 ### Phase 個別入口

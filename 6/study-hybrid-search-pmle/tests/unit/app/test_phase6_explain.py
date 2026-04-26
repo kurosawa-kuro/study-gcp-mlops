@@ -1,10 +1,8 @@
-"""Phase 6 T4 + T6 unit tests.
+"""Phase 6 T4 unit tests.
 
 * **T4 (Explainable AI)** — ``run_search(want_explanations=True)`` returns
   attributions when the reranker satisfies ``RerankerExplainer``, and
   silently falls back to ``None`` otherwise.
-* **T6 (RAG)** — ``RagSummarizer`` passes the ranked top-N to the injected
-  ``Generator`` stub and returns the generator's text verbatim.
 """
 
 from __future__ import annotations
@@ -12,8 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.domain.candidate import Candidate, RankedCandidate
-from app.services.rag_summarizer import RagSummarizer, build_prompt
+from app.domain.candidate import Candidate
 from app.services.ranking import run_search
 
 # --- Fakes mirroring tests/unit/app/test_ranking_service.py shape -----------
@@ -156,62 +153,3 @@ def test_run_search_falls_back_to_no_attributions_when_reranker_lacks_explain() 
 
     assert len(ranked) == 3
     assert all(item.attributions is None for item in ranked)
-
-
-# --- T6: RagSummarizer -------------------------------------------------------
-
-
-class _StubGenerator:
-    def __init__(self, canned: str = "summary") -> None:
-        self.canned = canned
-        self.last_prompt: str | None = None
-
-    def generate(self, *, prompt: str, max_output_tokens: int = 512) -> str:
-        self.last_prompt = prompt
-        return self.canned
-
-
-def _ranked(n: int) -> list[RankedCandidate]:
-    return [
-        RankedCandidate(
-            candidate=_candidate(i + 1),
-            final_rank=i + 1,
-            score=float(n - i),
-            attributions=None,
-        )
-        for i in range(n)
-    ]
-
-
-def test_build_prompt_includes_query_and_property_ids() -> None:
-    ranked = _ranked(3)
-    prompt = build_prompt(query="渋谷 1LDK", ranked=ranked, top_n=2)
-    assert "渋谷 1LDK" in prompt
-    assert "P-001" in prompt
-    assert "P-002" in prompt
-    # top_n limits context — the 3rd candidate should not be in the prompt
-    assert "P-003" not in prompt
-
-
-def test_rag_summarizer_returns_generator_text() -> None:
-    generator = _StubGenerator(canned="上位 2 件を紹介します…")
-    summarizer = RagSummarizer(generator=generator, default_top_n=2, max_output_tokens=256)
-
-    result = summarizer.summarize(query="q", ranked=_ranked(5))
-
-    assert result.summary == "上位 2 件を紹介します…"
-    assert generator.last_prompt is not None
-    assert "P-001" in generator.last_prompt
-    assert "P-002" in generator.last_prompt
-    assert "P-003" not in generator.last_prompt  # top_n=2
-
-
-def test_rag_summarizer_respects_explicit_top_n_override() -> None:
-    generator = _StubGenerator()
-    summarizer = RagSummarizer(generator=generator, default_top_n=2)
-
-    summarizer.summarize(query="q", ranked=_ranked(5), top_n=4)
-
-    assert generator.last_prompt is not None
-    assert "P-004" in generator.last_prompt
-    assert "P-005" not in generator.last_prompt

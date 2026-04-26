@@ -20,7 +20,6 @@ def test_build_train_pipeline_spec_contains_expected_steps() -> None:
     assert spec["name"] == "property-search-train"
     assert spec["steps"] == [
         "load_features",
-        "resolve_hyperparameters",
         "train_reranker",
         "evaluate",
         "register_reranker",
@@ -38,9 +37,8 @@ def test_coerce_parameter_value_handles_primitives_and_json() -> None:
 def test_merge_parameter_values_overrides_defaults() -> None:
     params = _merge_parameter_values(
         "train",
-        ["window_days=30", "enable_tuning=true", 'baseline_hyperparameters_json={"num_leaves":63}'],
+        ["window_days=30", 'baseline_hyperparameters_json={"num_leaves":63}'],
     )
 
     assert params["window_days"] == 30
-    assert params["enable_tuning"] is True
     assert params["baseline_hyperparameters_json"] == {"num_leaves": 63}

@@ -72,8 +72,8 @@ RRF_K: int = 60
 DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
 
 # Phase E moved ``RankedCandidate`` to ``app.domain.candidate``. Re-exported
-# here for legacy callers (``rag_summarizer`` etc.); Phase D-1 sweeps these
-# into ``SearchService`` directly.
+# here for legacy callers; Phase D-1 sweeps these into ``SearchService``
+# directly.
 __all__ = [
     "DEFAULT_SEARCH_CACHE_TTL_SECONDS",
     "RRF_K",

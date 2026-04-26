@@ -94,31 +94,22 @@ def test_apisettings_kserve_fields_populated_from_env(monkeypatch: pytest.Monkey
     assert settings.kserve.predict_timeout_seconds == 45.0
 
 
-def test_apisettings_exposes_grouped_views_for_flags_messaging_rag_and_popularity() -> None:
+def test_apisettings_exposes_grouped_views_for_flags_messaging_and_popularity() -> None:
     settings = ApiSettings(
         enable_search=True,
         enable_rerank=True,
-        enable_rag=True,
         ranking_log_topic="ranking-log",
         feedback_topic="search-feedback",
         retrain_topic="retrain-trigger",
-        gemini_model_name="gemini-2.5-flash",
-        gemini_temperature=0.3,
-        gemini_max_output_tokens=1024,
         bqml_popularity_enabled=True,
         bqml_popularity_model_fqn="p.mlops.property_popularity",
     )
 
     assert settings.feature_flags.enable_search is True
     assert settings.feature_flags.enable_rerank is True
-    assert settings.feature_flags.enable_rag is True
     assert settings.messaging.ranking_log_topic == "ranking-log"
     assert settings.messaging.feedback_topic == "search-feedback"
     assert settings.messaging.retrain_topic == "retrain-trigger"
-    assert settings.rag.enabled is True
-    assert settings.rag.model_name == "gemini-2.5-flash"
-    assert settings.rag.temperature == 0.3
-    assert settings.rag.max_output_tokens == 1024
     assert settings.popularity.enabled is True
     assert settings.popularity.model_fqn == "p.mlops.property_popularity"
 

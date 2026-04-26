@@ -28,7 +28,6 @@ from .in_memory_semantic_search import InMemorySemanticSearch
 from .mock_prediction_publisher import MockPredictionPublisher
 from .mock_reranker_client import MockRerankerClient
 from .stub_encoder_client import StubEncoderClient
-from .stub_generator import StubGenerator
 from .stub_popularity_scorer import StubPopularityScorer
 from .stub_retrain_queries import StubRetrainQueries
 
@@ -42,7 +41,6 @@ __all__ = [
     "MockPredictionPublisher",
     "MockRerankerClient",
     "StubEncoderClient",
-    "StubGenerator",
     "StubPopularityScorer",
     "StubRetrainQueries",
 ]

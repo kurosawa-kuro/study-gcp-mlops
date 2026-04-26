@@ -1,4 +1,4 @@
-"""``SearchService`` — orchestrates /search and /rag retrieval.
+"""``SearchService`` — orchestrates /search retrieval.
 
 Pure-logic service depending only on Ports. The HTTP layer
 (`app/api/routers/search_router.py`) builds a :class:`SearchInput` from

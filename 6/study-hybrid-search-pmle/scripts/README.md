@@ -49,7 +49,6 @@ scripts/
   deploy/                            ← api_gke / kserve_models / monitor 等の deploy 系
   ops/                               ← livez/search/ranking/feedback/promote 等の運用コマンド
   bqml/                              ← BQML モデル学習 (Phase 6 T1)
-  enrichment/                        ← Gemini description 構造化 (Phase 6 T8)
   sql/                               ← BQ クエリ (`bq query < scripts/sql/X.sql`)
 ```
 

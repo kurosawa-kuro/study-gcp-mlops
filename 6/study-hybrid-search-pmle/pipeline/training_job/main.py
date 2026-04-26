@@ -55,19 +55,10 @@ def property_search_train_pipeline(
         feedback_events_table=feedback_events_table,
         window_days=window_days,
     )
-    hyperparameters = resolve_hyperparameters(
-        enabled=enable_tuning,
-        baseline_hyperparameters_json=baseline_hyperparameters_json,
-        project_id=project_id,
-        vertex_location=vertex_location,
-        study_display_name=model_display_name,
-        max_trial_count=0,
-        parallel_trial_count=0,
-    )
     train_task = train_reranker(
         trainer_image=trainer_image,
         training_frame=features.outputs["training_frame"],
-        hyperparameters_json=hyperparameters.output,
+        hyperparameters_json=baseline_hyperparameters_json,
         experiment_name=experiment_name,
         window_days=window_days,
     )
@@ -108,14 +99,12 @@ def build_pipeline_spec() -> dict[str, object]:
             "window_days": 90,
             "trainer_image": "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
             "experiment_name": "property-reranker-lgbm",
-            "enable_tuning": False,
             "gate_metric_name": "ndcg_at_10",
             "gate_threshold": 0.6,
             "model_display_name": "property-reranker",
         },
         "steps": [
             "load_features",
-            "resolve_hyperparameters",
             "train_reranker",
             "evaluate",
             "register_reranker",

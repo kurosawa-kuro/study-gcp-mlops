@@ -25,7 +25,7 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 - **パッケージ間の責務分離**: pipeline(データ取得+オーケストレーション) / ml/training(学習) / ml/evaluation(評価+metrics.json) / ml/data(前処理+特徴量) / ml/common(共通)
 - **Repository pattern** — `PostgresRepository` (SQLAlchemy + psycopg)、`DATA_SOURCE` env var で切り替え
 - **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`ml/evaluation/metrics/regression.py`)
-- **メトリクス管理** — RMSE / R² を `ml/registry/artifacts/{run_id}/metrics.json` に保存。W&B は教材対象外のため削除済み
+- **メトリクス管理** — RMSE / R² を `ml/registry/artifacts/{run_id}/metrics.json` に保存
 - **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`ml/registry/artifacts/latest` シンボリックリンクで最新を参照
 - **構造化ロギング** — `ml/common/logging/logger.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
 - **エラーハンドリング** — pipeline/training_job/main.py でデータ取得・学習の各ステップを try-except で保護
