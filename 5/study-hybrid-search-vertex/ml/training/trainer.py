@@ -23,6 +23,7 @@ import json
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,9 +46,12 @@ from ml.data.loaders.ranker_repository import (
 )
 from ml.evaluation.metrics import evaluate
 from ml.registry.artifact_store import ArtifactUploader, GcsArtifactUploader
+from ml.training.experiments import ExperimentTracker, NullExperimentTracker
 from ml.training.model_builder import split_by_request_id, synthetic_ranking_frames
 
 logger = get_logger(__name__)
+
+TrackerFactory = Callable[[str, Path], ExperimentTracker]
 
 TRAINING_WINDOW_DAYS: int = 90
 
@@ -187,6 +191,13 @@ def _copy_if_requested(source: Path, destination: str | None) -> None:
     shutil.copy(source, target)
 
 
+def _default_tracker_factory(settings: TrainSettings) -> TrackerFactory:
+    def _build(run_id: str, workdir: Path) -> ExperimentTracker:
+        return NullExperimentTracker()
+
+    return _build
+
+
 def run(
     *,
     dry_run: bool = False,
@@ -194,6 +205,7 @@ def run(
     window_days: int = TRAINING_WINDOW_DAYS,
     repository: RankerTrainingRepository | None = None,
     uploader: ArtifactUploader | None = None,
+    tracker_factory: TrackerFactory | None = None,
     hyperparams_override: dict[str, object] | None = None,
     experiment_name: str | None = None,
     model_output_path: str | None = None,
@@ -238,17 +250,20 @@ def run(
     if experiment_name:
         os.environ["VERTEX_EXPERIMENT_NAME"] = experiment_name
 
+    build_tracker = tracker_factory or _default_tracker_factory(settings)
+
     with tempfile.TemporaryDirectory() as td:
         workdir = Path(td)
         output_dir = workdir / "artifacts"
-        result = train(
-            train_df=train_df,
-            test_df=test_df,
-            params=params,
-            num_iterations=settings.num_iterations,
-            early_stopping_rounds=settings.early_stopping_rounds,
-        )
-        logger.info("Metrics: %s", result.metrics)
+        with build_tracker(run_id, workdir) as tracker:
+            result = train(
+                train_df=train_df,
+                test_df=test_df,
+                params=params,
+                num_iterations=settings.num_iterations,
+                early_stopping_rounds=settings.early_stopping_rounds,
+            )
+            tracker.log_metrics(result.metrics)
 
         artifacts = write_artifacts(result, output_dir=output_dir)
 

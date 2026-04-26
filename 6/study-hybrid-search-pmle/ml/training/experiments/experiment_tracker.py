@@ -1,22 +1,10 @@
-"""Port for experiment tracking (Vertex Experiments / Null adapter).
+"""Compatibility shim for the legacy import path.
 
-Context-manager semantics so callers can ``with tracker: ...``; the enter
-returns the tracker itself for chaining ``log_metrics``. Concrete adapter:
-:class:`ml.training.experiments.wandb_tracker.NullExperimentTracker`.
+Phase 6 keeps the old module path alive so existing callers can continue to
+import ``ExperimentTracker`` while the canonical definition lives under
+``ml.training.experiments.ports`` like Phase 7.
 """
 
-from __future__ import annotations
+from ml.training.experiments.ports.experiment_tracker import ExperimentTracker
 
-from types import TracebackType
-from typing import Protocol
-
-
-class ExperimentTracker(Protocol):
-    def __enter__(self) -> ExperimentTracker: ...
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-    ) -> None: ...
-    def log_metrics(self, metrics: dict[str, float]) -> None: ...
+__all__ = ["ExperimentTracker"]

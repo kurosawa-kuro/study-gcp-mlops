@@ -1,9 +1,9 @@
 """Base settings — env-var / credential.yaml driven via pydantic-settings.
 
 優先度 (高 → 低):
-    1. 環境変数 (本番は Doppler → Cloud Run 経由で注入)
+    1. 環境変数 (本番は Secret Manager / ConfigMap 相当から注入)
     2. env/secret/credential.yaml (ローカル開発用シークレット)
-    3. .env (レガシー — 暫定的に残置)
+    3. .env (ローカル override 用、commit 禁止)
     4. field default
 """
 
@@ -29,8 +29,6 @@ class BaseAppSettings(BaseSettings):
     bq_dataset_mlops: str = "mlops"
     bq_dataset_feature_mart: str = "feature_mart"
     bq_table_training_runs: str = "training_runs"
-    bq_table_predictions_log: str = "predictions_log"
-    bq_table_feature_mart: str = "california_housing_features"
     gcs_models_bucket: str = "mlops-dev-a-models"
 
     @classmethod

@@ -11,6 +11,7 @@ from .candidate_retriever import (
 from .lexical_search import MeilisearchLexical, NoopLexicalSearch
 from .publisher import PubSubPublisher
 from .retrain import BigQueryRetrainQueries, create_retrain_queries
+from .semantic_search import BigQuerySemanticSearch
 from .vertex_prediction import VertexEndpointEncoder, VertexEndpointReranker
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "InMemoryTTLCacheStore",
     "MeilisearchLexical",
     "MemorystoreRedisCacheStore",
+    "BigQuerySemanticSearch",
     "NoopCacheStore",
     "NoopFeedbackRecorder",
     "NoopLexicalSearch",

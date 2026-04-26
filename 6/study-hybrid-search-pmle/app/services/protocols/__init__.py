@@ -4,12 +4,12 @@ from .cache_store import CacheStore
 from .candidate_retriever import (
     Candidate,
     CandidateRetriever,
-    FeedbackRecorder,
-    RankingLogPublisher,
 )
 from .encoder_client import EncoderClient
+from .feedback_recorder import FeedbackRecorder
 from .lexical_search import LexicalSearchPort
 from .publisher import NoopPublisher, PredictionPublisher
+from .ranking_log_publisher import RankingLogPublisher
 from .reranker_client import RerankerClient, RerankerExplainer
 from .retrain_queries import RetrainQueries
 from .semantic_search import SemanticSearchPort

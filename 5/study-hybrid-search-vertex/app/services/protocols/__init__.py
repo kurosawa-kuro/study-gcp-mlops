@@ -12,6 +12,7 @@ from .lexical_search import LexicalSearchPort
 from .publisher import NoopPublisher, PredictionPublisher
 from .reranker_client import RerankerClient
 from .retrain_queries import RetrainQueries
+from .semantic_search import SemanticSearchPort
 
 __all__ = [
     "CacheStore",
@@ -25,4 +26,5 @@ __all__ = [
     "RankingLogPublisher",
     "RerankerClient",
     "RetrainQueries",
+    "SemanticSearchPort",
 ]
