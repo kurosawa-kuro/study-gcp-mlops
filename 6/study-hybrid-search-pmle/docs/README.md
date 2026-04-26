@@ -1,6 +1,6 @@
 # docs/ — ドキュメント運用ルール
 
-> 注記: 実装判断は現行ツリー (`app/`, `ml/{common,data,training,evaluation,registry,serving,streaming}`, `pipeline/{data_job,training_job,evaluation_job,batch_serving_job,workflow}`, `scripts/{setup,deploy,ops,ci,bqml,enrichment,sql}`, `infra/{terraform,manifests,run}`) を優先する。
+> 注記: 実装判断は現行ツリー (`app/`, `ml/{common,data,training,evaluation,registry,serving,streaming}`, `pipeline/{data_job,training_job,evaluation_job,batch_serving_job,workflow}`, `scripts/{setup,deploy,ops,ci,bqml,sql}`, `infra/{terraform,manifests,run}`) を優先する。
 
 本リポジトリが抱えるドキュメント群の役割・権威順位・更新規約。新規ドキュメント追加時や既存ドキュメントの改稿時は必ずここを参照する。
 
