@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MLOps 教育用のカリフォルニア住宅価格予測 ML パイプライン（**Phase 1: ML 基礎**）。LightGBM + Docker Compose でローカル完結する構成。
 
-Phase 1 は **ML コア（データ取得 → 前処理 → 特徴量エンジニアリング → 学習 → 評価 → 保存）** に集中する。推論 API / Port-Adapter / DI 等のデザインパターン導入は **Phase 2 (`2/study-ml-app-pipeline/`)** で扱う。
+Phase 1 は **ML コア（データ取得 → 前処理 → 特徴量エンジニアリング → 学習 → 評価 → 保存）** に集中する。API や設計パターンは扱わない。
 
 ## Architecture
 

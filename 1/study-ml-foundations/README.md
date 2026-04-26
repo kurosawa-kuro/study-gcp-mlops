@@ -2,9 +2,9 @@
 
 ML Pipeline — カリフォルニア住宅価格予測（**Phase 1: ML 基礎**）
 
-LightGBM によるカリフォルニア住宅価格予測の **学習パイプライン**。Docker Compose でデータ投入 → 学習 → 評価まで完結する、MLOps 教育用途の ML 基礎 Phase。
+LightGBM による California Housing 回帰の **学習パイプライン**。Docker Compose でデータ投入 → 学習 → 評価まで完結する、ML 基礎 Phase。
 
-> 推論 API / FastAPI / Port-Adapter 等のデザインパターン導入は **Phase 2 (`2/study-ml-app-pipeline/`)** で扱う。本 Phase は ML コア（trainer / evaluation / preprocess / feature_engineering）に集中する。
+本 Phase は **データ投入 / 前処理 / 特徴量生成 / 学習 / 評価 / 成果物保存** に集中する。
 
 ## クイックスタート
 
@@ -84,7 +84,7 @@ ml/registry/artifacts/
 └── latest -> 20260416_222540_05f983
 ```
 
-推論 API は Phase 2 で提供。Phase 2 は独立学習を前提とし、モデル成果物はフェーズ間で共有しない方針。
+推論 API や設計パターンは Phase 2 で扱う。Phase 間でコード共有 import は行わない。
 
 ## テスト
 
@@ -95,5 +95,6 @@ python scripts/local/ops/test.py -k test_train     # 単体テスト指定
 
 ## ドキュメント
 
+- [移行ロードマップ](docs/02_移行ロードマップ.md) — Phase 1 の決定的仕様
 - [設計書](docs/01_仕様と設計.md) — 全体設計・構成・設定
 - [運用手順書](docs/04_運用.md) — セットアップ・実行手順・環境変数一覧
