@@ -121,13 +121,13 @@ def test_protected_gke_cluster_is_in_destroy_all_targets() -> None:
 
 
 def test_protected_targets_baseline() -> None:
-    """Sanity: Phase 7 Run 4 baseline = 10 BQ tables + 1 GKE cluster = 11.
+    """Sanity: Phase 7 baseline = 9 BQ tables + 1 GKE cluster = 10.
     Bump this when adding any new protected resource so future readers see
     the canonical baseline.
     """
     targets = _destroy_all_targets()
-    assert len(targets) == 11, (
-        f"Expected 11 protected resources (10 BQ tables + 1 GKE cluster, "
-        f"Phase 7 Run 4 baseline), got {len(targets)}: {sorted(targets)}. "
+    assert len(targets) == 10, (
+        f"Expected 10 protected resources (9 BQ tables + 1 GKE cluster, "
+        f"Phase 7 baseline), got {len(targets)}: {sorted(targets)}. "
         "If the count changed intentionally, bump this baseline."
     )

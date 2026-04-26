@@ -59,7 +59,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         ops-skew-latest ops-search-volume ops-runs-recent \
 	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
         ops-check-retrain ops-bq-scan-top ops-label-seed \
-        ops-slo-status bqml-train-popularity enrich-properties \
+        ops-slo-status bqml-train-popularity \
         ops-kserve-monitoring
 
 help: ## Show this help
@@ -297,9 +297,6 @@ ops-slo-status: ## Phase 6 T5: print current compliance + burn-rate (1h/3d) for 
 bqml-train-popularity: ## Phase 6 T1: train BQML property-popularity model (BOOSTED_TREE_REGRESSOR)
 	uv run python -m scripts.bqml.train_popularity
 
-enrich-properties: ## Phase 6 T8: run Gemini description enrichment (LIMIT=50 BATCH=10)
-	uv run python -m scripts.enrichment.run_enrichment --limit=$${LIMIT:-50} --batch-size=$${BATCH:-10}
-
 # ----- Vertex AI feature verification scripts (each ops target probes one Vertex
 # AI surface in isolation. ops-vertex-all chains them; individual ones are useful
 # when triaging which surface broke.)
@@ -309,9 +306,6 @@ ops-vertex-models-list: ## Vertex Model Registry: list versions/aliases for enco
 
 ops-vertex-pipeline-status: ## Vertex Pipelines: list latest runs + state (LIMIT=10)
 	uv run python -m scripts.ops.vertex.pipeline_status
-
-ops-vertex-rag: ## Vertex Gemini RAG via /rag (QUERY=...)
-	uv run python -m scripts.ops.vertex.rag
 
 ops-vertex-explain: ## Vertex Explainable AI via /search?explain=true (assert non-empty attributions)
 	uv run python -m scripts.ops.vertex.explain
@@ -325,5 +319,5 @@ ops-kserve-monitoring: ## Phase 7 self-managed drift alerts from model_monitorin
 ops-vertex-feature-group: ## Vertex Feature Group: fetch online feature values for PROPERTY_ID=p001
 	uv run python -m scripts.ops.vertex.feature_group
 
-ops-vertex-all: ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-explain ops-vertex-rag ops-vertex-monitoring ops-vertex-feature-group ## Run every Vertex AI smoke check in sequence
+ops-vertex-all: ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-explain ops-vertex-monitoring ops-vertex-feature-group ## Run every Vertex AI smoke check in sequence
 	@echo "==> all Vertex AI smoke checks completed"

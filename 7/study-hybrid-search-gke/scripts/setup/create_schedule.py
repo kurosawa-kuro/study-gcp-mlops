@@ -35,7 +35,7 @@ def build_schedule_specs(target: str = "all") -> list[dict[str, Any]]:
             ),
             "pipeline_root": pipeline_root,
             "cron": env("TRAIN_PIPELINE_SCHEDULE_CRON", "0 19 * * 0"),
-            "parameter_values": {"enable_tuning": False},
+            "parameter_values": {},
             "service_account": service_account,
         },
     ]

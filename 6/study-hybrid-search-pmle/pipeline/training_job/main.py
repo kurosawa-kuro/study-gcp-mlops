@@ -16,7 +16,6 @@ from pipeline.training_job.components import (
     evaluate_reranker,
     load_features,
     register_reranker,
-    resolve_hyperparameters,
     train_reranker,
 )
 
@@ -38,7 +37,6 @@ def property_search_train_pipeline(
     trainer_image: str = "asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-trainer:latest",
     experiment_name: str = "property-reranker-lgbm",
     baseline_hyperparameters_json: str = '{"num_leaves":31,"learning_rate":0.05,"feature_fraction":0.9,"bagging_fraction":0.8,"min_data_in_leaf":50,"lambdarank_truncation_level":20}',
-    enable_tuning: bool = False,
     gate_metric_name: str = "ndcg_at_10",
     gate_threshold: float = 0.6,
     model_display_name: str = "property-reranker",
