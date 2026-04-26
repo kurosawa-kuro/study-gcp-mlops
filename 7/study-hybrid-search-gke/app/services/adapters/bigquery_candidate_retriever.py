@@ -1,8 +1,8 @@
 """``CandidateRetriever`` adapter — BigQuery hybrid retrieval.
 
-Lexical (Meilisearch / Agent Builder) + semantic (BigQuery VECTOR_SEARCH /
-Vertex Vector Search) → RRF fusion → property feature enrichment via
-BigQuery joins on ``properties_cleaned`` + ``property_features_daily``.
+Lexical (Meilisearch) + semantic (BigQuery VECTOR_SEARCH) → RRF fusion →
+property feature enrichment via BigQuery joins on ``properties_cleaned`` +
+``property_features_daily``.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class BigQueryCandidateRetriever:
 
     Args:
         project_id: GCP project.
-        lexical: lexical search adapter (Meilisearch / Agent Builder).
+        lexical: lexical search adapter (Meilisearch).
         embeddings_table: fully-qualified ``project.dataset.table`` for
             ``feature_mart.property_embeddings`` (768d vectors). Used to
             construct the default Phase 5 semantic backend when ``semantic``
@@ -32,10 +32,10 @@ class BigQueryCandidateRetriever:
         properties_table: ``feature_mart.properties_cleaned`` for rent /
             walk_min / age_years / area_m2 / pet_ok / layout filter columns.
         client: optional pre-built BQ client (tests / centralized lifecycle).
-        semantic: Phase 6 T3 — alternative ``SemanticSearchPort``
-            implementation. Defaults
-            to ``BigQuerySemanticSearch`` over ``embeddings_table`` so
-            existing Phase 5 constructor call-sites keep working unchanged.
+        semantic: optional alternative ``SemanticSearchPort``
+            implementation. Defaults to ``BigQuerySemanticSearch`` over
+            ``embeddings_table`` so existing constructor call-sites keep
+            working unchanged.
     """
 
     def __init__(

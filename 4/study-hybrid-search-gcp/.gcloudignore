@@ -12,7 +12,6 @@
 **/.mypy_cache
 **/.DS_Store
 **/tests
-**/wandb
 **/data
 **/models
 docs

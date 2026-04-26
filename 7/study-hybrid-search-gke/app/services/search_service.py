@@ -53,11 +53,9 @@ class SearchService:
         cache: CacheStore | None = None,
         cache_ttl_seconds: int = 120,
     ) -> None:
-        # ``retriever_alt`` was a Phase 6 T7 副経路 hook for the Agent Builder
-        # lexical backend; Phase 7 dropped Agent Builder entirely (cannibalized
-        # the Meilisearch primary path) so the parameter is kept only for
-        # backward compatibility with callers that still pass it positionally
-        # — it is never read.
+        # ``retriever_alt`` is retained only for backward compatibility with
+        # older call sites that still pass it positionally. Phase 7 retrieval
+        # is single-path by design and this parameter is never read.
         del retriever_alt
         self._retriever_default = retriever_default
         self._encoder = encoder

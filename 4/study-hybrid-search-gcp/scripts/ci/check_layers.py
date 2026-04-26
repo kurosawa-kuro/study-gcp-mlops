@@ -1,10 +1,10 @@
 """AST-based layer boundary checker.
 
 Walks every Port / pure-logic module listed in `RULES` and reports any
-forbidden import (concrete adapter, GCP SDK, W&B, LightGBM where
-inapplicable). Each file is inspected at *every* `Import` / `ImportFrom`
-node — top-level AND inside functions — so lazy imports cannot smuggle a
-banned dependency back in.
+forbidden import (concrete adapter, GCP SDK, banned tracker libraries,
+LightGBM where inapplicable). Each file is inspected at *every* `Import`
+/ `ImportFrom` node — top-level AND inside functions — so lazy imports
+cannot smuggle a banned dependency back in.
 
 Two consumers share the canonical ruleset declared here:
 
@@ -29,7 +29,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Every Port / pure-logic file is disallowed from importing these at all.
-UNIVERSAL_BANS: frozenset[str] = frozenset({"google.cloud"})
+UNIVERSAL_BANS: frozenset[str] = frozenset({"google.cloud", "wandb"})
 
 # Reused per-file ban-set: the common workspace's concrete adapters / GCS
 # storage layer must not leak into Ports or pure-logic modules of any

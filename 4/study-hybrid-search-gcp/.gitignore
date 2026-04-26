@@ -44,8 +44,6 @@ service-account*.json
 
 # ----- Local model caches / experiment tracking -----
 models/
-wandb/
-ml/wandb/
 mlruns/
 /tmp/model/
 

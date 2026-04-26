@@ -1,8 +1,8 @@
 """No-op experiment tracker.
 
-W&B was removed in favour of structured Cloud Logging + BigQuery
-(mlops.training_runs) for experiment metadata. This stub satisfies the
-``ExperimentTracker`` Protocol so callers require no further changes.
+Experiment metadata is captured via structured Cloud Logging + BigQuery
+(``mlops.training_runs``). This stub satisfies the ``ExperimentTracker``
+Protocol so callers require no further changes.
 """
 
 from __future__ import annotations

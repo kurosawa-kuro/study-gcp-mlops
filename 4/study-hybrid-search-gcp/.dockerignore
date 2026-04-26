@@ -14,5 +14,4 @@ pipeline/data_job/dataform/
 **/tests/
 **/data/
 **/models/
-**/wandb/
 **/*.md

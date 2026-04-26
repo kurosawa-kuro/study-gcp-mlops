@@ -22,7 +22,7 @@ Repository settings → Variables で設定:
 
 ## Secrets
 
-**不要**。Workload Identity Federation を使うので SA Key は作らない。Doppler トークンは Cloud Run の環境変数経由 (Secret Manager 参照) で注入するので CI には載せない。
+**不要**。Workload Identity Federation を使うので SA Key は作らない。アプリ側のシークレット (Meilisearch master key 等) は Cloud Run の環境変数経由 (Secret Manager 参照) で注入するので CI には載せない。
 
 ## 設計上の判断
 
