@@ -1,61 +1,57 @@
 {% extends "base.html" %}
 
 {% block title %}運用チェック · ハイブリッド検索 UI{% endblock %}
+{% block page_title %}運用チェック{% endblock %}
+{% block page_copy %}`destroy-all` 後の削除漏れ、検索件数、直近学習 run を同じ運用コンソールで確認します。{% endblock %}
 
 {% block content %}
-  <section class="page-header">
-    <div>
-      <p class="eyebrow">Ops Check</p>
-      <h1>運用チェック</h1>
-      <p class="page-copy"><code>destroy-all</code> 後の高課金リソース削除漏れを確認します。</p>
-    </div>
-  </section>
-
-  <article class="panel">
-    <div class="action-row">
+  <section class="admin-content admin-stack">
+  <article class="panel admin-card">
+    <div class="admin-card__body action-row">
       <button id="ops-btn" type="button" onclick="loadOpsCheck()">再読込</button>
       <p id="ops-meta" class="search-state">GCP 上の残存リソースを確認します。</p>
     </div>
   </article>
 
-  <section class="status-grid">
-    <article class="status-card">
+  <section class="admin-grid admin-grid--3 status-grid">
+    <article class="status-card admin-card admin-card--compact admin-card--dense">
       <span class="status-label">OK</span>
       <strong id="ops-ok">-</strong>
     </article>
-    <article class="status-card">
+    <article class="status-card admin-card admin-card--compact admin-card--dense">
       <span class="status-label">WARN</span>
       <strong id="ops-warn">-</strong>
     </article>
-    <article class="status-card status-card-danger">
+    <article class="status-card status-card-danger admin-card admin-card--compact admin-card--dense">
       <span class="status-label">FAIL / ERROR</span>
       <strong id="ops-bad">-</strong>
     </article>
   </section>
 
-  <section class="status-grid">
-    <article class="status-card">
+  <section class="admin-grid admin-grid--3 status-grid">
+    <article class="status-card admin-card admin-card--compact admin-card--dense">
       <span class="status-label">SEARCH 24H</span>
       <strong id="ops-search-volume">-</strong>
       <small id="ops-search-window" class="status-note">-</small>
     </article>
-    <article class="status-card status-card-wide">
+    <article class="status-card status-card-wide admin-card admin-card--compact admin-card--dense">
       <span class="status-label">RECENT TRAIN RUNS</span>
       <strong id="ops-runs-count">-</strong>
       <small class="status-note">直近 5 件</small>
     </article>
   </section>
 
-  <article class="panel">
-    <div class="section-heading">
+  <article class="panel admin-card">
+    <div class="admin-card__body">
+    <div class="admin-section-heading">
       <div>
         <p class="eyebrow">Training Runs</p>
         <h2>直近の学習実行</h2>
       </div>
       <p class="section-copy"><code>training_runs</code> の latest preview です。</p>
     </div>
-    <div class="table-scroll">
-      <table>
+    <div class="admin-table-wrap table-scroll">
+      <table class="admin-table">
         <thead>
           <tr>
             <th>run_id</th>
@@ -71,9 +67,11 @@
         </tbody>
       </table>
     </div>
+    </div>
   </article>
 
-  <section id="ops-findings" class="search-shell"></section>
+  <section id="ops-findings" class="admin-grid admin-grid--2"></section>
+  </section>
 
 <script>
   function escapeHtml(value) {
@@ -91,8 +89,9 @@
       : "";
     const note = finding.note ? `<p class="section-copy">${escapeHtml(finding.note)}</p>` : "";
     return `
-      <article class="panel ops-panel ops-panel-${String(finding.severity || "ok").toLowerCase()}">
-        <div class="section-heading">
+      <article class="panel admin-card ops-panel ops-panel-${String(finding.severity || "ok").toLowerCase()}">
+        <div class="admin-card__body">
+        <div class="admin-section-heading">
           <div>
             <p class="eyebrow">${escapeHtml(finding.severity)}</p>
             <h2>${escapeHtml(finding.label)}</h2>
@@ -100,6 +99,7 @@
         </div>
         ${note}
         ${items || `<p class="search-state">対象なし</p>`}
+        </div>
       </article>
     `;
   }

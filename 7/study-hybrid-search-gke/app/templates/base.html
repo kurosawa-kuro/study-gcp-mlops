@@ -50,6 +50,30 @@
   </aside>
 
   <main class="admin-main">
+    <header class="admin-header app-header">
+      <div>
+        <div class="admin-eyebrow">Hybrid Search Console</div>
+        <h1 class="app-header__title">{% block page_title %}ハイブリッド検索{% endblock %}</h1>
+        <p class="app-header__copy">{% block page_copy %}検索と運用確認を同じコンソールで扱います。{% endblock %}</p>
+      </div>
+      <div class="admin-header__actions">
+        <div class="admin-segmented">
+          <a href="/ui/" {% if active == 'search-user' %}aria-current="page"{% endif %}>一般</a>
+          <a href="/ui/dev" {% if active == 'search-dev' %}aria-current="page"{% endif %}>開発</a>
+          {% if page_mode == 'dev' %}
+            <a href="/ui/dev/ops" {% if active == 'ops' %}aria-current="page"{% endif %}>Ops</a>
+          {% endif %}
+        </div>
+        <button class="secondary admin-user-chip" type="button" aria-label="現在のテーマ">
+          <span class="admin-avatar" aria-hidden="true">H</span>
+          <span class="admin-user__meta">
+            <strong>Phase 7</strong>
+            <small>GKE + KServe</small>
+          </span>
+          <span class="admin-user-chip__caret" aria-hidden="true">▾</span>
+        </button>
+      </div>
+    </header>
     {% block content %}{% endblock %}
   </main>
 </div>

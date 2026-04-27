@@ -1,23 +1,18 @@
 {% extends "base.html" %}
 
 {% block title %}開発者検索 · ハイブリッド検索 UI{% endblock %}
+{% block page_title %}開発者検索{% endblock %}
+{% block page_copy %}lexical、semantic、rerank の各系統が効いているかを確認するための検証画面です。{% endblock %}
 
 {% block content %}
-  <section class="page-header">
-    <div>
-      <p class="eyebrow">Developer Search</p>
-      <h1>開発者検索</h1>
-      <p class="page-copy">hybrid 検索の構成要素確認用画面です。</p>
-    </div>
-  </section>
-
-  <section id="search-app" class="search-shell" data-page-mode="dev">
+  <section id="search-app" class="admin-content search-shell" data-page-mode="dev">
     {% include "_search_form.html" %}
     {% include "_search_results.html" %}
     {% include "_feedback_panel.html" %}
 
-    <article class="panel">
-      <div class="section-heading">
+    <article class="panel admin-card">
+      <div class="admin-card__body">
+      <div class="admin-section-heading">
         <div>
           <p class="eyebrow">Model Info</p>
           <h2>現在のモデル / 設定状態</h2>
@@ -28,9 +23,12 @@
         <button id="data-btn" type="button">再読込</button>
         <p class="search-state">search 実行前の配線確認にも使えます。</p>
       </div>
-      <table id="data-card" hidden>
+      <div class="table-scroll">
+      <table id="data-card" class="admin-table" hidden>
         <tbody id="data-rows"></tbody>
       </table>
+      </div>
+      </div>
     </article>
   </section>
 

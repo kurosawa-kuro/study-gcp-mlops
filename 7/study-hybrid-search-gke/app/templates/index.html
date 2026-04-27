@@ -1,17 +1,11 @@
 {% extends "base.html" %}
 
 {% block title %}一般向け検索 · ハイブリッド検索 UI{% endblock %}
+{% block page_title %}一般向け検索{% endblock %}
+{% block page_copy %}自然文と基本フィルタだけで、候補物件をカード形式で比較する検索画面です。{% endblock %}
 
 {% block content %}
-  <section class="page-header">
-    <div>
-      <p class="eyebrow">Search</p>
-      <h1>一般向け検索</h1>
-      <p class="page-copy">物件検索用の最小画面です。</p>
-    </div>
-  </section>
-
-  <section id="search-app" class="search-shell" data-page-mode="user">
+  <section id="search-app" class="admin-content search-shell" data-page-mode="user">
     {% include "_search_form.html" %}
     {% include "_search_results.html" %}
   </section>

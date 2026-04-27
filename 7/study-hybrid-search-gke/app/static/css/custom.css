@@ -44,6 +44,17 @@ body.admin-body {
 
 .admin-main {
   width: min(1910px, 100%);
+  margin-inline: auto;
+}
+
+.admin-header,
+.admin-content {
+  width: min(1680px, 100%);
+  margin-inline: auto;
+}
+
+.admin-main > * {
+  margin-inline: auto;
 }
 
 .page-header {

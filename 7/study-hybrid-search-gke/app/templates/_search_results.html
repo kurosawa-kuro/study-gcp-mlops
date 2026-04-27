@@ -1,5 +1,6 @@
-<article id="result-card" class="panel results-panel" hidden>
-  <div class="section-heading">
+<article id="result-card" class="panel admin-card results-panel" hidden>
+  <div class="admin-card__body">
+  <div class="admin-section-heading">
     <div>
       <p class="eyebrow">Results</p>
       <h2>検索結果</h2>
@@ -8,18 +9,18 @@
   </div>
 
   {% if page_mode == "dev" %}
-    <section class="component-status-wrap">
-      <div class="status-card">
+    <section class="component-status-wrap admin-grid admin-grid--3">
+      <div class="status-card admin-card admin-card--compact admin-card--dense">
         <p class="status-label">Lexical</p>
         <strong id="component-lexical-state">未判定</strong>
         <p id="component-lexical-note" class="status-note">検索実行後に判定します。</p>
       </div>
-      <div class="status-card">
+      <div class="status-card admin-card admin-card--compact admin-card--dense">
         <p class="status-label">Semantic</p>
         <strong id="component-semantic-state">未判定</strong>
         <p id="component-semantic-note" class="status-note">検索実行後に判定します。</p>
       </div>
-      <div class="status-card">
+      <div class="status-card admin-card admin-card--compact admin-card--dense">
         <p class="status-label">Rerank</p>
         <strong id="component-rerank-state">未判定</strong>
         <p id="component-rerank-note" class="status-note">検索実行後に判定します。</p>
@@ -32,8 +33,8 @@
   {% if page_mode == "dev" %}
     <details>
       <summary>デバッグ指標</summary>
-      <div class="table-scroll">
-        <table>
+      <div class="admin-table-wrap table-scroll">
+        <table class="admin-table">
           <thead>
             <tr>
               <th>#</th>
@@ -55,4 +56,5 @@
       <pre id="result-json"></pre>
     </details>
   {% endif %}
+  </div>
 </article>
