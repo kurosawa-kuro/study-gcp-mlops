@@ -33,6 +33,46 @@
     </article>
   </section>
 
+  <section class="status-grid">
+    <article class="status-card">
+      <span class="status-label">SEARCH 24H</span>
+      <strong id="ops-search-volume">-</strong>
+      <small id="ops-search-window" class="status-note">-</small>
+    </article>
+    <article class="status-card status-card-wide">
+      <span class="status-label">RECENT TRAIN RUNS</span>
+      <strong id="ops-runs-count">-</strong>
+      <small class="status-note">直近 5 件</small>
+    </article>
+  </section>
+
+  <article class="panel">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Training Runs</p>
+        <h2>直近の学習実行</h2>
+      </div>
+      <p class="section-copy"><code>training_runs</code> の latest preview です。</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>run_id</th>
+            <th>finished_at</th>
+            <th>ndcg@10</th>
+            <th>map</th>
+            <th>recall@20</th>
+            <th>model_path</th>
+          </tr>
+        </thead>
+        <tbody id="ops-runs-rows">
+          <tr><td colspan="6">loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
   <section id="ops-findings" class="search-shell"></section>
 
 <script>
@@ -64,6 +104,19 @@
     `;
   }
 
+  function renderRunRow(run) {
+    return `
+      <tr>
+        <td><code>${escapeHtml(run.run_id || "")}</code></td>
+        <td>${escapeHtml(run.finished_at || "")}</td>
+        <td>${run.ndcg_at_10 == null ? "" : Number(run.ndcg_at_10).toFixed(4)}</td>
+        <td>${run.map_score == null ? "" : Number(run.map_score).toFixed(4)}</td>
+        <td>${run.recall_at_20 == null ? "" : Number(run.recall_at_20).toFixed(4)}</td>
+        <td><code>${escapeHtml(run.model_path || "")}</code></td>
+      </tr>
+    `;
+  }
+
   async function loadOpsCheck() {
     const btn = document.getElementById("ops-btn");
     const meta = document.getElementById("ops-meta");
@@ -71,18 +124,41 @@
     btn.setAttribute("aria-busy", "true");
     meta.textContent = "確認中です...";
     try {
-      const res = await fetch("/ops/destroy-check");
-      const body = await res.json();
-      if (!res.ok) {
-        meta.textContent = `error: HTTP ${res.status}`;
-        root.innerHTML = `<article class="panel"><pre>${escapeHtml(JSON.stringify(body, null, 2))}</pre></article>`;
+      const [destroyRes, volumeRes, runsRes] = await Promise.all([
+        fetch("/ops/destroy-check"),
+        fetch("/ops/search-volume"),
+        fetch("/ops/runs-recent"),
+      ]);
+      const [destroyBody, volumeBody, runsBody] = await Promise.all([
+        destroyRes.json(),
+        volumeRes.json(),
+        runsRes.json(),
+      ]);
+      if (!destroyRes.ok) {
+        meta.textContent = `error: HTTP ${destroyRes.status}`;
+        root.innerHTML = `<article class="panel"><pre>${escapeHtml(JSON.stringify(destroyBody, null, 2))}</pre></article>`;
         return;
       }
-      document.getElementById("ops-ok").textContent = body.summary.ok;
-      document.getElementById("ops-warn").textContent = body.summary.warn;
-      document.getElementById("ops-bad").textContent = body.summary.fail + body.summary.error;
-      meta.textContent = `${body.project_id} / ${body.region} / passed=${body.summary.passed}`;
-      root.innerHTML = (body.findings || []).map(renderFinding).join("");
+      document.getElementById("ops-ok").textContent = destroyBody.summary.ok;
+      document.getElementById("ops-warn").textContent = destroyBody.summary.warn;
+      document.getElementById("ops-bad").textContent = destroyBody.summary.fail + destroyBody.summary.error;
+      meta.textContent = `${destroyBody.project_id} / ${destroyBody.region} / passed=${destroyBody.summary.passed}`;
+      root.innerHTML = (destroyBody.findings || []).map(renderFinding).join("");
+
+      if (volumeRes.ok) {
+        document.getElementById("ops-search-volume").textContent = volumeBody.requests_24h;
+        document.getElementById("ops-search-window").textContent =
+          `${volumeBody.first_ts || "-"} -> ${volumeBody.last_ts || "-"}`;
+      } else {
+        document.getElementById("ops-search-volume").textContent = "error";
+        document.getElementById("ops-search-window").textContent = `HTTP ${volumeRes.status}`;
+      }
+
+      const runs = (runsRes.ok ? runsBody.runs : []) || [];
+      document.getElementById("ops-runs-count").textContent = runs.length;
+      document.getElementById("ops-runs-rows").innerHTML = runs.length
+        ? runs.map(renderRunRow).join("")
+        : `<tr><td colspan="6">${runsRes.ok ? "rows not found" : `HTTP ${runsRes.status}`}</td></tr>`;
     } catch (err) {
       meta.textContent = `error: ${err}`;
     } finally {

@@ -2,17 +2,50 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+from pathlib import Path
+
 from fastapi import APIRouter, Query
 
 from app.schemas.ops import (
     DestroyCheckFindingResponse,
     DestroyCheckResponse,
     DestroyCheckSummaryResponse,
+    RecentTrainingRunsResponse,
+    SearchVolumeResponse,
+    TrainingRunSummaryResponse,
 )
 from scripts._common import env
 from scripts.ops.destroy_check import collect_findings
 
 router = APIRouter(prefix="/ops")
+ROOT = Path(__file__).resolve().parents[3]
+SEARCH_VOLUME_SQL = ROOT / "scripts" / "sql" / "search_volume.sql"
+RUNS_RECENT_SQL = ROOT / "scripts" / "sql" / "runs_recent.sql"
+
+
+def _run_bq_query(*, project_id: str, sql_path: Path) -> list[dict[str, object | None]]:
+    proc = subprocess.run(
+        [
+            "bq",
+            f"--project_id={project_id}",
+            "query",
+            "--use_legacy_sql=false",
+            "--format=prettyjson",
+        ],
+        input=sql_path.read_text(encoding="utf-8"),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(detail or f"bq query failed: {sql_path.name}")
+    payload = json.loads((proc.stdout or "[]").strip() or "[]")
+    if not isinstance(payload, list):
+        raise RuntimeError(f"unexpected bq payload: {sql_path.name}")
+    return payload
 
 
 @router.get("/destroy-check", response_model=DestroyCheckResponse)
@@ -50,4 +83,37 @@ def destroy_check(
             )
             for finding in findings
         ],
+    )
+
+
+@router.get("/search-volume", response_model=SearchVolumeResponse)
+def search_volume(
+    project_id: str = Query(default=env("PROJECT_ID", "mlops-dev-a")),
+) -> SearchVolumeResponse:
+    rows = _run_bq_query(project_id=project_id, sql_path=SEARCH_VOLUME_SQL)
+    row = rows[0] if rows else {}
+    return SearchVolumeResponse(
+        requests_24h=int(row.get("n") or 0),
+        first_ts=str(row.get("first_ts")) if row.get("first_ts") is not None else None,
+        last_ts=str(row.get("last_ts")) if row.get("last_ts") is not None else None,
+    )
+
+
+@router.get("/runs-recent", response_model=RecentTrainingRunsResponse)
+def runs_recent(
+    project_id: str = Query(default=env("PROJECT_ID", "mlops-dev-a")),
+) -> RecentTrainingRunsResponse:
+    rows = _run_bq_query(project_id=project_id, sql_path=RUNS_RECENT_SQL)
+    return RecentTrainingRunsResponse(
+        runs=[
+            TrainingRunSummaryResponse(
+                run_id=str(row.get("run_id") or ""),
+                finished_at=str(row.get("finished_at")) if row.get("finished_at") else None,
+                ndcg_at_10=float(row["ndcg_at_10"]) if row.get("ndcg_at_10") is not None else None,
+                map_score=float(row["map"]) if row.get("map") is not None else None,
+                recall_at_20=float(row["recall_at_20"]) if row.get("recall_at_20") is not None else None,
+                model_path=str(row.get("model_path")) if row.get("model_path") else None,
+            )
+            for row in rows
+        ]
     )
