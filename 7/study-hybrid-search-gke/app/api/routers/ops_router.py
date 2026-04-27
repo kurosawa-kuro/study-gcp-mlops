@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.ops import (
     DestroyCheckFindingResponse,
@@ -90,7 +90,10 @@ def destroy_check(
 def search_volume(
     project_id: str = Query(default=env("PROJECT_ID", "mlops-dev-a")),
 ) -> SearchVolumeResponse:
-    rows = _run_bq_query(project_id=project_id, sql_path=SEARCH_VOLUME_SQL)
+    try:
+        rows = _run_bq_query(project_id=project_id, sql_path=SEARCH_VOLUME_SQL)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     row = rows[0] if rows else {}
     return SearchVolumeResponse(
         requests_24h=int(row.get("n") or 0),
@@ -103,7 +106,10 @@ def search_volume(
 def runs_recent(
     project_id: str = Query(default=env("PROJECT_ID", "mlops-dev-a")),
 ) -> RecentTrainingRunsResponse:
-    rows = _run_bq_query(project_id=project_id, sql_path=RUNS_RECENT_SQL)
+    try:
+        rows = _run_bq_query(project_id=project_id, sql_path=RUNS_RECENT_SQL)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return RecentTrainingRunsResponse(
         runs=[
             TrainingRunSummaryResponse(

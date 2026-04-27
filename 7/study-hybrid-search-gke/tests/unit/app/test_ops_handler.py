@@ -77,3 +77,35 @@ def test_runs_recent_returns_rows(monkeypatch) -> None:  # type: ignore[no-untyp
     body = res.json()
     assert len(body["runs"]) == 1
     assert body["runs"][0]["run_id"] == "run-1"
+
+
+def test_search_volume_returns_503_with_json_detail_on_bq_error(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(
+        ops_router_module,
+        "_run_bq_query",
+        lambda project_id, sql_path: (_ for _ in ()).throw(RuntimeError("dataset missing")),
+    )
+    app = FastAPI()
+    app.include_router(ops_router)
+    client = TestClient(app)
+
+    res = client.get("/ops/search-volume")
+
+    assert res.status_code == 503
+    assert res.json()["detail"] == "dataset missing"
+
+
+def test_runs_recent_returns_503_with_json_detail_on_bq_error(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(
+        ops_router_module,
+        "_run_bq_query",
+        lambda project_id, sql_path: (_ for _ in ()).throw(RuntimeError("dataset missing")),
+    )
+    app = FastAPI()
+    app.include_router(ops_router)
+    client = TestClient(app)
+
+    res = client.get("/ops/runs-recent")
+
+    assert res.status_code == 503
+    assert res.json()["detail"] == "dataset missing"

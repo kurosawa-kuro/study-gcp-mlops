@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}一般向け検索 · ハイブリッド検索 UI{% endblock %}
+
+{% block content %}
+  <section class="page-header">
+    <div>
+      <p class="eyebrow">Search</p>
+      <h1>一般向け検索</h1>
+      <p class="page-copy">物件検索用の最小画面です。</p>
+    </div>
+  </section>
+
+  <section id="search-app" class="search-shell" data-page-mode="user">
+    {% include "_search_form.html" %}
+    {% include "_search_results.html" %}
+  </section>
+
+  <script src="/static/js/search_ui.js"></script>
+  <script>
+    window.HybridSearchUI.init({
+      rootId: "search-app",
+      mode: "user",
+    });
+  </script>
+{% endblock %}

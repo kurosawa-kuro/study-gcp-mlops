@@ -1,49 +1,125 @@
 :root {
-  --bg-main: var(--admin-bg-main);
-  --bg-sub: var(--admin-bg-sub);
-  --bg-hover: var(--admin-bg-hover);
-  --border: var(--admin-border);
-  --text-main: var(--admin-text-main);
-  --text-sub: var(--admin-text-sub);
-  --text-disabled: var(--admin-text-muted);
-  --lime: var(--admin-lime-main);
-  --lime-hover: var(--admin-lime-accent);
-  --pink: var(--admin-pink-main);
+  --bg-main: #0d0f10;
+  --bg-sub: #15181a;
+  --bg-hover: #1c2023;
+  --border: #2a2f33;
+  --text-main: #ffffff;
+  --text-sub: #aab2b8;
+  --text-disabled: #6c757d;
+  --lime: #bfff00;
+  --lime-hover: #d4ff33;
+  --pink: #ff2d8f;
   --pink-hover: #ff4da6;
-  --shadow: var(--admin-shadow);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
 }
 
 textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-body.admin-body {
-  font-family: var(--pico-font-family);
+body {
+  background:
+    radial-gradient(circle at top right, rgba(191, 255, 0, 0.08), transparent 24rem),
+    radial-gradient(circle at top left, rgba(255, 45, 143, 0.06), transparent 22rem),
+    linear-gradient(180deg, #0d0f10 0%, #111416 100%);
+  color: var(--text-main);
+  font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+  margin: 0;
 }
 
-.admin-brand strong {
+.app-shell {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100vh;
+  padding: 1.25rem 1rem;
+  border-right: 1px solid var(--border);
+  background: #121517;
+}
+
+.sidebar-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1rem 1rem 1.1rem;
+  border-radius: 1.25rem;
+  background: rgba(21, 24, 26, 0.92);
+  border: 1px solid var(--border);
+}
+
+.sidebar-brand strong {
   color: var(--text-main);
   font-size: 1rem;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 
-.admin-nav-item--docs {
+.sidebar-brand small {
+  color: var(--text-sub);
+}
+
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sidebar-label {
+  margin: 0 0 0.25rem;
+  padding: 0 0.8rem;
+  color: var(--text-disabled);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  min-height: 2.9rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.95rem;
+  color: var(--text-sub);
+  text-decoration: none;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.sidebar-link:hover {
+  background: var(--bg-hover);
+  border-color: rgba(191, 255, 0, 0.12);
+  color: var(--text-main);
+}
+
+.sidebar-link[aria-current="page"] {
+  border-color: rgba(191, 255, 0, 0.26);
+  background: rgba(191, 255, 0, 0.1);
+  color: var(--lime);
+}
+
+.sidebar-link-docs {
   color: #ffd3e7;
 }
 
-.admin-nav-item--docs:hover,
-.admin-nav-item--docs:focus {
+.sidebar-link-docs:hover {
   border-color: rgba(255, 45, 143, 0.35);
   background: rgba(255, 45, 143, 0.1);
-  color: var(--text-main);
 }
 
-.admin-sidebar-card {
-  margin-top: auto;
-}
-
-.admin-main {
-  width: min(1910px, 100%);
+.app-main {
+  width: min(1910px, calc(100vw - 19rem));
+  padding: 1.25rem 1.25rem 3rem;
 }
 
 .page-header {
@@ -51,8 +127,8 @@ body.admin-body {
   align-items: end;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.1rem;
-  padding: 0.15rem 0.1rem 0;
+  margin-bottom: 1rem;
+  padding: 0.25rem 0.1rem;
 }
 
 .eyebrow {
@@ -91,10 +167,10 @@ body.admin-body {
 }
 
 .panel {
-  border: 1px solid var(--admin-border);
-  border-radius: 1rem;
-  background: linear-gradient(180deg, rgba(28, 32, 35, 0.96), rgba(21, 24, 26, 0.96));
-  box-shadow: var(--admin-shadow);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: rgba(21, 24, 26, 0.94);
+  box-shadow: var(--shadow);
 }
 
 .panel,
@@ -291,9 +367,9 @@ tbody code {
 .status-card,
 .feature-card {
   padding: 1.2rem 1.25rem;
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  background: linear-gradient(180deg, rgba(28, 32, 35, 0.96), rgba(21, 24, 26, 0.96));
+  background: rgba(28, 32, 35, 0.92);
 }
 
 .status-label {
@@ -435,8 +511,20 @@ pre {
 }
 
 @media (max-width: 900px) {
-  .admin-main {
-    width: 100%;
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-main {
+    width: auto;
+    padding: 1rem 0.9rem 2rem;
   }
 
   .component-status-wrap {
