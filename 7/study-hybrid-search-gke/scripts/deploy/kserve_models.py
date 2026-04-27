@@ -177,31 +177,24 @@ def _patch_reranker_storage_uri(storage_uri: str) -> None:
 
 
 def _patch_encoder_storage_uri(storage_uri: str) -> None:
-    """Encoder uses a custom Python predictor (Vertex CPR 規約を継承) —
-    env var 名は ``AIP_STORAGE_URI`` (KServe の ``STORAGE_URI`` ではない)。
-    Phase 5 Run 6 で encoder server が読む env 名と manifest の env 名が
-    食い違うと container が startup で exit する事故が発生したため、ここでも
-    同じ名前で揃える。trailing slash は GcsPrefix.parse が strip するが、
-    list_blobs が directory として扱うため `/` を補ってから patch する。
+    """No-op since Phase 7 Run 2 — encoder runtime切替により patch 不要。
+
+    旧実装は ``spec.predictor.containers[0].env[AIP_STORAGE_URI]`` に GCS
+    prefix を patch していた (Vertex CPR 規約の自前 encoder server 用)。
+    Phase 7 Run 2 で encoder を KServe HuggingFace stock runtime
+    (``kserve/huggingfaceserver:v0.14.0`` + ``--model_id=intfloat/multilingual-e5-base``
+    + ``--task=text_embedding``) に切り替えた結果、container は ``args``
+    で model_id を直接受け取るため env 経由の storage URI 注入が不要に
+    なった。``infra/manifests/kserve/encoder.yaml`` の env block も削除済み。
+
+    `make deploy-kserve-models` を `deploy-all` から呼ぶ運用が再開した時に
+    こっそり患部を patch しないよう、明示的に no-op として残す。引数は
+    呼び出し側 (``main``) との互換のため受け取るだけ。
     """
-    normalized = storage_uri.rstrip("/") + "/"
-    if normalized != storage_uri:
-        _info(f"encoder storageUri normalized to trailing slash: {storage_uri!r} → {normalized!r}")
-    patch: dict[str, Any] = {
-        "spec": {
-            "predictor": {
-                "containers": [
-                    {
-                        "name": "kserve-container",
-                        "env": [
-                            {"name": "AIP_STORAGE_URI", "value": normalized},
-                        ],
-                    }
-                ]
-            }
-        }
-    }
-    _kubectl_patch("property-encoder", patch)
+    _info(
+        f"encoder storage URI patch SKIPPED (HF stock runtime; arg ignored: {storage_uri!r}). "
+        "See infra/manifests/kserve/encoder.yaml の Phase 7 Run 2 切替コメント。"
+    )
 
 
 def _dump_diagnostics(name: str) -> None:
@@ -281,13 +274,18 @@ def main() -> int:
 
     _step(f"kserve_models sync start project={project_id} region={region} namespace={NAMESPACE}")
 
-    encoder = _resolve_latest("property-encoder", project_id=project_id, region=region)
+    # Encoder は Phase 7 Run 2 で HF stock runtime に切替済み。Vertex Model
+    # Registry に property-encoder Model を登録しない運用に変えたため、
+    # `_resolve_latest("property-encoder", ...)` は fresh project で
+    # ``RuntimeError: No model with display_name=property-encoder`` で落ちる。
+    # storage URI patch も不要 (`_patch_encoder_storage_uri` は no-op) なので
+    # 解決ステップごと skip する。`_wait_ready("property-encoder")` だけは
+    # InferenceService の Ready を待つために残す。
     reranker = _resolve_latest("property-reranker", project_id=project_id, region=region)
-    _info(f"encoder version={encoder.version_id} uri={encoder.artifact_uri}")
     _info(f"reranker version={reranker.version_id} uri={reranker.artifact_uri}")
 
-    _step("patch encoder storage URI (via env AIP_STORAGE_URI)")
-    _patch_encoder_storage_uri(encoder.artifact_uri)
+    _step("encoder storage URI patch SKIPPED (HF stock runtime, see _patch_encoder_storage_uri)")
+    _patch_encoder_storage_uri("(unused — HF runtime)")
     _step("patch reranker storage URI (via spec.predictor.model.storageUri)")
     _patch_reranker_storage_uri(reranker.artifact_uri)
 

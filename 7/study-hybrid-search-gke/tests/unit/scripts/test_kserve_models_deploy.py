@@ -219,42 +219,26 @@ def test_patch_reranker_storage_uri_emits_expected_kubectl_shape() -> None:
     }
 
 
-def test_patch_encoder_storage_uri_normalizes_trailing_slash() -> None:
-    """Phase 5 Run 6 note: encoder ``AIP_STORAGE_URI`` must end in ``/`` so
-    ``list_blobs`` treats it as a directory. Ensure the normalization is
-    still applied."""
-    from scripts.deploy import kserve_models
+def test_patch_encoder_storage_uri_is_noop_under_hf_runtime() -> None:
+    """Phase 7 Run 2 で encoder を KServe HuggingFace stock runtime に切替えた
+    結果、storage URI patch が **不要** になった (HF runtime は ``args`` の
+    ``--model_id`` で weights を解決するため env 経由の storageUri を読まない)。
+    ``_patch_encoder_storage_uri`` は無音の no-op ではなく、``kubectl patch``
+    を呼ばないことを明示的にこのテストで pin する。
 
-    captured, run_mock = _capture_kubectl_patch_call()
-    with patch.object(kserve_models, "run", run_mock):
-        kserve_models._patch_encoder_storage_uri("gs://bucket/encoders/v3")
-
-    argv = captured[0]
-    patch_flag = next(a for a in argv if a.startswith("--patch="))
-    body = json.loads(patch_flag[len("--patch=") :])
-    env = body["spec"]["predictor"]["containers"][0]["env"]
-    aip_uri = next(e for e in env if e["name"] == "AIP_STORAGE_URI")["value"]
-    assert aip_uri == "gs://bucket/encoders/v3/", (
-        f"encoder AIP_STORAGE_URI must end with '/' (got {aip_uri!r}). "
-        "Phase 5 Run 6 regression: missing trailing slash breaks list_blobs dir scan."
-    )
-
-
-def test_patch_encoder_storage_uri_keeps_existing_trailing_slash() -> None:
-    """Idempotent: if the caller already provided a trailing slash, don't
-    double it (``gs://.../v3//``)."""
+    旧テスト (trailing slash 正規化 / kserve-container env 注入) は
+    Phase 7 Run 2 で encoder.yaml から env block ごと削除されたため意味を失った。
+    """
     from scripts.deploy import kserve_models
 
     captured, run_mock = _capture_kubectl_patch_call()
     with patch.object(kserve_models, "run", run_mock):
         kserve_models._patch_encoder_storage_uri("gs://bucket/encoders/v3/")
 
-    argv = captured[0]
-    patch_flag = next(a for a in argv if a.startswith("--patch="))
-    body = json.loads(patch_flag[len("--patch=") :])
-    env = body["spec"]["predictor"]["containers"][0]["env"]
-    aip_uri = next(e for e in env if e["name"] == "AIP_STORAGE_URI")["value"]
-    assert aip_uri == "gs://bucket/encoders/v3/"
+    assert captured == [], (
+        f"encoder storage URI patch must be a no-op under HF runtime; "
+        f"unexpected kubectl invocations: {captured}"
+    )
 
 
 def test_resolve_latest_warns_on_production_alias_fallback(
@@ -289,22 +273,3 @@ def test_resolve_latest_warns_on_production_alias_fallback(
     assert "ops-promote-reranker" in captured.err, (
         "The fallback message must point operators at the fix command."
     )
-
-
-def test_patch_encoder_payload_targets_kserve_container_env() -> None:
-    """The encoder patch goes at ``spec.predictor.containers[0].env`` (not
-    ``spec.predictor.model.storageUri``) because the encoder uses a custom
-    Python predictor (Vertex CPR contract)."""
-    from scripts.deploy import kserve_models
-
-    captured, run_mock = _capture_kubectl_patch_call()
-    with patch.object(kserve_models, "run", run_mock):
-        kserve_models._patch_encoder_storage_uri("gs://bucket/encoders/v3/")
-
-    argv = captured[0]
-    patch_flag = next(a for a in argv if a.startswith("--patch="))
-    body = json.loads(patch_flag[len("--patch=") :])
-    container = body["spec"]["predictor"]["containers"][0]
-    assert container["name"] == "kserve-container"
-    env_names = {e["name"] for e in container["env"]}
-    assert "AIP_STORAGE_URI" in env_names

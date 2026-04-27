@@ -9,7 +9,18 @@
 4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
 6. `terraform apply tfplan -auto-approve` — apply infra
-7. `deploy/api_gke` — Cloud Build + kubectl rollout search-api
+7. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
+   旧運用は手で `make apply-manifests` を叩く前提だったが、PDCA loop で
+   毎回手作業を要求すると `destroy-all → deploy-all` が成立しない。fresh
+   cluster 上で Gateway / Deployment / InferenceService / NetworkPolicy /
+   PodMonitoring を全部展開する)
+8. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
+   placeholder (`https://meili-search-XXXXX-an.a.run.app`) を `gcloud run
+   services describe meili-search` の実 URL で上書き。これがないと
+   search-api → Meilisearch が DNS 失敗で 404 → lexical=0 になる
+9. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
+   step 7 が image を `gcr.io/cloudrun/hello` placeholder に戻すので、
+   step 8 の ConfigMap 更新後に新しい image でロールアウトする順序が必須
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the moment infra is created (Cloud Run
@@ -33,6 +44,7 @@ from scripts.setup.tf_init import main as tf_init_main
 from scripts.setup.tf_plan import main as tf_plan_main
 
 INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
+MANIFESTS = Path(__file__).resolve().parents[2] / "infra" / "manifests"
 
 # Overall start time; per-step timing relates elapsed time to the wall-clock
 # position in the deploy-all sequence so operators can see WHICH step is slow
@@ -231,6 +243,117 @@ def _run_tf_apply() -> int:
     return 0
 
 
+def _ensure_kubectl_context() -> None:
+    """Idempotent kubectl context bootstrap for the GKE cluster.
+
+    `terraform apply` がクラスタを作成しても、ローカルの kubeconfig が自動で
+    その cluster を指すわけではない。apply-manifests / overlay-configmap は
+    `kubectl` を直叩きするため、先に ``gcloud container clusters get-credentials``
+    を必要に応じて流して ``current-context`` を target cluster に固定する。
+    `scripts.deploy.api_gke._ensure_kubectl_context` と同じロジックの再実装
+    (api_gke.py の private helper を import するより、deploy-all 専用の最小版
+    をここに置く方が依存方向がきれい)。
+    """
+    project_id = env("PROJECT_ID")
+    region = env("REGION", "asia-northeast1")
+    cluster_name = env("GKE_CLUSTER_NAME", "hybrid-search")
+    proc = run(["kubectl", "config", "current-context"], capture=True, check=False)
+    current = (proc.stdout or "").strip()
+    if cluster_name in current:
+        print(f"[info] kubectl context already bound to {cluster_name!r} ({current})")
+        return
+    print(f"==> get-credentials cluster={cluster_name} region={region} project={project_id}")
+    run(
+        [
+            "gcloud",
+            "container",
+            "clusters",
+            "get-credentials",
+            cluster_name,
+            f"--region={region}",
+            f"--project={project_id}",
+        ]
+    )
+
+
+def _run_apply_manifests() -> int:
+    """`kubectl apply -k infra/manifests/` against the freshly-provisioned cluster.
+
+    Phase 7 Run 2 まで `infra/manifests/README.md §デプロイ` は「Terraform apply
+    後に make apply-manifests を手で叩く」運用だった。PDCA dev loop
+    (`destroy-all → deploy-all → run-all`) ではこの手作業が成立しないため、
+    deploy-all に組み込んで一発で cluster ワークロードを展開する。
+    試行錯誤目的の手 apply は引き続き ``make apply-manifests`` で可能。
+    """
+    _ensure_kubectl_context()
+    print(f"==> kubectl apply -k {MANIFESTS}")
+    run(["kubectl", "apply", "-k", str(MANIFESTS)])
+    return 0
+
+
+def _run_overlay_configmap() -> int:
+    """Resolve the live Meilisearch Cloud Run URL and overwrite ``search-api-config``.
+
+    `infra/manifests/search-api/configmap.example.yaml` は
+    `meili_base_url: https://meili-search-XXXXX-an.a.run.app` placeholder の
+    まま `kubectl apply -k` で入る (環境別 overlay を意図した名前)。PDCA loop
+    では fresh deploy のたびに Cloud Run URL の suffix が変わり得るので、
+    `gcloud run services describe meili-search` の値で動的に上書きする。
+    本 step は **deploy-api より前**に走らせること: deploy-api の
+    `kubectl set image` がトリガする新 Pod が起動時に最新 ConfigMap を読む
+    ことで、placeholder URL を引いて 404 → lexical=0 になる事故を防ぐ。
+    """
+    project_id = env("PROJECT_ID")
+    if not project_id:
+        raise SystemExit("[error] PROJECT_ID is empty")
+    region = env("REGION", "asia-northeast1")
+    proc = run(
+        [
+            "gcloud",
+            "run",
+            "services",
+            "describe",
+            "meili-search",
+            f"--project={project_id}",
+            f"--region={region}",
+            "--format=value(status.url)",
+        ],
+        capture=True,
+        check=False,
+    )
+    meili_url = (proc.stdout or "").strip()
+    if proc.returncode != 0 or not meili_url:
+        raise SystemExit(
+            "[error] meili-search Cloud Run URL resolution failed. "
+            "Confirm tf-apply created the meili-search service in "
+            f"{project_id}/{region}."
+        )
+    models_bucket = env("MODELS_BUCKET", f"{project_id}-models")
+    print(f"[info] resolved meili_base_url={meili_url}")
+    print(f"[info] models_bucket={models_bucket}")
+    cm_yaml = (
+        "apiVersion: v1\n"
+        "kind: ConfigMap\n"
+        "metadata:\n"
+        "  name: search-api-config\n"
+        "  namespace: search\n"
+        "data:\n"
+        f"  project_id: {project_id}\n"
+        f"  models_bucket: {models_bucket}\n"
+        f"  meili_base_url: {meili_url}\n"
+    )
+    print("==> kubectl apply -f - (search-api-config ConfigMap overlay)")
+    proc = subprocess.run(
+        ["kubectl", "apply", "-f", "-"],
+        input=cm_yaml,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"[error] kubectl apply ConfigMap failed rc={proc.returncode}")
+    return 0
+
+
 def _run_deploy_api() -> int:
     return deploy_api_main()
 
@@ -260,6 +383,18 @@ def _steps() -> list[DeployStep]:
         DeployStep(6, "tf-apply", "terraform apply tfplan -auto-approve", _run_tf_apply),
         DeployStep(
             7,
+            "apply-manifests",
+            "kubectl apply -k infra/manifests/ (Gateway / Deployment / ISVC / policies)",
+            _run_apply_manifests,
+        ),
+        DeployStep(
+            8,
+            "overlay-configmap",
+            "overlay search-api-config (resolve real meili_base_url)",
+            _run_overlay_configmap,
+        ),
+        DeployStep(
+            9,
             "deploy-api",
             "deploy-api (Cloud Build + kubectl rollout search-api)",
             _run_deploy_api,
@@ -278,8 +413,8 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--to-step",
-        default="7",
-        help="Stop after this step number or name (e.g. 5, tf-plan, deploy-api).",
+        default="9",
+        help="Stop after this step number or name (e.g. 7, apply-manifests, deploy-api).",
     )
     return parser.parse_args()
 

@@ -51,6 +51,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         setup-pipeline-schedule \
         apply-manifests \
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
+        sync-meili \
         train-smoke train-smoke-persist api-dev clean \
         docker-auth deploy-api deploy-kserve-models kube-creds \
 		ops-deploy-monitor \
@@ -134,7 +135,7 @@ setup-pipeline-schedule: ## Print resolved Vertex Pipeline schedule setup payloa
 apply-manifests: ## Apply infra/manifests via kubectl apply -k
 	kubectl apply -k $(ROOT)/infra/manifests
 
-deploy-all: ## End-to-end provisioning + search-api rollout (tf-apply → kubectl apply -k → kserve_models → api_gke)
+deploy-all: ## End-to-end provisioning + search-api rollout (tf-apply → kubectl apply -k → overlay-configmap → deploy-api)
 	uv run python -m scripts.setup.deploy_all
 
 ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
@@ -152,6 +153,7 @@ run-all: ## End-to-end validation flow after deploy (layer check → seed → tr
 run-all-core: ## Core validation flow after deploy (no monitor wrapper)
 	$(MAKE) check-layers
 	$(MAKE) seed-test
+	$(MAKE) sync-meili
 	$(MAKE) ops-train-now
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
@@ -183,6 +185,26 @@ seed-test: ## Insert 5 test properties for PDCA smoke
 
 seed-test-clean: ## Drop the test seed data (benign if absent)
 	uv run python -m scripts.setup.seed_minimal_clean
+
+sync-meili: ## Sync feature_mart.properties_cleaned -> Meilisearch (run-all-core 用、PDCA dev 想定)
+	@# Phase 7 Run 2: meili-sync-once Cloud Run Job の image (`mlops/meili-sync:latest`) が
+	@# 未ビルドのため、ローカルから直接 sync_meili.py を叩く構成。User OAuth では
+	@# google.oauth2.id_token.fetch_id_token (SA only) が通らないため、
+	@# `gcloud auth print-identity-token` の値を MEILI_PRESIGNED_ID_TOKEN env で
+	@# 注入して escape hatch を使う。Cloud Run Job 化したら本ターゲットは
+	@# `gcloud run jobs execute meili-sync-once --wait` に置換できる。
+	@MEILI_URL=$$(gcloud run services describe meili-search --project=$(PROJECT_ID) --region=$(REGION) --format='value(status.url)' 2>/dev/null); \
+	if [ -z "$$MEILI_URL" ]; then echo "[error] meili-search Cloud Run service not found in $(PROJECT_ID)/$(REGION)" >&2; exit 1; fi; \
+	MEILI_KEY=$$(gcloud secrets versions access latest --secret=meili-master-key --project=$(PROJECT_ID) 2>/dev/null); \
+	if [ -z "$$MEILI_KEY" ]; then echo "[error] meili-master-key Secret Manager value is empty" >&2; exit 1; fi; \
+	export MEILI_PRESIGNED_ID_TOKEN=$$(gcloud auth print-identity-token 2>/dev/null); \
+	if [ -z "$$MEILI_PRESIGNED_ID_TOKEN" ]; then echo "[error] gcloud auth print-identity-token returned empty" >&2; exit 1; fi; \
+	echo "==> sync-meili url=$$MEILI_URL key_len=$${#MEILI_KEY} id_token_len=$${#MEILI_PRESIGNED_ID_TOKEN}"; \
+	uv run python -m scripts.ops.sync_meili \
+		--project-id=$(PROJECT_ID) \
+		--meili-base-url=$$MEILI_URL \
+		--require-identity-token \
+		--api-key="$$MEILI_KEY"
 
 # ----- App / Job smoke commands (local) -----
 
