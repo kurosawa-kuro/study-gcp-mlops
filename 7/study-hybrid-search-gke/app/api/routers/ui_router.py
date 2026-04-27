@@ -1,4 +1,4 @@
-"""HTML template handlers for the operator UI.
+"""HTML template handlers for the browser UI.
 
 Routed under ``/ui/`` (see ``app/main.py``) so the bare ``/metrics``
 path stays exclusive to Prometheus exposition. UI pages use AJAX
@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 
@@ -25,27 +26,54 @@ def build_ui_router(*, app_root: Path) -> APIRouter:
             request,
             "index.html",
             {
-                "active": "search",
+                "active": "search-user",
+                "page_mode": "user",
                 "default_query": "新宿区西新宿 1LDK",
                 "default_max_rent": 150000,
                 "default_top_k": 20,
             },
         )
 
-    @router.get("/model/metrics", name="ui-model-metrics")
+    @router.get("/dev", name="ui-search-dev")
+    def ui_search_dev(request: Request) -> object:
+        return templates.TemplateResponse(
+            request,
+            "search_dev.html",
+            {
+                "active": "search-dev",
+                "page_mode": "dev",
+                "default_query": "港区赤羽橋 1K",
+                "default_max_rent": 180000,
+                "default_top_k": 20,
+            },
+        )
+
+    @router.get("/dev/model/metrics", name="ui-model-metrics")
     def ui_model_metrics(request: Request) -> object:
         return templates.TemplateResponse(
             request,
             "model_metrics.html",
-            {"active": "model-metrics", "default_k": 10},
+            {"active": "model-metrics", "default_k": 10, "page_mode": "dev"},
         )
 
-    @router.get("/data", name="ui-data")
+    @router.get("/dev/data", name="ui-data")
     def ui_data(request: Request) -> object:
         return templates.TemplateResponse(
             request,
             "data.html",
-            {"active": "data"},
+            {"active": "data", "page_mode": "dev"},
         )
+
+    @router.get("/dev/api-docs", name="ui-api-docs")
+    def ui_api_docs() -> RedirectResponse:
+        return RedirectResponse(url="/docs", status_code=308)
+
+    @router.get("/model/metrics", include_in_schema=False)
+    def ui_model_metrics_legacy() -> RedirectResponse:
+        return RedirectResponse(url="/ui/dev/model/metrics", status_code=308)
+
+    @router.get("/data", include_in_schema=False)
+    def ui_data_legacy() -> RedirectResponse:
+        return RedirectResponse(url="/ui/dev/data", status_code=308)
 
     return router

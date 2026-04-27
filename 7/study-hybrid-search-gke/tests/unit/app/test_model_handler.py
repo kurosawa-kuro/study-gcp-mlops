@@ -1,4 +1,4 @@
-"""Unit tests for ``/model/metrics`` and ``/model/info``.
+"""Unit tests for ``/model/metrics`` and ``/model/info`` / ``/model/data``.
 
 The handler is the first response surface for hybrid-search accuracy
 evaluation (the role originally implied by ``/metrics``). We pin:
@@ -7,6 +7,7 @@ evaluation (the role originally implied by ``/metrics``). We pin:
 - 503 when ``model_metrics_service`` is missing
 - ``k`` query-param boundary handling (FastAPI returns 422 on invalid)
 - ``/model/info`` mirrors container settings / paths
+- ``/model/data`` returns developer-facing data previews
 
 Fakes wire a deterministic candidate set so NDCG / HitRate / MRR are
 predictable and the test pins them numerically.
@@ -116,6 +117,21 @@ def test_model_info_reports_container_state(
     assert body["rerank_enabled"] is True
     assert body["reranker_model_path"] == "stub-reranker"
     assert body["encoder_model_path"] == "stub-encoder"
+
+
+def test_model_data_returns_preview_tables(
+    fake_container_factory: Callable[..., Container],
+) -> None:
+    container = fake_container_factory()
+    client = _build_client(container)
+
+    res = client.get("/model/data")
+
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["tables"]) >= 1
+    assert body["tables"][0]["key"] == "property_features_daily"
+    assert body["tables"][0]["rows"][0]["property_id"] == "p001"
 
 
 def test_load_cases_rejects_empty_file(tmp_path: Path) -> None:

@@ -6,9 +6,11 @@ This test fixes the surface so a future refactor can't silently
 regress it:
 
 - ``GET /`` → 308 redirect to ``/ui/``
-- ``GET /ui/`` → HTML (search console)
-- ``GET /ui/model/metrics`` → HTML (accuracy dashboard)
-- ``GET /ui/data`` → HTML (model info viewer)
+- ``GET /ui/`` → HTML (end-user search UI)
+- ``GET /ui/dev`` → HTML (developer search UI)
+- ``GET /ui/dev/model/metrics`` → HTML (accuracy dashboard)
+- ``GET /ui/dev/data`` → HTML (model info viewer)
+- legacy ``/ui/model/metrics`` and ``/ui/data`` redirect to dev namespace
 - ``GET /metrics`` → text/plain Prometheus exposition (NOT HTML)
 - ``GET /livez`` / ``/healthz`` / ``/readyz`` reachable
 
@@ -62,21 +64,38 @@ def test_ui_home_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untyp
         r = client.get("/ui/")
         assert r.status_code == 200
         assert "text/html" in r.headers["content-type"]
-        assert "ハイブリッド検索 Console" in r.text
+        assert "一般向け検索" in r.text
+
+
+def test_ui_dev_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]
+    with TestClient(app_no_lifespan) as client:
+        r = client.get("/ui/dev")
+        assert r.status_code == 200
+        assert "開発者検索" in r.text
 
 
 def test_ui_model_metrics_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]
     with TestClient(app_no_lifespan) as client:
-        r = client.get("/ui/model/metrics")
+        r = client.get("/ui/dev/model/metrics")
         assert r.status_code == 200
-        assert "モデル精度評価" in r.text
+        assert "モデル精度" in r.text
 
 
 def test_ui_data_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]
     with TestClient(app_no_lifespan) as client:
-        r = client.get("/ui/data")
+        r = client.get("/ui/dev/data")
         assert r.status_code == 200
-        assert "モデル / データ サマリ" in r.text
+        assert "学習データ" in r.text
+
+
+def test_ui_legacy_dev_routes_redirect(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]
+    with TestClient(app_no_lifespan) as client:
+        metrics = client.get("/ui/model/metrics", follow_redirects=False)
+        data = client.get("/ui/data", follow_redirects=False)
+        assert metrics.status_code == 308
+        assert metrics.headers["location"] == "/ui/dev/model/metrics"
+        assert data.status_code == 308
+        assert data.headers["location"] == "/ui/dev/data"
 
 
 def test_metrics_serves_prometheus_exposition(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]

@@ -1,212 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}検索 · ハイブリッド検索 Console{% endblock %}
+{% block title %}一般向け検索 · ハイブリッド検索 UI{% endblock %}
 
 {% block content %}
-  <hgroup>
-    <h1>不動産ハイブリッド検索</h1>
-    <p>クエリとフィルタを指定すると、Meilisearch (BM25) + BigQuery VECTOR_SEARCH (multilingual-e5) + LightGBM LambdaRank の 3 段で再ランクした上位物件を返します。</p>
-  </hgroup>
+  <section class="page-header">
+    <div>
+      <p class="eyebrow">Search</p>
+      <h1>一般向け検索</h1>
+      <p class="page-copy">物件検索用の最小画面です。</p>
+    </div>
+  </section>
 
-  <article>
-    <h2>クエリ</h2>
-    <form id="search-form" onsubmit="event.preventDefault(); runSearch();">
-      <label>
-        自由文クエリ
-        <input id="q-query" type="text" value="{{ default_query }}" required>
-      </label>
-      <div class="grid">
-        <label>
-          家賃上限 (円)
-          <input id="q-max-rent" type="number" min="0" step="10000" value="{{ default_max_rent }}">
-        </label>
-        <label>
-          間取り
-          <input id="q-layout" type="text" placeholder="例: 1LDK">
-        </label>
-        <label>
-          上位件数 (top_k)
-          <input id="q-top-k" type="number" min="1" max="100" value="{{ default_top_k }}">
-        </label>
-      </div>
-      <fieldset>
-        <label><input id="q-pet-ok" type="checkbox"> ペット可のみ</label>
-        <label><input id="q-explain" type="checkbox"> 寄与度 (attributions) を取得</label>
-      </fieldset>
-      <button type="submit" id="search-btn">検索する</button>
-    </form>
-  </article>
+  <section id="search-app" class="search-shell" data-page-mode="user">
+    {% include "_search_form.html" %}
+    {% include "_search_results.html" %}
+  </section>
 
-  <article id="result-card" hidden>
-    <h2>検索結果 <small id="result-meta"></small></h2>
-    <div id="result-rows"></div>
-    <details>
-      <summary>デバッグ指標</summary>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th><th>property_id</th><th>final_rank</th><th>lex</th><th>sem</th><th>me5_score</th><th>score (rerank)</th>
-          </tr>
-        </thead>
-        <tbody id="debug-rows"></tbody>
-      </table>
-    </details>
-    <details>
-      <summary>API レスポンス JSON</summary>
-      <pre id="result-json"></pre>
-    </details>
-  </article>
-
-  <article>
-    <h2>クリックフィードバック (POST /feedback)</h2>
-    <p><small>検索後、表内の <code>property_id</code> を選んでクリック / お気に入り / 問合わせを送れます。Pub/Sub → BQ への配信を確認できます。</small></p>
-    <form id="feedback-form" onsubmit="event.preventDefault(); sendFeedback();">
-      <div class="grid">
-        <label>
-          property_id
-          <input id="fb-pid" type="text" required>
-        </label>
-        <label>
-          action
-          <select id="fb-action">
-            <option value="click" selected>click</option>
-            <option value="favorite">favorite</option>
-            <option value="inquiry">inquiry</option>
-          </select>
-        </label>
-      </div>
-      <button type="submit">送信</button>
-    </form>
-    <pre id="fb-result"></pre>
-  </article>
-
-<script>
-  let lastRequestId = null;
-
-  function yen(value) {
-    return typeof value === "number" ? `${value.toLocaleString("ja-JP")}円` : "賃料未設定";
-  }
-
-  function boolBadge(value) {
-    if (value === true) return "ペット可";
-    if (value === false) return "ペット不可";
-    return "条件未設定";
-  }
-
-  function num(value, digits = 0) {
-    if (typeof value !== "number" || Number.isNaN(value)) return "不明";
-    return digits > 0 ? value.toFixed(digits) : `${value}`;
-  }
-
-  function renderPropertyCard(result, index) {
-    const title = result.title || result.property_id;
-    const location = [result.city, result.ward].filter(Boolean).join(" ");
-    const specs = [
-      result.layout || "間取り不明",
-      typeof result.area_m2 === "number" ? `${result.area_m2.toFixed(1)}m2` : "面積不明",
-      typeof result.walk_min === "number" ? `駅徒歩${result.walk_min}分` : "徒歩不明",
-      typeof result.age_years === "number" ? `築${result.age_years}年` : "築年不明",
-    ];
-    return `
-      <article data-property-id="${result.property_id}" class="search-result-card">
-        <header>
-          <p><strong>${index + 1}位</strong> <code>${result.property_id}</code></p>
-          <h3>${title}</h3>
-          <p>${location || "所在地未設定"}</p>
-        </header>
-        <p><strong>${yen(result.rent)}</strong> ・ ${specs.join(" ・ ")}</p>
-        <p>${boolBadge(result.pet_ok)}</p>
-      </article>
-    `;
-  }
-
-  function getFilters() {
-    const filters = {};
-    const maxRent = parseInt(document.getElementById("q-max-rent").value, 10);
-    if (!Number.isNaN(maxRent)) filters.max_rent = maxRent;
-    const layout = document.getElementById("q-layout").value.trim();
-    if (layout) filters.layout = layout;
-    if (document.getElementById("q-pet-ok").checked) filters.pet_ok = true;
-    return filters;
-  }
-
-  async function runSearch() {
-    const btn = document.getElementById("search-btn");
-    btn.setAttribute("aria-busy", "true");
-    const payload = {
-      query: document.getElementById("q-query").value,
-      filters: getFilters(),
-      top_k: parseInt(document.getElementById("q-top-k").value, 10) || 20,
-    };
-    const explain = document.getElementById("q-explain").checked;
-    const url = explain ? "/search?explain=true" : "/search";
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json();
-      document.getElementById("result-card").hidden = false;
-      lastRequestId = body.request_id || null;
-      document.getElementById("result-meta").textContent = `request_id=${lastRequestId} · status=${res.status} · ${(body.results || []).length} 件`;
-      document.getElementById("result-json").textContent = JSON.stringify(body, null, 2);
-      const cards = document.getElementById("result-rows");
-      const debug = document.getElementById("debug-rows");
-      cards.innerHTML = "";
-      debug.innerHTML = "";
-      (body.results || []).forEach((r, i) => {
-        const card = document.createElement("div");
-        card.innerHTML = renderPropertyCard(r, i);
-        const cardNode = card.firstElementChild;
-        if (cardNode) {
-          cardNode.addEventListener("click", () => {
-            document.getElementById("fb-pid").value = r.property_id;
-          });
-          cards.appendChild(cardNode);
-        }
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${i + 1}</td>
-          <td><code>${r.property_id}</code></td>
-          <td>${r.final_rank ?? ""}</td>
-          <td>${r.lexical_rank ?? ""}</td>
-          <td>${r.semantic_rank ?? ""}</td>
-          <td>${(r.me5_score ?? 0).toFixed(4)}</td>
-          <td>${r.score == null ? "<em>n/a</em>" : r.score.toFixed(4)}</td>
-        `;
-        tr.addEventListener("click", () => {
-          document.getElementById("fb-pid").value = r.property_id;
-        });
-        debug.appendChild(tr);
-      });
-      const first = (body.results || [])[0];
-      if (first) document.getElementById("fb-pid").value = first.property_id;
-    } catch (err) {
-      document.getElementById("result-meta").textContent = `error: ${err}`;
-    } finally {
-      btn.removeAttribute("aria-busy");
-    }
-  }
-
-  async function sendFeedback() {
-    if (!lastRequestId) {
-      alert("まず検索を実行してください (request_id が必要)");
-      return;
-    }
-    const payload = {
-      request_id: lastRequestId,
-      property_id: document.getElementById("fb-pid").value,
-      action: document.getElementById("fb-action").value,
-    };
-    const res = await fetch("/feedback", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
+  <script src="/static/js/search_ui.js"></script>
+  <script>
+    window.HybridSearchUI.init({
+      rootId: "search-app",
+      mode: "user",
     });
-    const body = await res.json().catch(() => ({}));
-    document.getElementById("fb-result").textContent = JSON.stringify({status: res.status, body}, null, 2);
-  }
-</script>
+  </script>
 {% endblock %}

@@ -2,6 +2,7 @@
 
 `/model/metrics` returns hybrid-search accuracy (NDCG@k / HitRate@k / MRR@k);
 `/model/info` returns the active model artifact identifiers.
+`/model/data` returns developer-facing previews of training / serving tables.
 """
 
 from __future__ import annotations
@@ -49,3 +50,17 @@ class ModelInfoResponse(BaseModel):
     )
     rerank_enabled: bool
     search_enabled: bool
+
+
+class DataPreviewTable(BaseModel):
+    key: str
+    title: str
+    description: str
+    table_fqn: str
+    latest_marker: str | None = None
+    columns: list[str]
+    rows: list[dict[str, object | None]]
+
+
+class ModelDataResponse(BaseModel):
+    tables: list[DataPreviewTable]

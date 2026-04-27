@@ -1,44 +1,88 @@
 {% extends "base.html" %}
 
-{% block title %}データ · ハイブリッド検索 Console{% endblock %}
+{% block title %}学習データ · ハイブリッド検索 UI{% endblock %}
 
 {% block content %}
-  <hgroup>
-    <h1>モデル / データ サマリ</h1>
-    <p><code>GET /model/info</code> を呼び出し、現在 active な encoder / reranker と検索フラグの状態を表示します。</p>
-  </hgroup>
+  <section class="page-header">
+    <div>
+      <p class="eyebrow">Training Data</p>
+      <h1>学習データ</h1>
+      <p class="page-copy">BigQuery 上の学習用テーブル preview です。</p>
+    </div>
+  </section>
 
-  <article>
-    <button id="data-btn" type="button" onclick="loadInfo()">再読込</button>
+  <article class="panel">
+    <div class="action-row">
+      <button id="data-btn" type="button" onclick="loadData()">再読込</button>
+      <p id="data-meta" class="search-state">BigQuery から sample rows を取得します。</p>
+    </div>
   </article>
 
-  <article id="data-card" hidden>
-    <h2>モデル情報</h2>
-    <table>
-      <tbody id="data-rows"></tbody>
-    </table>
-  </article>
+  <section id="data-tables" class="search-shell"></section>
 
 <script>
-  async function loadInfo() {
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function renderRow(cells) {
+    return "<tr>" + cells.map((v) => `<td>${escapeHtml(v)}</td>`).join("") + "</tr>";
+  }
+
+  function renderTableCard(table) {
+    const latest = table.latest_marker ? `<p class="search-state">latest=${escapeHtml(table.latest_marker)}</p>` : "";
+    const head = table.columns.map((col) => `<th>${escapeHtml(col)}</th>`).join("");
+    const body = (table.rows || []).map((row) => renderRow(table.columns.map((col) => row[col] ?? ""))).join("");
+    return `
+      <article class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">${escapeHtml(table.key)}</p>
+            <h2>${escapeHtml(table.title)}</h2>
+          </div>
+          <p class="section-copy"><code>${escapeHtml(table.table_fqn)}</code></p>
+        </div>
+        <p class="section-copy">${escapeHtml(table.description)}</p>
+        ${latest}
+        <div class="table-scroll">
+          <table>
+            <thead><tr>${head}</tr></thead>
+            <tbody>${body || `<tr><td colspan="${table.columns.length}">rows not found</td></tr>`}</tbody>
+          </table>
+        </div>
+      </article>
+    `;
+  }
+
+  async function loadData() {
     const btn = document.getElementById("data-btn");
+    const meta = document.getElementById("data-meta");
+    const root = document.getElementById("data-tables");
     btn.setAttribute("aria-busy", "true");
+    meta.textContent = "読込中です...";
     try {
-      const res = await fetch("/model/info");
+      const res = await fetch("/model/data");
       const body = await res.json();
-      const tbody = document.getElementById("data-rows");
-      tbody.innerHTML = "";
-      Object.entries(body).forEach(([k, v]) => {
-        const tr = document.createElement("tr");
-        const valStr = typeof v === "boolean" ? (v ? "✓ true" : "✗ false") : (v ?? "<em>null</em>");
-        tr.innerHTML = `<th>${k}</th><td><code>${valStr}</code></td>`;
-        tbody.appendChild(tr);
-      });
-      document.getElementById("data-card").hidden = false;
+      if (!res.ok) {
+        meta.textContent = `error: HTTP ${res.status}`;
+        root.innerHTML = `<article class="panel"><pre>${escapeHtml(JSON.stringify(body, null, 2))}</pre></article>`;
+        return;
+      }
+      const tables = body.tables || [];
+      meta.textContent = `${tables.length} table previews loaded`;
+      root.innerHTML = tables.map(renderTableCard).join("");
+    } catch (err) {
+      meta.textContent = `error: ${err}`;
     } finally {
       btn.removeAttribute("aria-busy");
     }
   }
-  loadInfo();
+
+  loadData();
 </script>
 {% endblock %}

@@ -21,11 +21,13 @@ from typing import Any
 
 from app.container import InfraBuilder, MlBuilder, SearchBuilder
 from app.observability import Observability
+from app.services.data_catalog_service import DataCatalogService
 from app.services.feedback_service import FeedbackService
 from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.protocols import (
     CacheStore,
     CandidateRetriever,
+    DataCatalogReader,
     EncoderClient,
     FeedbackRecorder,
     LexicalSearchPort,
@@ -81,6 +83,7 @@ class Container:
     search_service: SearchService
     feedback_service: FeedbackService
     model_metrics_service: ModelMetricsService | None  # None if no SearchService wired
+    data_catalog_service: DataCatalogService
 
 
 class ContainerBuilder:
@@ -149,6 +152,7 @@ class ContainerBuilder:
             search_service=search_service,
             default_cases_file=default_cases_path(),
         )
+        data_catalog_service = DataCatalogService(reader=infra.data_catalog_reader)
 
         self._logger.info(
             "Startup complete; search_enabled=%s rerank_enabled=%s model_path=%s",
@@ -175,6 +179,7 @@ class ContainerBuilder:
             search_service=search_service,
             feedback_service=feedback_service,
             model_metrics_service=model_metrics_service,
+            data_catalog_service=data_catalog_service,
         )
 
     # ------------------------------------------------------------------ factories
@@ -187,6 +192,9 @@ class ContainerBuilder:
 
     def _build_feedback_recorder(self) -> FeedbackRecorder:
         return InfraBuilder(self).build_feedback_recorder()
+
+    def _build_data_catalog_reader(self) -> DataCatalogReader:
+        return InfraBuilder(self).build().data_catalog_reader
 
     def _build_candidate_retriever(
         self,

@@ -17,6 +17,8 @@ from app.composition_root import Container
 from app.schemas.model import (
     AccuracySummary,
     CaseMetric,
+    DataPreviewTable,
+    ModelDataResponse,
     ModelInfoResponse,
     ModelMetricsResponse,
 )
@@ -68,4 +70,23 @@ def model_info(container: Annotated[Container, Depends(get_container)]) -> Model
         reranker_model_path=container.model_path,
         rerank_enabled=container.reranker_client is not None,
         search_enabled=settings.enable_search,
+    )
+
+
+@router.get("/data", response_model=ModelDataResponse)
+def model_data(container: Annotated[Container, Depends(get_container)]) -> ModelDataResponse:
+    snapshot = container.data_catalog_service.read_snapshot()
+    return ModelDataResponse(
+        tables=[
+            DataPreviewTable(
+                key=table.key,
+                title=table.title,
+                description=table.description,
+                table_fqn=table.table_fqn,
+                latest_marker=table.latest_marker,
+                columns=table.columns,
+                rows=table.rows,
+            )
+            for table in snapshot.tables
+        ]
     )

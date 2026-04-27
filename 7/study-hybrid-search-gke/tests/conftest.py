@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient
 
 from app.composition_root import Container
 from app.observability import Observability
+from app.services.data_catalog_service import DataCatalogService
 from app.services.feedback_service import FeedbackService
 from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.search_service import SearchService
@@ -41,6 +42,28 @@ from tests._fakes import (
     StubEncoderClient,
     StubRetrainQueries,
 )
+
+
+class _StubDataCatalogReader:
+    def read_snapshot(self):  # type: ignore[no-untyped-def]
+        from app.services.protocols.data_catalog_reader import (
+            DataCatalogSnapshot,
+            DataCatalogTablePreview,
+        )
+
+        return DataCatalogSnapshot(
+            tables=[
+                DataCatalogTablePreview(
+                    key="property_features_daily",
+                    title="学習特徴量",
+                    description="stub preview",
+                    table_fqn="mlops-test.feature_mart.property_features_daily",
+                    latest_marker="2026-04-27",
+                    columns=["property_id", "rent"],
+                    rows=[{"property_id": "p001", "rent": 100000}],
+                )
+            ]
+        )
 
 
 @pytest.fixture
@@ -170,6 +193,10 @@ def fake_container_factory(
                 search_service=defaults["search_service"],
                 default_cases_file=default_cases_path(),
             ),
+        )
+        defaults.setdefault(
+            "data_catalog_service",
+            DataCatalogService(reader=_StubDataCatalogReader()),
         )
         return Container(**defaults)
 

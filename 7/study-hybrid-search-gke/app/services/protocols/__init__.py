@@ -2,6 +2,7 @@
 
 from .cache_store import CacheStore
 from .candidate_retriever import CandidateRetriever
+from .data_catalog_reader import DataCatalogReader
 from .encoder_client import EncoderClient
 from .feedback_recorder import FeedbackRecorder
 from .lexical_search import LexicalSearchPort
@@ -15,6 +16,7 @@ from .semantic_search import SemanticSearchPort
 __all__ = [
     "CacheStore",
     "CandidateRetriever",
+    "DataCatalogReader",
     "EncoderClient",
     "FeedbackRecorder",
     "LexicalSearchPort",

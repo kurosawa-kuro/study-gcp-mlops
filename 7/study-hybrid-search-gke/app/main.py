@@ -10,7 +10,7 @@ Route surfaces (kept disjoint to avoid cross-concern collision):
 - **App API** — ``/search`` ``/feedback`` ``/jobs/check-retrain``
 - **Probes** — ``/livez`` ``/healthz`` ``/readyz`` (k8s)
 - **Prom exposition** — ``/metrics`` (GMP / SLO scrape target)
-- **Operator UI** — ``/ui/`` ``/ui/metrics`` ``/ui/data``
+- **Browser UI** — ``/ui/`` ``/ui/dev`` ``/ui/dev/model/metrics`` ``/ui/dev/data``
   (``/`` redirects to ``/ui/`` so existing bookmarks still resolve)
 
 The Pod keeps only retrieval / orchestration concerns. Query embeddings

@@ -3,10 +3,13 @@
 {% block title %}モデル精度 · ハイブリッド検索 Console{% endblock %}
 
 {% block content %}
-  <hgroup>
-    <h1>モデル精度評価</h1>
-    <p><code>GET /model/metrics?k=N</code> を呼び出し、バンドル済の eval-cases に対する <strong>NDCG@k / HitRate@k / MRR@k</strong> を表示します。</p>
-  </hgroup>
+  <section class="page-header">
+    <div>
+      <p class="eyebrow">Metrics</p>
+      <h1>モデル精度</h1>
+      <p class="page-copy"><code>GET /model/metrics?k=N</code> の評価結果です。</p>
+    </div>
+  </section>
 
   <article>
     <form id="acc-form" onsubmit="event.preventDefault(); runEval();">

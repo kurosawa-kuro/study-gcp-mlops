@@ -10,13 +10,19 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.services.adapters import (
+    BigQueryDataCatalogReader,
     BigQueryRetrainQueries,
     PubSubFeedbackRecorder,
     PubSubPublisher,
     PubSubRankingLogPublisher,
 )
 from app.services.noop_adapters import NoopFeedbackRecorder, NoopRankingLogPublisher
-from app.services.protocols import FeedbackRecorder, PredictionPublisher, RankingLogPublisher
+from app.services.protocols import (
+    DataCatalogReader,
+    FeedbackRecorder,
+    PredictionPublisher,
+    RankingLogPublisher,
+)
 from app.services.protocols.retrain_queries import RetrainQueries
 from app.settings import ApiSettings
 
@@ -31,6 +37,7 @@ class InfraBuilderContext(Protocol):
 class InfraComponents:
     retrain_trigger_publisher: PredictionPublisher | None
     retrain_queries: RetrainQueries
+    data_catalog_reader: DataCatalogReader
     ranking_log_publisher: RankingLogPublisher
     feedback_recorder: FeedbackRecorder
     training_runs_table: str
@@ -49,10 +56,33 @@ class InfraBuilder:
         training_runs_table = (
             f"{settings.project_id}.{settings.bq_dataset_mlops}.{settings.bq_table_training_runs}"
         )
+        properties_table = (
+            f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
+            f"{settings.bq_table_properties_cleaned}"
+        )
+        features_table = (
+            f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
+            f"{settings.bq_table_property_features_daily}"
+        )
+        embeddings_table = (
+            f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
+            f"{settings.bq_table_property_embeddings}"
+        )
+        ranking_log_table = (
+            f"{settings.project_id}.{settings.bq_dataset_mlops}.ranking_log"
+        )
         return InfraComponents(
             retrain_trigger_publisher=self.build_retrain_publisher(),
             retrain_queries=BigQueryRetrainQueries(
                 client=self._context._bigquery(),
+                training_runs_table=training_runs_table,
+            ),
+            data_catalog_reader=BigQueryDataCatalogReader(
+                client=self._context._bigquery(),
+                properties_table=properties_table,
+                features_table=features_table,
+                embeddings_table=embeddings_table,
+                ranking_log_table=ranking_log_table,
                 training_runs_table=training_runs_table,
             ),
             ranking_log_publisher=self.build_ranking_log_publisher(),
