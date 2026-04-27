@@ -59,9 +59,9 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
 	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
-        ops-check-retrain ops-bq-scan-top ops-label-seed \
+	ops-check-retrain ops-bq-scan-top ops-label-seed \
         ops-slo-status bqml-train-popularity \
-        ops-kserve-monitoring
+        ops-kserve-monitoring ops-destroy-check
 
 help: ## Show this help
 	@echo "First-time setup:  see README.md §セットアップ (run 'make doctor' to verify tools)"
@@ -175,6 +175,9 @@ verify-all: ## Alias of run-all-core for cross-phase teaching vocabulary
 
 destroy-all: ## Tear down every Terraform-managed resource (no prompt — PDCA loop, pair with deploy-all)
 	uv run python -m scripts.setup.destroy_all
+
+ops-destroy-check: ## Assert no high-cost residual Phase 7 resources remain after destroy-all
+	uv run python -m scripts.ops.destroy_check --project-id=$(PROJECT_ID) --region=$(REGION) --vertex-location=$(VERTEX_LOCATION)
 
 destroy-phase7-learning: ## Coast-down placeholder: Dataflow Job / Feature Online Store / KServe explain pod
 	@echo "Not implemented yet. See docs/04_運用.md for current manual coast-down guidance."
