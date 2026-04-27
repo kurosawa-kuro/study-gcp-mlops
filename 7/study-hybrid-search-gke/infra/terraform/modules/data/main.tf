@@ -374,14 +374,37 @@ resource "google_artifact_registry_repository" "mlops" {
 }
 
 # =========================================================================
-# Secret Manager — Meilisearch master key (value populated out-of-band)
+# Secret Manager — Meilisearch master key
 # =========================================================================
+#
+# 値は Terraform で `random_password` を生成して `secret_version` に流し込む。
+# 旧運用は「値を out-of-band で `gcloud secrets versions add` する」だったが、
+# Phase 7 PDCA loop (`destroy-all → deploy-all → run-all`) では destroy で
+# secret resource ごと消えるため毎回手で再投入が必要になり、deploy-all が
+# 一発で完走しない (meili-search Cloud Run が `secret has no enabled
+# version` で起動失敗 → search-api → Meilisearch が DNS 失敗で 404)。
+# `random_password` で TF が値を所有することで、destroy 後の deploy で
+# 自動的に新しいキーが生成され、関連する Cloud Run / ExternalSecret が
+# 共通の `latest` を参照する。
+#
+# Production 化時の切替: `random_password.meili_master_key` を削除し、
+# `secret_data` を `gcloud secrets versions add` か Vault などの外部値で
+# 上書きする overlay を `environments/prod/` に置く。
+resource "random_password" "meili_master_key" {
+  length  = 64
+  special = false
+}
 
 resource "google_secret_manager_secret" "meili_master_key" {
   secret_id = "meili-master-key"
   replication {
     auto {}
   }
+}
+
+resource "google_secret_manager_secret_version" "meili_master_key" {
+  secret      = google_secret_manager_secret.meili_master_key.id
+  secret_data = random_password.meili_master_key.result
 }
 
 resource "google_secret_manager_secret" "search_api_iap_oauth_client_secret" {

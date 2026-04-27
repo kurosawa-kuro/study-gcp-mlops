@@ -71,29 +71,32 @@ def _require(name: str) -> str:
 
 
 def _ensure_kubectl_context(cluster_name: str, region: str, project_id: str) -> None:
+    # Phase 7 Run 5 — destroy-all → deploy-all で cluster を同じ name で
+    # 再作成すると、kubeconfig には旧 cluster の CA / endpoint が残る一方で
+    # context name は一致してしまうため、early-return すると ``kubectl apply``
+    # が ``x509: certificate signed by unknown authority`` で失敗する。
+    # 毎回 ``gcloud container clusters get-credentials`` を呼んで kubeconfig を
+    # 上書きする (値が同じなら no-op に近い fast path)。
     proc = run(["kubectl", "config", "current-context"], capture=True, check=False)
     current = (proc.stdout or "").strip()
     _info(f"kubectl current-context={current!r}")
-    if cluster_name not in current:
-        _info(
-            f"context does not reference cluster {cluster_name!r}. "
-            f"Calling `gcloud container clusters get-credentials {cluster_name} --region={region}`"
-        )
-        run(
-            [
-                "gcloud",
-                "container",
-                "clusters",
-                "get-credentials",
-                cluster_name,
-                f"--region={region}",
-                f"--project={project_id}",
-            ]
-        )
-        after = run(["kubectl", "config", "current-context"], capture=True, check=False)
-        _info(f"kubectl current-context now={after.stdout.strip()!r}")
-    else:
-        _info("kubectl context already bound to target cluster — reuse")
+    _info(
+        f"refreshing credentials via `gcloud container clusters get-credentials "
+        f"{cluster_name} --region={region}` (avoid stale CA after destroy/recreate)"
+    )
+    run(
+        [
+            "gcloud",
+            "container",
+            "clusters",
+            "get-credentials",
+            cluster_name,
+            f"--region={region}",
+            f"--project={project_id}",
+        ]
+    )
+    after = run(["kubectl", "config", "current-context"], capture=True, check=False)
+    _info(f"kubectl current-context now={after.stdout.strip()!r}")
 
 
 def _dump_rollout_diagnostics() -> None:

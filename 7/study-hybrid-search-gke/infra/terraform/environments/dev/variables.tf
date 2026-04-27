@@ -105,6 +105,20 @@ variable "gke_cluster_name" {
   default     = "hybrid-search"
 }
 
+variable "k8s_use_data_source" {
+  description = <<-EOT
+    Read GKE cluster endpoint via `data.google_container_cluster.hybrid_search`?
+    Set to `false` (via `TF_VAR_k8s_use_data_source=false`) when running
+    `terraform import` / state operations *while the cluster does not yet
+    exist* (e.g. recover-wif right after destroy-all). With `false`,
+    kubernetes/helm providers initialise against `https://kubernetes.invalid`
+    so import succeeds, but **no actual K8s/Helm resource may be applied**
+    in that mode. Default `true` for normal apply.
+  EOT
+  type        = bool
+  default     = true
+}
+
 variable "api_external_url" {
   description = "Public HTTPS URL of search-api GKE Gateway. Leave empty on initial apply; fill after Gateway has provisioned and re-apply to materialize Cloud Scheduler."
   type        = string

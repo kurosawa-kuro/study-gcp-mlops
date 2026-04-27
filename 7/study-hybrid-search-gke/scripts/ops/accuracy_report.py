@@ -21,11 +21,18 @@ class EvalCase:
 
 
 def _default_cases_path() -> Path:
-    repo_root = Path(__file__).resolve().parents[5]
-    shared = repo_root / "docs" / "accuracy_eval_cases.common.json"
-    if shared.exists():
-        return shared
-    return Path(__file__).resolve().parent / "data" / "accuracy_eval_cases.sample.json"
+    """Resolve the default eval cases JSON path.
+
+    Phase 7 runtime: ``<repo>/app/data/accuracy_eval_cases.json`` (committed in
+    repo). 旧 fallback path (``scripts/ops/data/accuracy_eval_cases.sample.json``
+    と ``parents[5]/docs/accuracy_eval_cases.common.json``) は Phase 4 までの
+    レガシー — Phase 7 リポジトリに存在しないため、デフォルト path 解決が
+    `[Errno 2] No such file or directory` で落ちて run-all-core の最終 step
+    (`ops-accuracy-report`) が常に fail していた (Phase 7 Run 5)。
+    EVAL_CASES_FILE で path 上書きは引き続き可能。
+    """
+    project_root = Path(__file__).resolve().parents[2]
+    return project_root / "app" / "data" / "accuracy_eval_cases.json"
 
 
 def _load_cases(path: Path) -> list[EvalCase]:
