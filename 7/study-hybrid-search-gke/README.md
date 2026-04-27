@@ -40,7 +40,7 @@ raw.properties (upstream ETL)
 | `app/` | FastAPI search-api。`composition_root.py` + `container/{infra,ml,search}.py` で DI、`api/{handlers,mappers,middleware,routes}/`、`services/{protocols,adapters,noop_adapters}/`、`domain/`、`schemas/`、`settings/`、Jinja2 `templates/` + `static/` |
 | `ml/{common,data,training,evaluation,registry,serving,streaming}/` | 共有コード + ML pipeline 部品 — `BigQueryEmbeddingStore` / `build_ranker_features` / ranking metrics / logging / gcs。`registry`・`serving`・`streaming`・`training` は `ports/` + `adapters/` 構造 |
 | `pipeline/{data_job,training_job,evaluation_job,batch_serving_job,workflow}/` | KFP エントリポイント。`data_job` / `training_job` は `ports/` + `adapters/` + `components/` 構造、`workflow/` でコンパイル & 投入 |
-| `scripts/` | 運用コマンド群。`setup/` (deploy_all / destroy_all / tf_* / doctor / seed_minimal / setup_model_monitoring / create_schedule / upload_encoder_assets) / `deploy/` (api_gke / kserve_models / monitor) / `ops/` (livez / search / ranking / feedback / promote / vertex_* / slo_status 他) / `ci/` (layers / sync_dataform) / `bqml/` (train_popularity) / `sql/` (BQ 運用クエリ 4 本) |
+| `scripts/` | 運用コマンド群。`setup/` (deploy_all / destroy_all / tf_* / doctor / seed_minimal / setup_model_monitoring / create_schedule / upload_encoder_assets / `local_hybrid`) / `deploy/` (api_gke / kserve_models / monitor) / `ops/` (livez / search / ranking / feedback / promote / vertex_* / slo_status 他) / `ci/` (layers / sync_dataform) / `bqml/` (train_popularity) / `sql/` (BQ 運用クエリ 4 本) |
 | `monitoring/` | feature skew Scheduled Query SQL (`validate_feature_skew.sql`) |
 | `.github/workflows/` | `ci.yml` (ruff/fmt/mypy/pytest) + `terraform.yml` + `deploy-api.yml` (kubectl set image) + `deploy-encoder-image.yml` / `deploy-trainer-image.yml` / `deploy-reranker-image.yml` / `deploy-pipeline.yml` / `deploy-dataform.yml` |
 | `docs/` | 仕様と設計・移行ロードマップ (本体 + Port-Adapter-DI + 切り替え基盤)・実装カタログ・運用・`教育資料/` (スライド / ナレーション台本 / デモシナリオ / 図解) |
@@ -77,6 +77,8 @@ raw.properties (upstream ETL)
 ## ドキュメント
 
 初めてこのリポジトリに触る人は、まず [`docs/04_運用.md §1 PDCA メインフロー`](docs/04_運用.md) を上から叩く (`make deploy-all` → `make run-all` → `make destroy-all`)。
+
+local で hybrid 検索まで動かす標準手順は `make api-dev-hybrid`。このターゲットは `scripts/setup/local_hybrid.py` を呼び、非秘密値は `env/config/setting.yaml`、秘密値は `env/secret/credential.yaml` または Secret Manager から解決して、local encoder / reranker / app をまとめて起動する。
 
 | ドキュメント | 目的 | 主な読者 |
 |---|---|---|

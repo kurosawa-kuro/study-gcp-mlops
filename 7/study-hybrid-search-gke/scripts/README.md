@@ -45,7 +45,7 @@ scripts/
   README.md                          ← 本ファイル
   _common.py                         ← 共通 helper
   ci/                                ← 静的検査・境界チェック (layers.py / sync_dataform.py)
-  setup/                             ← doctor / terraform bootstrap / pipeline setup
+  setup/                             ← doctor / terraform bootstrap / pipeline setup / local_hybrid
   deploy/                            ← api_gke / kserve_models / monitor 等の deploy 系
   ops/                               ← livez/search/ranking/feedback/promote 等の運用コマンド
   bqml/                              ← BQML モデル学習 (Phase 6 T1)
@@ -57,7 +57,7 @@ scripts/
 
 | folder | 含めるもの | 含めないもの |
 |---|---|---|
-| `setup/` | 1 回だけ叩く / 開発環境前提を整える系 | 反復実行する run/ops |
+| `setup/` | 1 回だけ叩く / 開発環境前提を整える系。local hybrid stack 起動 helper もここ | 反復実行する run/ops |
 | `deploy/` | image を build して Cloud Run revision を作る | runtime の HTTP 検査 (それは ops/) |
 | `config/` | committed yaml/json から派生ファイルを生成 | 値そのものの変更 (それは env/config/setting.yaml) |
 | `checks/` | repo 構造 / 命名 / 境界 / 静的解析 | 実行時の HTTP / DB 検査 (それは ops/) |
@@ -73,8 +73,9 @@ scripts/
 - ターゲットは **1 行で script を呼ぶだけ** (`uv run python scripts/X.py` / `bash scripts/X.sh` / `bq query --project_id=$(PROJECT_ID) < scripts/sql/X.sql`)。
 - Makefile に inline shell / heredoc / SQL define ブロックを書かない (出てきたら `scripts/` に移動)。
 - ターゲット名と script ファイル名は対応させる (`make ops-livez` → `scripts/ops/livez.py`)。
-- export しているのは `PROJECT_ID` / `REGION` / `API_SERVICE` / `TRAINING_JOB` / `ARTIFACT_REPO` の 5 変数。script 側はこれらを env から受け取り、未指定時の既定値は `env/config/setting.yaml` から読む。
-- これら 5 つの値は **`env/config/setting.yaml` が single source of truth**。Make は awk で、Python は `scripts/_common.py::_load_settings()` でその yaml を読む。yaml を編集すれば両者に反映される (どちらか一方をハードコードで上書きしないこと)。
+- export している基本変数は `PROJECT_ID` / `REGION` / `API_SERVICE` / `ARTIFACT_REPO` / `VERTEX_LOCATION` / `PIPELINE_ROOT_BUCKET` / `PIPELINE_TEMPLATE_GCS_PATH`。script 側はこれらを env から受け取り、未指定時の既定値は `env/config/setting.yaml` から読む。
+- 非秘密値は **`env/config/setting.yaml` が single source of truth**。Make は awk で、Python は `scripts/_common.py` と `ml.common.config.BaseAppSettings` でその yaml を読む。yaml を編集すれば両者に反映される (どちらか一方をハードコードで上書きしないこと)。
+- 秘密値は **`env/secret/credential.yaml` または環境変数**。script 側では `scripts/_common.py::secret()`、app/ML 側では `BaseAppSettings` が読む。
 
 ---
 
@@ -122,6 +123,7 @@ scripts/
 1. **言語を決める**: 文字列展開が 1 つでもあれば Python、ゼロなら shell。
 2. **置き場所を決める**:
    - 開発環境セットアップ / Terraform → `scripts/setup/X.py`
+   - local dev stack 起動 → `scripts/setup/local_hybrid.py`
    - デプロイ系 (Cloud Build → GKE rollout / KServe patch 等) → `scripts/deploy/X.py`
    - デプロイ後の運用 / API smoke → `scripts/ops/X.py`
    - BQ クエリだけ → `scripts/sql/X.sql`
@@ -139,6 +141,6 @@ scripts/
 
 ---
 
-## 現在の状態 (2026-04-20 時点)
+## 現在の状態 (2026-04-27 時点)
 
-旧 shell 群は全て Python 化完了。さらに lifecycle 別に 5 サブフォルダ (`setup/` / `deploy/` / `config/` / `checks/` / `ops/`) + `sql/` に再編。`scripts/` 直下と各サブフォルダは `__init__.py` を持つパッケージで、共通 helper は `scripts/_common.py` に集約 (env 取得 / gcloud subprocess / Cloud Run URL 解決 / OIDC token / IAM-gated http_json)。Makefile から `uv run python -m scripts.<folder>.<module>` で呼び出す。SQL ファイル (`scripts/sql/*.sql`) は当初からルール準拠、変更なし。`tests/` も同じ責務分割 (`arch/` / `parity/` / `infra/`)。
+旧 shell 群は全て Python 化完了。`setup/` / `deploy/` / `ops/` / `ci/` / `bqml/` + `sql/` を主系統として使い、共通 helper は `scripts/_common.py` に集約している。local hybrid 起動は `scripts/setup/local_hybrid.py` が担当し、**非秘密値は `env/config/setting.yaml`、秘密値は `env/secret/credential.yaml` / Secret Manager** に責務分離した。Makefile からは `uv run python -m scripts.<folder>.<module>` で呼び出す。
