@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import fail, http_json, print_pretty, resolve_api_target
+from scripts._common import fail, print_pretty, resolve_api_target
 
 
 def main() -> int:
@@ -19,12 +19,7 @@ def main() -> int:
     except Exception as exc:
         return fail(f"feedback config error: {exc}")
 
-    status, body = http_json(
-        "POST",
-        f"{target.url}/search",
-        token=target.token,
-        payload={"query": query, "top_k": 1},
-    )
+    status, body = target.call("POST", "/search", payload={"query": query, "top_k": 1})
     if status != 200:
         return fail(f"search returned HTTP {status}: {body}")
 
@@ -37,10 +32,9 @@ def main() -> int:
             f"feedback-check failed: empty request_id or property_id\nsearch response: {body}"
         )
 
-    fb_status, fb_body = http_json(
+    fb_status, fb_body = target.call(
         "POST",
-        f"{target.url}/feedback",
-        token=target.token,
+        "/feedback",
         payload={"request_id": request_id, "property_id": property_id, "action": action},
     )
     if fb_status != 200:

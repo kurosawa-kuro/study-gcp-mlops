@@ -205,10 +205,18 @@ kube-creds: ## Fetch kubeconfig for the Phase 6 GKE Autopilot cluster
 		--region=$(REGION) --project=$(PROJECT_ID)
 
 deploy-api: ## Cloud Build + `kubectl set image` for search-api (Phase 6 replaces deploy-api-local)
-	uv run python -m scripts.deploy.api_gke
+	@GIT_SHA="$${GIT_SHA:-$$(git rev-parse HEAD 2>/dev/null || echo dev-$$(date +%s))}" \
+		uv run python -m scripts.deploy.api_gke
+
+deploy-kserve-images: ## Cloud Build + image patch for property-encoder/reranker InferenceServices
+	@GIT_SHA="$${GIT_SHA:-$$(git rev-parse HEAD 2>/dev/null || echo dev-$$(date +%s))}" \
+		uv run python -m scripts.deploy.build_kserve_images
 
 deploy-kserve-models: ## Sync Model Registry artifacts into KServe InferenceService
 	uv run python -m scripts.deploy.kserve_models
+
+seed-lgbm-model: ## Seed a synthetic LightGBM model into gs://$(MODELS_BUCKET)/lgbm/latest/ (idempotent)
+	uv run python -m scripts.deploy.seed_lgbm_model
 
 # ----- Housekeeping -----
 

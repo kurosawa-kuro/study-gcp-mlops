@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import fail, http_json, resolve_api_target
+from scripts._common import fail, resolve_api_target
 
 
 def main() -> int:
@@ -33,9 +33,7 @@ def main() -> int:
         return fail(f"vertex-explain: config error: {exc}")
 
     payload = {"query": query, "filters": {"max_rent": 200000}, "top_k": top_k}
-    status, body = http_json(
-        "POST", f"{target.url}/search?explain=true", token=target.token, payload=payload
-    )
+    status, body = target.call("POST", "/search?explain=true", payload=payload)
     if status != 200:
         return fail(f"vertex-explain: HTTP {status}: {body[:300]}")
 

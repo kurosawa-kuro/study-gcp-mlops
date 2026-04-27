@@ -6,6 +6,7 @@ resources:
   - search-api/service.yaml
   - search-api/hpa.yaml
   - search-api/gateway.yaml
+  - search-api/healthcheckpolicy.yaml
   - search-api/podmonitoring.yaml
   - search-api/configmap.example.yaml
   - search-api/secretstore.yaml

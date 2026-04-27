@@ -11,8 +11,25 @@ spec:
     - Ingress
     - Egress
   ingress:
+    # In-cluster traffic (e.g. neighboring namespaces, future sidecars).
     - from:
         - namespaceSelector: {}
+    # GCP L7 LB / GFE health check probes hit the Pod IP directly, NOT via
+    # the cluster network. Without these CIDRs, the GFE probe times out and
+    # the BackendService marks all NEG endpoints UNHEALTHY → external 502/503
+    # even though `kubectl get pods` shows Ready=1/1 and `/livez` works
+    # in-cluster. Source ranges are documented at:
+    #   https://cloud.google.com/load-balancing/docs/health-check-concepts#fw-rule
+    # Phase 7 Run 1 incident: had to `kubectl patch` this in by hand
+    # before `/livez` 200 returned through the Gateway external IP.
+    - from:
+        - ipBlock:
+            cidr: 35.191.0.0/16
+        - ipBlock:
+            cidr: 130.211.0.0/22
+      ports:
+        - protocol: TCP
+          port: 8080
   egress:
     - to:
         - namespaceSelector:

@@ -391,6 +391,23 @@ resource "google_secret_manager_secret" "search_api_iap_oauth_client_secret" {
   }
 }
 
+# Dev-only placeholder version so the ExternalSecret has *something* to read
+# while IAP is intentionally disabled in dev (`infra/manifests/policies/search-api-iap-policy.yaml`
+# has `iap.enabled: false`). Without this version the ExternalSecret stays in
+# `SecretSyncedError` and the GCPBackendPolicy emits `Invalid:
+# oauth2ClientSecret cannot be found` even though `iap.enabled: false`
+# means LB doesn't actually need the value. PDCA noise reduction only.
+#
+# Production switch: when `iap.enabled: true`, run
+#   `gcloud iap oauth-clients create ...`
+# and overwrite this secret via
+#   `gcloud secrets versions add search-api-iap-oauth-client-secret --data-file=-`
+# before promoting. See docs/04_運用.md "IAP 有効化".
+resource "google_secret_manager_secret_version" "search_api_iap_oauth_client_secret_dev_placeholder" {
+  secret      = google_secret_manager_secret.search_api_iap_oauth_client_secret.id
+  secret_data = "dev-placeholder-do-not-use-in-prod"
+}
+
 # =========================================================================
 # IAM — runtime SAs ↔ data resources
 # =========================================================================

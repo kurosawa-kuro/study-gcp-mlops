@@ -29,7 +29,7 @@ import subprocess
 import sys
 import time
 
-from scripts._common import env, run, submit_cloud_build_async, wait_cloud_build
+from scripts._common import env, resolve_git_sha, run, submit_cloud_build_async, wait_cloud_build
 
 BUILD_TIMEOUT_SEC = 1800
 ROLLOUT_TIMEOUT_SEC = 300
@@ -142,7 +142,7 @@ def main() -> int:
     region = env("REGION", "asia-northeast1")
     cluster_name = env("GKE_CLUSTER_NAME", "hybrid-search")
     artifact_repo = env("ARTIFACT_REPO_ID", "mlops")
-    sha = _require("GIT_SHA")
+    sha = resolve_git_sha()
 
     image_tag = f"{sha}-{int(time.time())}"
     image_uri = f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/search-api:{image_tag}"

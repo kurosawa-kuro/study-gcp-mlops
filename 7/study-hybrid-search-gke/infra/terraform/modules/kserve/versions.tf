@@ -9,5 +9,9 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.15"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 }

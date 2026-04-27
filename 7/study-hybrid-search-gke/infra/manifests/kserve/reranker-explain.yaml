@@ -30,6 +30,13 @@ spec:
       serviceAccountName: reranker
       containers:
         - name: reranker
+          # placeholder — `make deploy-kserve-images` (= scripts.deploy.build_kserve_images)
+          # が `infra/run/services/reranker/cloudbuild.yaml` でビルドし、その後
+          # `kubectl set image deployment/property-reranker-explain reranker=<新タグ>`
+          # で書き換える。下の `:9698b2a6c2c5-1777123783` タグは PDCA の最初の
+          # apply で参照される。AR にこのタグが残っていれば Pod は ImagePullBackOff
+          # にならず Running まで上がる (build_kserve_images が後で上書きする)。
+          # ImagePullBackOff になる場合は `make deploy-kserve-images` が未実行。
           image: asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/property-reranker:9698b2a6c2c5-1777123783
           imagePullPolicy: IfNotPresent
           ports:

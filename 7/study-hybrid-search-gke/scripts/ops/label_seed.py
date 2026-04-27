@@ -12,7 +12,7 @@ import json
 import os
 import time
 
-from scripts._common import fail, http_json, resolve_api_target
+from scripts._common import fail, resolve_api_target
 
 ACTIONS = ("click", "favorite", "inquiry")
 
@@ -30,12 +30,7 @@ def main() -> int:
     posted = 0
     for action in ACTIONS:
         for _ in range(n_per_action):
-            status, body = http_json(
-                "POST",
-                f"{target.url}/search",
-                token=target.token,
-                payload=search_payload,
-            )
+            status, body = target.call("POST", "/search", payload=search_payload)
             if status != 200:
                 time.sleep(1)
                 continue
@@ -44,10 +39,9 @@ def main() -> int:
             results = data.get("results") or []
             pid = results[0].get("property_id") if results else None
             if rid and pid:
-                http_json(
+                target.call(
                     "POST",
-                    f"{target.url}/feedback",
-                    token=target.token,
+                    "/feedback",
                     payload={"request_id": rid, "property_id": pid, "action": action},
                 )
                 posted += 1

@@ -3,10 +3,18 @@
 Cluster-local HTTP (NetworkPolicy restricts callers to the search-api Pod).
 Authentication is not required at the HTTP layer.
 
-Phase 5 Run 6 — encoder で `{"text": "query: ..."}` 単一フィールド payload が
-422 (`Field required: kind`) を返した事故を踏まえて、payload は
-``{"instances": [{"text": ..., "kind": ...}]}`` で 2 フィールド必須。
-prefix 付与は server 側責務 (`ml/serving/encoder.py::E5Encoder`)。
+Phase 7 Run 2 で encoder runtime を KServe HuggingFace stock runtime
+(``kserve/huggingfaceserver`` + ``intfloat/multilingual-e5-base`` /
+``--task=text_embedding``) に切り替えたため、payload は HF v1 規約の
+``{"instances": ["<prefix>: <text>"]}`` に統一。E5 の `query: ` /
+`passage: ` prefix は本 adapter が client 側で付与する (HF stock runtime
+は task 推論のみで E5 prefix を知らない)。
+
+旧 Phase 5 Run 6 の `{"instances": [{"text": ..., "kind": ...}]}` 形式は
+自前 Vertex CPR encoder server (`ml/serving/encoder.py::E5Encoder`) 用で、
+HF runtime に投げると ``pd.DataFrame({"text": "scalar", "kind": "scalar"})``
+が ``If using all scalar values, you must pass an index`` で 500 を返す
+(infra/manifests/kserve/encoder.yaml の切替コメント参照)。
 """
 
 from __future__ import annotations
@@ -58,7 +66,10 @@ class KServeEncoder:
 
     def embed(self, text: str, kind: Literal["query", "passage"]) -> list[float]:
         text_stripped = text.strip()
-        payload = {"instances": [{"text": text_stripped, "kind": kind}]}
+        # E5 prefix は client 側で付与 (HF stock runtime は task 推論のみで
+        # E5 prefix を知らない)。`{kind}: {text}` を素の文字列で送る。
+        prefixed_text = f"{kind}: {text_stripped}"
+        payload = {"instances": [prefixed_text]}
         logger.info(
             "encoder.embed START endpoint=%s kind=%s text_len=%d",
             self.endpoint_url,

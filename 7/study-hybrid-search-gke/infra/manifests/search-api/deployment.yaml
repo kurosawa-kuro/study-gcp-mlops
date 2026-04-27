@@ -73,14 +73,17 @@ spec:
             # KServe RawDeployment が作る Service は `<isvc-name>-predictor`
             # 命名 (Phase 7 Run 1 B15+) — `property-encoder` ではなく
             # `property-encoder-predictor` を指す必要がある。
-            # encoder は Phase 5 から継承した Vertex CPR 規約 server
-            # (AIP_PREDICT_ROUTE default=/predict)。reranker は KServe stock
-            # MLServer LightGBM runtime → v2 protocol path
+            # encoder は Phase 7 Run 2 で KServe HuggingFace stock runtime
+            # (`kserve/huggingfaceserver`, task=text_embedding) に切替済み
+            # → v1 protocol path (`/v1/models/model:predict`、HF runtime default
+            # の model_name=`model`)。旧 Vertex CPR 規約の `/predict` は
+            # 404 を返す (infra/manifests/kserve/encoder.yaml の切替コメント参照)。
+            # reranker は KServe stock MLServer LightGBM runtime → v2 protocol
             # (`/v2/models/<name>/infer`、Phase 7 Run 1 B18 で v1 から修正)。
             # TreeSHAP explain は stock runtime では返らないため、専用の
             # `property-reranker-explain` Service へ別 URL で逃がす。
             - name: KSERVE_ENCODER_URL
-              value: "http://property-encoder-predictor.kserve-inference.svc.cluster.local/predict"
+              value: "http://property-encoder-predictor.kserve-inference.svc.cluster.local/v1/models/model:predict"
             - name: KSERVE_RERANKER_URL
               value: "http://property-reranker-predictor.kserve-inference.svc.cluster.local/v2/models/property-reranker/infer"
             - name: KSERVE_RERANKER_EXPLAIN_URL

@@ -3,18 +3,21 @@
 # (NOT via KServe ISVC) so /search?explain=true can call its `/explain` route
 # for TreeSHAP attributions. The KServe stock LightGBM v2 runtime does NOT
 # support attributions — see B19 + Run 2 docs.
+#
+# Substitution `_IMAGE_URI` is the AR target with immutable tag (matches
+# encoder/search_api conventions so `scripts.deploy.build_kserve_images`
+# can use a single submit code path).
+
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
-      - --tag
-      - asia-northeast1-docker.pkg.dev/$PROJECT_ID/${_REPO}/property-reranker:${_GIT_SHA}-${_BUILD_TS}
-      - --file
-      - infra/run/services/reranker/Dockerfile
+      - --file=infra/run/services/reranker/Dockerfile
+      - --tag=${_IMAGE_URI}
       - .
 
 images:
-  - asia-northeast1-docker.pkg.dev/$PROJECT_ID/${_REPO}/property-reranker:${_GIT_SHA}-${_BUILD_TS}
+  - ${_IMAGE_URI}
 
 options:
   machineType: E2_HIGHCPU_8
@@ -23,6 +26,4 @@ options:
 timeout: 1200s
 
 substitutions:
-  _REPO: mlops
-  _GIT_SHA: dev
-  _BUILD_TS: "0"
+  _IMAGE_URI: ""

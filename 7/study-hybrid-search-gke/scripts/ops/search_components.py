@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import fail, http_json, print_pretty, resolve_api_target
+from scripts._common import fail, print_pretty, resolve_api_target
 
 
 def _diagnose_semantic_zero(results: list[dict], *, readyz_payload: dict | None) -> str:
@@ -45,11 +45,9 @@ def main() -> int:
         resolved = resolve_api_target()
     except Exception as exc:
         return fail(f"component-check config error: {exc}")
-    url = resolved.url
-    token = resolved.token
 
     payload = {"query": query, "filters": {"max_rent": max_rent}, "top_k": top_k}
-    status, body = http_json("POST", f"{url}/search", token=token, payload=payload)
+    status, body = resolved.call("POST", "/search", payload=payload)
     if status != 200:
         return fail(f"component-check search returned HTTP {status}: {body}")
     try:
@@ -62,7 +60,7 @@ def main() -> int:
         return fail("component-check failed: /search returned empty results")
     typed_results: list[dict] = [r for r in results if isinstance(r, dict)]
     readyz_payload: dict | None = None
-    readyz_status, readyz_body = http_json("GET", f"{url}/readyz", token=token)
+    readyz_status, readyz_body = resolved.call("GET", "/readyz")
     if readyz_status == 200:
         try:
             payload_obj = json.loads(readyz_body)

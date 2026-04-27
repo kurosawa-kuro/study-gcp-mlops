@@ -288,7 +288,9 @@ def test_search_api_iap_policy_targets_gateway_service_with_gcp_backend_policy()
         "name": "search-api",
     }
     iap = policy["spec"]["default"]["iap"]
-    assert iap["enabled"] is True
+    # dev default は `enabled: false` (OAuth client / Secret Manager 投入が PDCA loop に不適合)。
+    # Production / staging overlay で `true` に切り替える。
+    assert iap["enabled"] is False
     assert iap["oauth2ClientSecret"]["name"] == "search-api-iap-oauth-client-secret"
 
 

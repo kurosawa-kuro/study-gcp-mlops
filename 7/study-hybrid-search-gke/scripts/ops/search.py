@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from scripts._common import fail, http_json, print_pretty, resolve_api_target
+from scripts._common import fail, print_pretty, resolve_api_target
 
 
 def main() -> int:
@@ -20,7 +20,7 @@ def main() -> int:
     except Exception as exc:
         return fail(f"search config error: {exc}")
     payload = {"query": query, "filters": {"max_rent": max_rent}, "top_k": top_k}
-    status, body = http_json("POST", f"{target.url}/search", token=target.token, payload=payload)
+    status, body = target.call("POST", "/search", payload=payload)
     if status != 200:
         return fail(f"search returned HTTP {status}: {body}")
     print_pretty(body)

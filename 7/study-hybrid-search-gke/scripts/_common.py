@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 _SETTINGS_PATH = Path(__file__).resolve().parent.parent / "env" / "config" / "setting.yaml"
@@ -126,6 +127,27 @@ def gcloud(*args: str, capture: bool = False) -> str:
     return proc.stdout.strip() if capture and proc.stdout else ""
 
 
+def resolve_git_sha() -> str:
+    """Resolve the image-tag SHA without forcing the caller to pre-set ``GIT_SHA``.
+
+    Order: ``$GIT_SHA`` env (CI / explicit override) → ``git rev-parse HEAD``
+    (developer machines) → ``dev-<epoch>`` (detached / non-git contexts).
+    Phase 7 Run 1 で `make deploy-api` を素で叩いて step 7 が
+    ``required env var GIT_SHA is empty`` で fail した教訓から、このヘルパー
+    が呼び出し側の hard-fail を吸収する。
+    """
+    explicit = env("GIT_SHA")
+    if explicit:
+        return explicit
+    proc = subprocess.run(
+        ["git", "rev-parse", "HEAD"], check=False, text=True, stdout=subprocess.PIPE
+    )
+    sha = (proc.stdout or "").strip()
+    if proc.returncode == 0 and sha:
+        return sha
+    return f"dev-{int(time.time())}"
+
+
 def cloud_run_url(service: str | None = None) -> str:
     """Resolve the Cloud Run Service URL via `gcloud run services describe`."""
     svc = service or env("API_SERVICE")
@@ -141,6 +163,43 @@ def cloud_run_url(service: str | None = None) -> str:
     )
 
 
+DEFAULT_GATEWAY_NAMESPACE = "search"
+DEFAULT_GATEWAY_NAME = "search-api-gateway"
+DEFAULT_GATEWAY_HOST_HEADER = "search-api.example.com"
+
+
+def gateway_url(*, namespace: str | None = None, name: str | None = None) -> str:
+    """Resolve the GKE Gateway external URL via kubectl.
+
+    Phase 7 で serving 層が Cloud Run → GKE Gateway に切り替わったため、
+    ``cloud_run_url()`` の代わりに `kubectl get gateway` の
+    ``status.addresses[0].value`` (= 外部 IP) を ``https://`` 付きで返す。
+    HTTPRoute の hostname は IP 直叩きと噛み合わないので、呼び出し側は
+    ``Host`` ヘッダで補う前提 (``DEFAULT_GATEWAY_HOST_HEADER``)。
+    """
+    ns = namespace or env("GATEWAY_NAMESPACE", DEFAULT_GATEWAY_NAMESPACE)
+    nm = name or env("GATEWAY_NAME", DEFAULT_GATEWAY_NAME)
+    proc = run(
+        [
+            "kubectl",
+            "get",
+            "gateway",
+            nm,
+            f"--namespace={ns}",
+            "-o",
+            "jsonpath={.status.addresses[0].value}",
+        ],
+        capture=True,
+    )
+    addr = (proc.stdout or "").strip()
+    if not addr:
+        raise RuntimeError(
+            f"gateway {ns}/{nm} has no external address yet "
+            "(check `kubectl get gateway -n search` for PROGRAMMED=True)"
+        )
+    return f"https://{addr}"
+
+
 def identity_token() -> str:
     """Mint an OIDC token for IAM-gated Cloud Run calls."""
     return gcloud("auth", "print-identity-token", capture=True)
@@ -148,11 +207,40 @@ def identity_token() -> str:
 
 @dataclass(frozen=True)
 class ResolvedApiTarget:
-    """Resolved API endpoint + auth mode for ops scripts."""
+    """Resolved API endpoint + auth mode for ops scripts.
+
+    Phase 7 で serving が GKE Gateway (IP-based HTTPS + 自己署名 TLS) になり、
+    呼び出し側は (a) HTTPRoute の hostname を ``Host`` ヘッダで補完し
+    (b) self-signed cert なので TLS 検証を無効化する必要がある。両者を
+    `ResolvedApiTarget` の責務に閉じ込めて呼び出し側はモード差を意識しない。
+    """
 
     url: str
     token: str | None
     mode: str
+    host_header: str | None = None
+    verify_tls: bool = True
+    extra_headers: dict[str, str] = field(default_factory=dict)
+
+    def call(
+        self,
+        method: str,
+        path: str,
+        *,
+        payload: dict | None = None,
+        timeout: int = 30,
+    ) -> tuple[int, str]:
+        """Invoke ``http_json`` with this target's URL prefix and auth context."""
+        return http_json(
+            method,
+            f"{self.url}{path}",
+            token=self.token,
+            payload=payload,
+            timeout=timeout,
+            host_header=self.host_header,
+            verify_tls=self.verify_tls,
+            extra_headers=self.extra_headers or None,
+        )
 
 
 def _env_flag(name: str, *, default: bool = False) -> bool:
@@ -167,16 +255,25 @@ def resolve_api_target() -> ResolvedApiTarget:
 
     Supported modes:
     - explicit ``API_URL``: use it as-is. Mint a token only when
-      ``API_REQUIRE_TOKEN=true``. This path wins over ``TARGET``.
+      ``API_REQUIRE_TOKEN=true``. ``API_HOST_HEADER`` / ``API_INSECURE_TLS``
+      で Host ヘッダ / TLS 検証を上書き可能。``TARGET`` より優先。
     - ``TARGET=local``: use ``LOCAL_API_URL`` and no token
-    - ``TARGET=gcp`` (default): resolve the Phase 7 deployed URL via
-      ``cloud_run_url()`` and mint an identity token
+    - ``TARGET=gcp`` (default): resolve the Phase 7 GKE Gateway URL via
+      ``gateway_url()``. IAP は dev default で disabled なので no token、
+      自己署名 TLS のため ``verify_tls=False``、HTTPRoute と一致させるため
+      ``Host: search-api.example.com`` を付与する。
     """
     target = os.environ.get("TARGET", "gcp").strip().lower()
     explicit_url = os.environ.get("API_URL", "").strip().rstrip("/")
     if explicit_url:
         token = identity_token() if _env_flag("API_REQUIRE_TOKEN") else None
-        return ResolvedApiTarget(url=explicit_url, token=token, mode="explicit")
+        return ResolvedApiTarget(
+            url=explicit_url,
+            token=token,
+            mode="explicit",
+            host_header=os.environ.get("API_HOST_HEADER") or None,
+            verify_tls=not _env_flag("API_INSECURE_TLS"),
+        )
     if target == "local":
         return ResolvedApiTarget(
             url=os.environ.get("LOCAL_API_URL", "http://127.0.0.1:8080").rstrip("/"),
@@ -184,7 +281,13 @@ def resolve_api_target() -> ResolvedApiTarget:
             mode="local",
         )
     if target == "gcp":
-        return ResolvedApiTarget(url=cloud_run_url(), token=identity_token(), mode="gcp")
+        return ResolvedApiTarget(
+            url=gateway_url(),
+            token=None,
+            mode="gcp",
+            host_header=os.environ.get("API_HOST_HEADER", DEFAULT_GATEWAY_HOST_HEADER),
+            verify_tls=False,
+        )
     raise ValueError("TARGET must be either 'local' or 'gcp'")
 
 
@@ -195,18 +298,33 @@ def http_json(
     token: str | None = None,
     payload: dict | None = None,
     timeout: int = 30,
+    host_header: str | None = None,
+    verify_tls: bool = True,
+    extra_headers: dict[str, str] | None = None,
 ) -> tuple[int, str]:
-    """POST/GET JSON with optional Bearer token. Returns (status_code, body_text)."""
+    """POST/GET JSON with optional Bearer token. Returns (status_code, body_text).
+
+    ``host_header`` を渡すと ``Host`` ヘッダを上書きする (Phase 7 で IP 直叩き
+    + HTTPRoute hostname の組合せに対応)。``verify_tls=False`` で TLS 検証を
+    無効化する (自己署名 cert 用)。
+    """
     headers: dict[str, str] = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    if host_header:
+        headers["Host"] = host_header
+    if extra_headers:
+        headers.update(extra_headers)
     data: bytes | None = None
     if payload is not None:
         headers["Content-Type"] = "application/json"
         data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    context: ssl.SSLContext | None = None
+    if not verify_tls:
+        context = ssl._create_unverified_context()
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
             return resp.status, resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""

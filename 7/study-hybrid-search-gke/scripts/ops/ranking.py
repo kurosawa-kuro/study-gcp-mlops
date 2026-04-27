@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 
-from scripts._common import fail, http_json, resolve_api_target
+from scripts._common import fail, resolve_api_target
 
 
 def main() -> int:
@@ -20,12 +20,7 @@ def main() -> int:
     except Exception as exc:
         return fail(f"ranking config error: {exc}")
     payload = {"query": query, "top_k": top_k}
-    status, body = http_json(
-        "POST",
-        f"{target.url}/search",
-        token=target.token,
-        payload=payload,
-    )
+    status, body = target.call("POST", "/search", payload=payload)
     if status != 200:
         return fail(f"search returned HTTP {status}: {body}")
 

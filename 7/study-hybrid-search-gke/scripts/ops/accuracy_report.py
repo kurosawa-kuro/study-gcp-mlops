@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts._common import fail, http_json, resolve_api_target
+from scripts._common import fail, resolve_api_target
 
 
 @dataclass(frozen=True)
@@ -119,7 +119,6 @@ def main() -> int:
     except Exception as exc:
         return fail(f"accuracy-report config error: {exc}")
     api_url = resolved.url
-    token = resolved.token
 
     per_case: list[dict] = []
     ndcgs: list[float] = []
@@ -128,7 +127,7 @@ def main() -> int:
 
     for case in cases:
         payload = {"query": case.query, "filters": case.filters, "top_k": case.top_k}
-        status, body = http_json("POST", f"{api_url}/search", token=token, payload=payload)
+        status, body = resolved.call("POST", "/search", payload=payload)
         if status != 200:
             return fail(f"accuracy-report search failed ({case.name}) HTTP {status}: {body}")
         try:

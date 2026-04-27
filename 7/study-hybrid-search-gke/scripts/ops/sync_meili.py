@@ -30,6 +30,7 @@ filter (例: ``rent <= 150000``) が string 比較になり全件 0 hit にな�
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import traceback
 from typing import Any
@@ -68,16 +69,28 @@ def _headers(*, base_url: str, api_key: str, require_identity_token: bool) -> di
         headers["authorization"] = f"Bearer {api_key}"
         _log("using master_key auth (Authorization: Bearer)")
     if require_identity_token:
-        _log(f"fetching id_token audience={base_url}")
-        try:
-            token = id_token.fetch_id_token(Request(), base_url)
-        except Exception:
-            _log(
-                "id_token.fetch_id_token FAILED — check the runtime identity (ADC / metadata server)"
-            )
-            _log(traceback.format_exc())
-            raise
-        _log(f"id_token OK (len={len(token)})")
+        # Local PDCA dev: ``MEILI_PRESIGNED_ID_TOKEN`` で `gcloud auth
+        # print-identity-token` の値を直接注入できる。User OAuth は
+        # ``id_token.fetch_id_token`` (SA only) を通らないため、ローカル叩き
+        # 用にこの逃がし口を残す (Cloud Run Job / WI Pod では従来パスを使う)。
+        preset = os.environ.get("MEILI_PRESIGNED_ID_TOKEN", "").strip()
+        if preset:
+            token = preset
+            _log(f"using MEILI_PRESIGNED_ID_TOKEN env override (len={len(token)})")
+        else:
+            _log(f"fetching id_token audience={base_url}")
+            try:
+                token = id_token.fetch_id_token(Request(), base_url)
+            except Exception:
+                _log(
+                    "id_token.fetch_id_token FAILED — check the runtime identity "
+                    "(ADC / metadata server)。ローカルで叩く場合は "
+                    "`MEILI_PRESIGNED_ID_TOKEN=$(gcloud auth print-identity-token)` を "
+                    "渡すと SA フォールバックで通る。"
+                )
+                _log(traceback.format_exc())
+                raise
+            _log(f"id_token OK (len={len(token)})")
         # Cloud Run の代替認証ヘッダ — Meili master key を上書きしない。
         headers["x-serverless-authorization"] = f"Bearer {token}"
     return headers

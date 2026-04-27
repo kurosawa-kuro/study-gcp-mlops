@@ -5,7 +5,7 @@ so we use the /livez alias registered in app/src/app/entrypoints/api.py.
 
 from __future__ import annotations
 
-from scripts._common import fail, http_json, resolve_api_target
+from scripts._common import fail, resolve_api_target
 
 
 def main() -> int:
@@ -13,7 +13,7 @@ def main() -> int:
         target = resolve_api_target()
     except Exception as exc:
         return fail(f"livez config error: {exc}")
-    status, body = http_json("GET", f"{target.url}/livez", token=target.token)
+    status, body = target.call("GET", "/livez")
     if status != 200:
         return fail(f"livez returned HTTP {status}: {body}")
     print(body)
