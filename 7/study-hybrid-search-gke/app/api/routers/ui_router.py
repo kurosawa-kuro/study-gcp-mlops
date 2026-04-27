@@ -64,6 +64,14 @@ def build_ui_router(*, app_root: Path) -> APIRouter:
             {"active": "data", "page_mode": "dev"},
         )
 
+    @router.get("/dev/ops", name="ui-ops")
+    def ui_ops(request: Request) -> object:
+        return templates.TemplateResponse(
+            request,
+            "ops.html",
+            {"active": "ops", "page_mode": "dev"},
+        )
+
     @router.get("/dev/api-docs", name="ui-api-docs")
     def ui_api_docs() -> RedirectResponse:
         return RedirectResponse(url="/docs", status_code=308)

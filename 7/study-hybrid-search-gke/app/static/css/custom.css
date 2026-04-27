@@ -260,6 +260,43 @@ tbody code {
   color: #eff2f5;
 }
 
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.status-card-danger {
+  border-color: rgba(255, 77, 166, 0.35);
+}
+
+.ops-panel {
+  padding: 1.1rem 1.15rem 1.25rem;
+}
+
+.ops-panel-ok {
+  border-color: rgba(191, 255, 0, 0.2);
+}
+
+.ops-panel-warn {
+  border-color: rgba(255, 215, 0, 0.22);
+}
+
+.ops-panel-fail,
+.ops-panel-error {
+  border-color: rgba(255, 77, 166, 0.35);
+}
+
+.ops-item-list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ops-item-list li + li {
+  margin-top: 0.35rem;
+}
+
 .panel button,
 .panel [role="button"] {
   border-radius: 999px;

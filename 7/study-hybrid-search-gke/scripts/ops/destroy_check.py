@@ -321,24 +321,20 @@ def _render_json(findings: list[Finding]) -> None:
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
-def main() -> int:
-    args = _parse_args()
+def collect_findings(*, project_id: str, region: str, vertex_location: str) -> list[Finding]:
+    gke_clusters, gke_error = _collect_gke_clusters(project_id)
+    cloud_run_services, cloud_run_error = _collect_cloud_run_services(project_id)
+    dataflow_jobs, dataflow_error = _collect_dataflow_jobs(project_id, region)
+    vertex_endpoints, vertex_error = _collect_vertex_endpoints(project_id, vertex_location)
+    cloud_functions, functions_error = _collect_cloud_functions(project_id)
+    eventarc_triggers, eventarc_error = _collect_eventarc_triggers(project_id)
+    pubsub_topics, topics_error = _collect_pubsub_topics(project_id)
+    pubsub_subscriptions, subscriptions_error = _collect_pubsub_subscriptions(project_id)
+    buckets, buckets_error = _collect_buckets(project_id)
+    artifact_repos, repos_error = _collect_artifact_repos(project_id, region)
+    datasets, datasets_error = _collect_bq_datasets(project_id)
 
-    gke_clusters, gke_error = _collect_gke_clusters(args.project_id)
-    cloud_run_services, cloud_run_error = _collect_cloud_run_services(args.project_id)
-    dataflow_jobs, dataflow_error = _collect_dataflow_jobs(args.project_id, args.region)
-    vertex_endpoints, vertex_error = _collect_vertex_endpoints(
-        args.project_id, args.vertex_location
-    )
-    cloud_functions, functions_error = _collect_cloud_functions(args.project_id)
-    eventarc_triggers, eventarc_error = _collect_eventarc_triggers(args.project_id)
-    pubsub_topics, topics_error = _collect_pubsub_topics(args.project_id)
-    pubsub_subscriptions, subscriptions_error = _collect_pubsub_subscriptions(args.project_id)
-    buckets, buckets_error = _collect_buckets(args.project_id)
-    artifact_repos, repos_error = _collect_artifact_repos(args.project_id, args.region)
-    datasets, datasets_error = _collect_bq_datasets(args.project_id)
-
-    fail_buckets, warn_buckets = _classify_bucket_names(args.project_id, buckets)
+    fail_buckets, warn_buckets = _classify_bucket_names(project_id, buckets)
     fail_repos, warn_repos = _classify_artifact_repos(artifact_repos)
     fail_datasets = _filter_high_cost_datasets(datasets)
 
@@ -373,6 +369,16 @@ def main() -> int:
                 note="Google-managed repository",
             )
         )
+    return findings
+
+
+def main() -> int:
+    args = _parse_args()
+    findings = collect_findings(
+        project_id=args.project_id,
+        region=args.region,
+        vertex_location=args.vertex_location,
+    )
 
     _render_text(findings)
     if args.json:

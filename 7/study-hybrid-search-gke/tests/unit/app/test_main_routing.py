@@ -10,6 +10,7 @@ regress it:
 - ``GET /ui/dev`` → HTML (developer search UI)
 - ``GET /ui/dev/model/metrics`` → HTML (accuracy dashboard)
 - ``GET /ui/dev/data`` → HTML (model info viewer)
+- ``GET /ui/dev/ops`` → HTML (destroy-all residual checker)
 - legacy ``/ui/model/metrics`` and ``/ui/data`` redirect to dev namespace
 - ``GET /metrics`` → text/plain Prometheus exposition (NOT HTML)
 - ``GET /livez`` / ``/healthz`` / ``/readyz`` reachable
@@ -86,6 +87,13 @@ def test_ui_data_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untyp
         r = client.get("/ui/dev/data")
         assert r.status_code == 200
         assert "学習データ" in r.text
+
+
+def test_ui_ops_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]
+    with TestClient(app_no_lifespan) as client:
+        r = client.get("/ui/dev/ops")
+        assert r.status_code == 200
+        assert "運用チェック" in r.text
 
 
 def test_ui_legacy_dev_routes_redirect(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]

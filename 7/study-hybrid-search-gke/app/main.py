@@ -41,6 +41,7 @@ from app.api.routers import (
     feedback_router,
     health_router,
     model_router,
+    ops_router,
     retrain_router,
     search_router,
 )
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(feedback_router)
     app.include_router(retrain_router)
     app.include_router(model_router)
+    app.include_router(ops_router)
 
     # Operator UI is namespaced under /ui/ so /metrics belongs to Prometheus.
     app.include_router(build_ui_router(app_root=app_root), prefix="/ui")
