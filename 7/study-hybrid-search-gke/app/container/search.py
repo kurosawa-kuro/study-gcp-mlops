@@ -128,6 +128,8 @@ class SearchBuilder:
                 index_name=settings.meili_index_name,
                 api_key=meili_key,
                 require_identity_token=settings.meili_require_identity_token,
+                impersonate_service_account=settings.meili_impersonate_service_account,
+                token_audience=settings.meili_token_audience,
             )
         return NoopLexicalSearch()
 

@@ -26,19 +26,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 _SETTINGS_PATH = Path(__file__).resolve().parent.parent / "env" / "config" / "setting.yaml"
+_SECRET_SETTINGS_PATH = (
+    Path(__file__).resolve().parent.parent / "env" / "secret" / "credential.yaml"
+)
 
 
-def _load_settings() -> dict[str, str]:
-    """Parse the flat key:value subset of env/config/setting.yaml.
+def _load_flat_yaml(path: Path) -> dict[str, str]:
+    """Parse the flat key:value subset of a YAML file.
 
     Supported syntax: top-level `key: value` lines, `#` comments, blank lines.
     Values may be quoted with `"` or `'`. Anything else (nesting, anchors,
     multiline strings) is intentionally rejected to keep this parser tiny.
     """
     settings: dict[str, str] = {}
-    if not _SETTINGS_PATH.exists():
+    if not path.exists():
         return settings
-    for raw in _SETTINGS_PATH.read_text(encoding="utf-8").splitlines():
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
@@ -99,12 +102,19 @@ def _load_list_setting(list_key: str) -> list[str]:
     return items
 
 
-DEFAULTS = _load_settings()
+DEFAULTS = _load_flat_yaml(_SETTINGS_PATH)
+SECRET_DEFAULTS = _load_flat_yaml(_SECRET_SETTINGS_PATH)
 
 
 def env(name: str, default: str | None = None) -> str:
     """Read an env var with a project-wide default fallback."""
     fallback = default if default is not None else DEFAULTS.get(name, "")
+    return os.environ.get(name, fallback)
+
+
+def secret(name: str, default: str | None = None) -> str:
+    """Read a secret env var with credential.yaml fallback."""
+    fallback = default if default is not None else SECRET_DEFAULTS.get(name, "")
     return os.environ.get(name, fallback)
 
 

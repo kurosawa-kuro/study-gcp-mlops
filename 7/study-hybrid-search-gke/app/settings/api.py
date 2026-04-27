@@ -44,10 +44,13 @@ class ApiSettings(BaseAppSettings):
     bq_table_property_features_daily: str = "property_features_daily"
     bq_table_properties_cleaned: str = "properties_cleaned"
     meili_base_url: str = ""
+    meili_service: str = "meili-search"
     meili_index_name: str = "properties"
     meili_api_key: str = ""
     meili_master_key: SecretStr = SecretStr("")  # Secret Manager: meili-master-key
     meili_require_identity_token: bool = True
+    meili_impersonate_service_account: str = ""
+    meili_token_audience: str = ""
 
     # --- Vertex AI location (used by Model Registry / Pipelines) -------------
     vertex_location: str = "asia-northeast1"

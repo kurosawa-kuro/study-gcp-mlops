@@ -52,7 +52,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         apply-manifests \
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         sync-meili \
-        train-smoke train-smoke-persist api-dev clean \
+        train-smoke train-smoke-persist api-dev api-dev-hybrid clean \
         docker-auth deploy-api deploy-kserve-models kube-creds \
 		ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
@@ -216,6 +216,9 @@ train-smoke-persist: ## Dry-run ranker trainer and copy the model to $(MODEL_PAT
 
 api-dev: ## Start uvicorn locally (rerank-free /search requires ENABLE_SEARCH=1 + BQ creds)
 	ENABLE_SEARCH=false uv run uvicorn app.main:app --reload
+
+api-dev-hybrid: ## Start local hybrid stack (app + local encoder/reranker + Cloud Run Meili/BQ)
+	env UV_CACHE_DIR=/tmp/uv-cache uv run python -m scripts.setup.local_hybrid
 
 # ----- Local deploy path (bypasses CI; uses Cloud Build + kubectl) -----
 

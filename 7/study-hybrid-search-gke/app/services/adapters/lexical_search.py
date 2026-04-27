@@ -10,6 +10,8 @@ import os
 from typing import Any
 
 import httpx
+from google.auth import default as google_auth_default
+from google.auth import impersonated_credentials
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
@@ -30,13 +32,48 @@ class MeilisearchLexical(LexicalSearchPort):
         timeout_seconds: float = 3.0,
         api_key: str = "",
         require_identity_token: bool = True,
+        impersonate_service_account: str = "",
+        token_audience: str = "",
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._index_name = index_name
         self._timeout_seconds = timeout_seconds
         self._api_key = api_key
         self._require_identity_token = require_identity_token
+        self._impersonate_service_account = impersonate_service_account.strip()
+        self._token_audience = token_audience.strip()
         self._logger = get_logger("app")
+
+    def _resolve_identity_token(self) -> str:
+        preset = os.environ.get("MEILI_PRESIGNED_ID_TOKEN", "").strip()
+        if preset:
+            return preset
+
+        audience = self._token_audience or self._base_url
+        if self._impersonate_service_account:
+            source_credentials, _ = google_auth_default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            target_credentials = impersonated_credentials.Credentials(
+                source_credentials=source_credentials,
+                target_principal=self._impersonate_service_account,
+                target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                lifetime=600,
+            )
+            id_credentials = impersonated_credentials.IDTokenCredentials(
+                target_credentials,
+                target_audience=audience,
+                include_email=True,
+            )
+            id_credentials.refresh(Request())
+            token = getattr(id_credentials, "token", "")
+            if not token:
+                raise RuntimeError(
+                    "impersonated ID token refresh succeeded but no token was populated"
+                )
+            return str(token)
+
+        return str(id_token.fetch_id_token(Request(), audience))  # type: ignore[no-untyped-call]
 
     def search(
         self,
@@ -58,16 +95,12 @@ class MeilisearchLexical(LexicalSearchPort):
             # ``gcloud auth print-identity-token`` の値を直接注入できる
             # (User OAuth は ``id_token.fetch_id_token`` (SA only) を通らない)。
             # Cloud Run Job / WI Pod では env 未設定で従来パスを使う。
-            preset = os.environ.get("MEILI_PRESIGNED_ID_TOKEN", "").strip()
-            if preset:
-                headers["x-serverless-authorization"] = f"Bearer {preset}"
-            else:
-                try:
-                    token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]
-                    headers["x-serverless-authorization"] = f"Bearer {token}"
-                except Exception:
-                    self._logger.exception("Failed to mint ID token for meili-search")
-                    return []
+            try:
+                token = self._resolve_identity_token()
+                headers["x-serverless-authorization"] = f"Bearer {token}"
+            except Exception:
+                self._logger.exception("Failed to mint ID token for meili-search")
+                return []
         if self._api_key:
             headers["authorization"] = f"Bearer {self._api_key}"
 

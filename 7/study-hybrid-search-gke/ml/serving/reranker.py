@@ -60,9 +60,12 @@ class ExplainResponse(BaseModel):
 
 
 def _load_booster() -> lgb.Booster:
+    local_model_path = os.getenv("LOCAL_RERANKER_MODEL_PATH", "").strip()
+    if local_model_path:
+        return lgb.Booster(model_file=local_model_path)
     storage_uri = os.getenv("AIP_STORAGE_URI", "").strip()
     if not storage_uri:
-        raise RuntimeError("AIP_STORAGE_URI is required")
+        raise RuntimeError("AIP_STORAGE_URI or LOCAL_RERANKER_MODEL_PATH is required")
     tmpdir = Path(tempfile.mkdtemp(prefix="reranker-model-"))
     model_path = download_file(f"{storage_uri.rstrip('/')}/model.txt", tmpdir / "model.txt")
     return lgb.Booster(model_file=str(model_path))

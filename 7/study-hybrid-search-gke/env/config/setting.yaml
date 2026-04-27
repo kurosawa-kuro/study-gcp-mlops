@@ -19,6 +19,13 @@ region: asia-northeast1
 api_service: search-api
 artifact_repo: mlops
 vertex_location: asia-northeast1
+meili_service: meili-search
+meili_master_key_secret_id: meili-master-key
+meili_impersonate_service_account: sa-api@mlops-dev-a.iam.gserviceaccount.com
+local_api_port: 8000
+local_encoder_port: 18081
+local_reranker_port: 18082
+local_reranker_model_path: /tmp/hybrid-search-cloud-smoke-model.txt
 # Phase 7 は KServe serving であり Vertex Endpoint は deploy しない。
 # Vertex Endpoint shell の display_name は `enable_vertex_endpoint_shell=true`
 # の時にのみ使われ、値は `infra/terraform/environments/dev/main.tf` の

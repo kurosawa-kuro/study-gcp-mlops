@@ -1,4 +1,4 @@
-"""multilingual-e5-base encoder model + Vertex custom prediction routine.
+"""multilingual-e5-base encoder model + local/dev prediction routine.
 
 ME5 models require the prompt prefix on every input:
 
@@ -11,6 +11,16 @@ helpers :func:`encode_query` / :func:`encode_passage` as the only entry points.
 Heavy dependencies (``sentence_transformers``) are imported lazily inside
 :meth:`E5Encoder.load`, so unit tests + composition roots that stub the
 ``model`` attribute do not need torch installed.
+
+Runtime-compat note:
+
+* production Phase 7 uses KServe HuggingFace runtime and sends
+  ``{"instances": ["query: ..."]}``
+* older/local CPR callers may still send
+  ``{"instances": [{"text": "...", "kind": "query"}]}``
+
+This server accepts both so local dev does not drift from the app-side
+``KServeEncoder`` contract.
 """
 
 from __future__ import annotations
@@ -45,11 +55,15 @@ class E5Encoder:
     vector_dim: int = E5_VECTOR_DIM
 
     @classmethod
-    def load(cls, *, model_dir: Path | None = None) -> E5Encoder:
-        """Instantiate a real sentence-transformers encoder from ``model_dir``."""
+    def load(cls, *, model_source: str | Path | None = None) -> E5Encoder:
+        """Instantiate a real sentence-transformers encoder.
+
+        ``model_source`` may be a local directory or a Hugging Face model ID.
+        ``None`` falls back to ``intfloat/multilingual-e5-base``.
+        """
         from sentence_transformers import SentenceTransformer
 
-        path = str(model_dir) if model_dir is not None else E5_MODEL_NAME
+        path = str(model_source) if model_source is not None else E5_MODEL_NAME
         model = SentenceTransformer(path)
         return cls(model=model)
 
@@ -78,7 +92,7 @@ class EncoderInstance(BaseModel):
 
 
 class EncoderRequest(BaseModel):
-    instances: list[EncoderInstance]
+    instances: list[EncoderInstance | str]
 
 
 class EncoderResponse(BaseModel):
@@ -109,12 +123,27 @@ def _download_artifact_dir(gcs_uri: str, workdir: Path) -> Path:
 
 
 def _load_encoder() -> E5Encoder:
+    local_model_dir = os.getenv("LOCAL_ENCODER_MODEL_DIR", "").strip()
+    if local_model_dir:
+        return E5Encoder.load(model_source=Path(local_model_dir))
     storage_uri = os.getenv("AIP_STORAGE_URI", "").strip()
-    if not storage_uri:
-        raise RuntimeError("AIP_STORAGE_URI is required")
-    tmpdir = Path(tempfile.mkdtemp(prefix="encoder-model-"))
-    model_dir = _download_artifact_dir(storage_uri, tmpdir)
-    return E5Encoder.load(model_dir=model_dir)
+    if storage_uri:
+        tmpdir = Path(tempfile.mkdtemp(prefix="encoder-model-"))
+        model_dir = _download_artifact_dir(storage_uri, tmpdir)
+        return E5Encoder.load(model_source=model_dir)
+    model_name = os.getenv("ENCODER_MODEL_NAME", E5_MODEL_NAME).strip() or E5_MODEL_NAME
+    return E5Encoder.load(model_source=model_name)
+
+
+def _normalize_instance(item: EncoderInstance | str) -> str:
+    if isinstance(item, str):
+        text = item.strip()
+        if not text:
+            raise ValueError("encoder instance must not be empty")
+        if text.startswith(QUERY_PREFIX) or text.startswith(PASSAGE_PREFIX):
+            return text
+        return QUERY_PREFIX + text
+    return f"{item.kind}: {item.text.strip()}"
 
 
 @asynccontextmanager
@@ -137,21 +166,12 @@ def predict(request: EncoderRequest) -> EncoderResponse:
     encoder: E5Encoder | None = app.state.encoder
     if encoder is None:
         raise HTTPException(status_code=503, detail="encoder not loaded")
-    queries = [item.text for item in request.instances if item.kind == "query"]
-    passages = [item.text for item in request.instances if item.kind == "passage"]
-    results: list[list[float]] = []
-    query_vectors = encoder.encode_queries(queries).tolist() if queries else []
-    passage_vectors = encoder.encode_passages(passages).tolist() if passages else []
-    query_index = 0
-    passage_index = 0
-    for item in request.instances:
-        if item.kind == "query":
-            results.append([float(v) for v in query_vectors[query_index]])
-            query_index += 1
-        else:
-            results.append([float(v) for v in passage_vectors[passage_index]])
-            passage_index += 1
-    return EncoderResponse(predictions=results)
+    try:
+        normalized = [_normalize_instance(item) for item in request.instances]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    vectors = encoder._encode(normalized).tolist()
+    return EncoderResponse(predictions=[[float(v) for v in row] for row in vectors])
 
 
 def main() -> None:
