@@ -17,10 +17,15 @@ def _candidate(property_id: str, lex: int, sem: int) -> Candidate:
         semantic_rank=sem,
         me5_score=0.4,
         property_features={
+            "title": f"{property_id} の物件",
+            "city": "東京",
+            "ward": "北区",
+            "layout": "1LDK",
             "rent": 120000,
             "walk_min": 7,
             "age_years": 12,
             "area_m2": 28.0,
+            "pet_ok": True,
         },
     )
 
@@ -40,6 +45,9 @@ def test_search_endpoint_returns_results(fake_client, fake_candidate_retriever) 
     body = response.json()
     assert body["request_id"]
     assert [item["property_id"] for item in body["results"]] == ["P-001", "P-002"]
+    assert body["results"][0]["title"] == "P-001 の物件"
+    assert body["results"][0]["ward"] == "北区"
+    assert body["results"][0]["pet_ok"] is True
 
 
 def test_search_endpoint_503_when_retriever_unavailable(

@@ -39,14 +39,18 @@
 
   <article id="result-card" hidden>
     <h2>検索結果 <small id="result-meta"></small></h2>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th><th>property_id</th><th>final_rank</th><th>lex</th><th>sem</th><th>me5_score</th><th>score (rerank)</th>
-        </tr>
-      </thead>
-      <tbody id="result-rows"></tbody>
-    </table>
+    <div id="result-rows"></div>
+    <details>
+      <summary>デバッグ指標</summary>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>property_id</th><th>final_rank</th><th>lex</th><th>sem</th><th>me5_score</th><th>score (rerank)</th>
+          </tr>
+        </thead>
+        <tbody id="debug-rows"></tbody>
+      </table>
+    </details>
     <details>
       <summary>API レスポンス JSON</summary>
       <pre id="result-json"></pre>
@@ -79,6 +83,43 @@
 <script>
   let lastRequestId = null;
 
+  function yen(value) {
+    return typeof value === "number" ? `${value.toLocaleString("ja-JP")}円` : "賃料未設定";
+  }
+
+  function boolBadge(value) {
+    if (value === true) return "ペット可";
+    if (value === false) return "ペット不可";
+    return "条件未設定";
+  }
+
+  function num(value, digits = 0) {
+    if (typeof value !== "number" || Number.isNaN(value)) return "不明";
+    return digits > 0 ? value.toFixed(digits) : `${value}`;
+  }
+
+  function renderPropertyCard(result, index) {
+    const title = result.title || result.property_id;
+    const location = [result.city, result.ward].filter(Boolean).join(" ");
+    const specs = [
+      result.layout || "間取り不明",
+      typeof result.area_m2 === "number" ? `${result.area_m2.toFixed(1)}m2` : "面積不明",
+      typeof result.walk_min === "number" ? `駅徒歩${result.walk_min}分` : "徒歩不明",
+      typeof result.age_years === "number" ? `築${result.age_years}年` : "築年不明",
+    ];
+    return `
+      <article data-property-id="${result.property_id}" class="search-result-card">
+        <header>
+          <p><strong>${index + 1}位</strong> <code>${result.property_id}</code></p>
+          <h3>${title}</h3>
+          <p>${location || "所在地未設定"}</p>
+        </header>
+        <p><strong>${yen(result.rent)}</strong> ・ ${specs.join(" ・ ")}</p>
+        <p>${boolBadge(result.pet_ok)}</p>
+      </article>
+    `;
+  }
+
   function getFilters() {
     const filters = {};
     const maxRent = parseInt(document.getElementById("q-max-rent").value, 10);
@@ -110,9 +151,21 @@
       lastRequestId = body.request_id || null;
       document.getElementById("result-meta").textContent = `request_id=${lastRequestId} · status=${res.status} · ${(body.results || []).length} 件`;
       document.getElementById("result-json").textContent = JSON.stringify(body, null, 2);
-      const tbody = document.getElementById("result-rows");
-      tbody.innerHTML = "";
+      const cards = document.getElementById("result-rows");
+      const debug = document.getElementById("debug-rows");
+      cards.innerHTML = "";
+      debug.innerHTML = "";
       (body.results || []).forEach((r, i) => {
+        const card = document.createElement("div");
+        card.innerHTML = renderPropertyCard(r, i);
+        const cardNode = card.firstElementChild;
+        if (cardNode) {
+          cardNode.addEventListener("click", () => {
+            document.getElementById("fb-pid").value = r.property_id;
+          });
+          cards.appendChild(cardNode);
+        }
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${i + 1}</td>
@@ -126,7 +179,7 @@
         tr.addEventListener("click", () => {
           document.getElementById("fb-pid").value = r.property_id;
         });
-        tbody.appendChild(tr);
+        debug.appendChild(tr);
       });
       const first = (body.results || [])[0];
       if (first) document.getElementById("fb-pid").value = first.property_id;

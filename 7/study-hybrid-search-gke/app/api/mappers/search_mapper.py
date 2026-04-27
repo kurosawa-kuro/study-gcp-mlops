@@ -69,6 +69,15 @@ def search_result_item_to_schema(item: SearchResultItem) -> SchemaSearchResultIt
         score=item.score,
         attributions=item.attributions,
         popularity_score=item.popularity_score,
+        title=item.title,
+        city=item.city,
+        ward=item.ward,
+        layout=item.layout,
+        rent=item.rent,
+        walk_min=item.walk_min,
+        age_years=item.age_years,
+        area_m2=item.area_m2,
+        pet_ok=item.pet_ok,
     )
 
 

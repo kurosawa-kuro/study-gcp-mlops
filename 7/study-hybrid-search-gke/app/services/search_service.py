@@ -135,6 +135,19 @@ class SearchService:
                 score=item.score,
                 attributions=item.attributions,
                 popularity_score=popularity_map.get(item.candidate.property_id),
+                # Display-side fields (Phase 7 Run 6): copied from the candidate's
+                # property_features dict that the BQ retriever populated via
+                # JOIN on `properties_cleaned`. Keys may be absent under fake
+                # retrievers / older callers — use `.get()` with None default.
+                title=_as_str(item.candidate.property_features.get("title")),
+                city=_as_str(item.candidate.property_features.get("city")),
+                ward=_as_str(item.candidate.property_features.get("ward")),
+                layout=_as_str(item.candidate.property_features.get("layout")),
+                rent=_as_int(item.candidate.property_features.get("rent")),
+                walk_min=_as_int(item.candidate.property_features.get("walk_min")),
+                age_years=_as_int(item.candidate.property_features.get("age_years")),
+                area_m2=_as_float(item.candidate.property_features.get("area_m2")),
+                pet_ok=_as_bool(item.candidate.property_features.get("pet_ok")),
             )
             for item in ranked
         ]
@@ -156,6 +169,15 @@ class SearchService:
                             "score": it.score,
                             "attributions": it.attributions,
                             "popularity_score": it.popularity_score,
+                            "title": it.title,
+                            "city": it.city,
+                            "ward": it.ward,
+                            "layout": it.layout,
+                            "rent": it.rent,
+                            "walk_min": it.walk_min,
+                            "age_years": it.age_years,
+                            "area_m2": it.area_m2,
+                            "pet_ok": it.pet_ok,
                         }
                         for it in items
                     ],
@@ -173,6 +195,48 @@ class SearchService:
 
 
 # ----------------------------------------------------------------------- helpers
+
+
+def _as_str(value: object) -> str | None:
+    """Coerce a candidate's property_features value to ``str | None``."""
+    if value is None:
+        return None
+    coerced = str(value).strip()
+    return coerced or None
+
+
+def _as_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_float(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_bool(value: object) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in {"true", "1", "yes", "y", "t"}:
+            return True
+        if v in {"false", "0", "no", "n", "f"}:
+            return False
+    return None
 
 
 def filters_from_dict(raw: dict[str, object]) -> SearchFilters:

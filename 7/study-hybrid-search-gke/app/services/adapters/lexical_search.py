@@ -6,6 +6,7 @@ This is the only lexical adapter — Phase 7 dropped the Discovery Engine varian
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import httpx
@@ -53,12 +54,20 @@ class MeilisearchLexical(LexicalSearchPort):
         # 別名でも IAM 認証を受け付けるドキュメント記載の代替)。
         # 参照: docs/04_運用.md / 動作検証結果.md Phase 7 Run 1 (B17)
         if self._require_identity_token:
-            try:
-                token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]
-                headers["x-serverless-authorization"] = f"Bearer {token}"
-            except Exception:
-                self._logger.exception("Failed to mint ID token for meili-search")
-                return []
+            # Local PDCA dev: ``MEILI_PRESIGNED_ID_TOKEN`` で
+            # ``gcloud auth print-identity-token`` の値を直接注入できる
+            # (User OAuth は ``id_token.fetch_id_token`` (SA only) を通らない)。
+            # Cloud Run Job / WI Pod では env 未設定で従来パスを使う。
+            preset = os.environ.get("MEILI_PRESIGNED_ID_TOKEN", "").strip()
+            if preset:
+                headers["x-serverless-authorization"] = f"Bearer {preset}"
+            else:
+                try:
+                    token = id_token.fetch_id_token(Request(), self._base_url)  # type: ignore[no-untyped-call]
+                    headers["x-serverless-authorization"] = f"Bearer {token}"
+                except Exception:
+                    self._logger.exception("Failed to mint ID token for meili-search")
+                    return []
         if self._api_key:
             headers["authorization"] = f"Bearer {self._api_key}"
 

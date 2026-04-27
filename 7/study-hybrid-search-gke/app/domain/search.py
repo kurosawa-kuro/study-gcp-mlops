@@ -64,6 +64,21 @@ class SearchResultItem:
     attributions: dict[str, float] | None = None
     # Phase 6 T1 — BQML auxiliary popularity score.
     popularity_score: float | None = None
+    # --- Display-side metadata (additive, Phase 7 Run 6) ----------------------
+    # `/search` レスポンスを「ランキング数値の表」ではなく「物件カード」として
+    # 描画できるようにするため、`properties_cleaned` から JOIN 取得した表示用
+    # メタを additive に追加。ranker feature には流れない (FEATURE_COLS_RANKER
+    # 10 列の parity invariant は不変)。fake retriever / 旧 path で値が無い場合
+    # に備えて全て Optional。
+    title: str | None = None
+    city: str | None = None
+    ward: str | None = None
+    layout: str | None = None
+    rent: int | None = None
+    walk_min: int | None = None
+    age_years: int | None = None
+    area_m2: float | None = None
+    pet_ok: bool | None = None
 
 
 @dataclass(frozen=True)

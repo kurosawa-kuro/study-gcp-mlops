@@ -40,6 +40,20 @@ class SearchResultItem(BaseModel):
     # this property. Separate from rerank ``score`` so the 10-column parity
     # invariant remains untouched.
     popularity_score: float | None = None
+    # --- Display-side metadata (Phase 7 Run 6, additive) ----------------------
+    # `properties_cleaned` から JOIN 取得した物件メタ。UI が「数字テーブル」
+    # ではなく「物件カード」として描画するために必要。既存 API 呼び出し側に
+    # 影響しないよう全 Optional (None でもレスポンス JSON から消える pydantic
+    # default 挙動には依存していないので、None で出る点は ok)。
+    title: str | None = None
+    city: str | None = None
+    ward: str | None = None
+    layout: str | None = None
+    rent: int | None = None
+    walk_min: int | None = None
+    age_years: int | None = None
+    area_m2: float | None = None
+    pet_ok: bool | None = None
 
 
 class SearchResponse(BaseModel):

@@ -41,6 +41,15 @@ def test_to_search_response_maps_items() -> None:
             score=0.99,
             attributions={"rent": 0.1, "_baseline": 0.0},
             popularity_score=0.4,
+            title="渋谷のペット可1LDK",
+            city="東京",
+            ward="渋谷区",
+            layout="1LDK",
+            rent=180000,
+            walk_min=8,
+            age_years=6,
+            area_m2=35.4,
+            pet_ok=True,
         ),
     ]
     output = SearchOutput(
@@ -56,3 +65,7 @@ def test_to_search_response_maps_items() -> None:
     assert len(response.results) == 1
     assert response.results[0].property_id == "P-001"
     assert response.results[0].popularity_score == 0.4
+    assert response.results[0].title == "渋谷のペット可1LDK"
+    assert response.results[0].ward == "渋谷区"
+    assert response.results[0].rent == 180000
+    assert response.results[0].pet_ok is True

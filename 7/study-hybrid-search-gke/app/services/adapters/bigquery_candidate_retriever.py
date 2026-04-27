@@ -118,6 +118,11 @@ class BigQueryCandidateRetriever:
             SELECT
               s.property_id,
               s.rrf_rank,
+              p.title AS p_title,
+              p.city AS p_city,
+              p.ward AS p_ward,
+              p.layout AS p_layout,
+              p.pet_ok AS p_pet_ok,
               p.rent AS p_rent,
               p.walk_min AS p_walk_min,
               p.age_years AS p_age_years,
@@ -161,6 +166,17 @@ class BigQueryCandidateRetriever:
                         "fav_rate": row["f_fav_rate"],
                         "inquiry_rate": row["f_inquiry_rate"],
                         "rrf_rank": rrf_rank_map.get(property_id),
+                        # Display-side fields (additive — UI / response decoration only,
+                        # not consumed by ranker_features.build_ranker_features).
+                        # Phase 7 Run 6 で /search response に物件メタを含めるため
+                        # JOIN 結果から拾い上げる。FEATURE_COLS_RANKER 10 列の parity
+                        # invariant には影響しない (build_ranker_features は keys を
+                        # whitelist で読むため余分な key は無視される)。
+                        "title": row["p_title"],
+                        "city": row["p_city"],
+                        "ward": row["p_ward"],
+                        "layout": row["p_layout"],
+                        "pet_ok": row["p_pet_ok"],
                     },
                 )
             )
