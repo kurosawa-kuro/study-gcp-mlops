@@ -1,5 +1,6 @@
-# Vertex AI Custom Prediction Routine: LightGBM reranker.
-# Build context: repository root. Entry point: ml.serving.reranker.
+# KServe InferenceService: LightGBM reranker。
+# Build context: repository root。Entry point: ml.serving.reranker。
+# Phase 7 で base から ml extras を分離したので、'.[ml]' で lightgbm を要求する。
 
 FROM python:3.12-slim
 
@@ -16,10 +17,10 @@ RUN apt-get update \
 
 RUN pip install --no-cache-dir --upgrade pip
 
-COPY pyproject.toml /workspace/pyproject.toml
+COPY pyproject.toml uv.lock* /workspace/
 COPY ml /workspace/ml
 
-RUN pip install --no-cache-dir /workspace
+RUN pip install --no-cache-dir '/workspace[ml]'
 
 EXPOSE 8080
 CMD ["python", "-m", "ml.serving.reranker"]

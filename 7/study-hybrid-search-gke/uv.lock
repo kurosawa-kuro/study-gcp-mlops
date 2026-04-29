@@ -2402,22 +2402,28 @@ dependencies = [
     { name = "google-cloud-bigquery" },
     { name = "google-cloud-bigquery-storage" },
     { name = "google-cloud-logging" },
-    { name = "google-cloud-pipeline-components" },
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-run" },
     { name = "google-cloud-storage" },
     { name = "httpx" },
     { name = "jinja2" },
-    { name = "kfp" },
-    { name = "lightgbm" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "prometheus-fastapi-instrumentator" },
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings", extra = ["yaml"] },
-    { name = "sentence-transformers" },
     { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+ml = [
+    { name = "lightgbm" },
+    { name = "sentence-transformers" },
+]
+pipelines = [
+    { name = "google-cloud-pipeline-components" },
+    { name = "kfp" },
 ]
 
 [package.dev-dependencies]
@@ -2441,23 +2447,24 @@ requires-dist = [
     { name = "google-cloud-bigquery", specifier = ">=3.25" },
     { name = "google-cloud-bigquery-storage", specifier = ">=2.27" },
     { name = "google-cloud-logging", specifier = ">=3.11" },
-    { name = "google-cloud-pipeline-components", specifier = ">=2.17" },
+    { name = "google-cloud-pipeline-components", marker = "extra == 'pipelines'", specifier = ">=2.17" },
     { name = "google-cloud-pubsub", specifier = ">=2.23" },
     { name = "google-cloud-run", specifier = ">=0.10" },
     { name = "google-cloud-storage", specifier = ">=2.18" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.1" },
-    { name = "kfp", specifier = ">=2.9,<3" },
-    { name = "lightgbm", specifier = ">=4.5" },
+    { name = "kfp", marker = "extra == 'pipelines'", specifier = ">=2.9,<3" },
+    { name = "lightgbm", marker = "extra == 'ml'", specifier = ">=4.5" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandas", specifier = ">=2.2" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=7.0" },
     { name = "pyarrow", specifier = ">=16" },
     { name = "pydantic", specifier = ">=2.8" },
     { name = "pydantic-settings", extras = ["yaml"], specifier = ">=2.4" },
-    { name = "sentence-transformers", specifier = ">=3.0" },
+    { name = "sentence-transformers", marker = "extra == 'ml'", specifier = ">=3.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
+provides-extras = ["ml", "pipelines"]
 
 [package.metadata.requires-dev]
 dev = [

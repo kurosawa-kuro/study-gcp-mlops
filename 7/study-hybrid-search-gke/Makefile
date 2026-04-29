@@ -36,7 +36,6 @@ NA_TARGETS := up down wait-db free-ports build seed serve test-e2e install-brows
 	ops-sync ops-embed ops-train-build ops-train-fit ops-ranking-verbose \
 	ops-weekly \
 	eval-compare eval-offline kpi-daily eval-weekly-report features-daily features-report \
-	deploy-api-local \
 	api-dev-search-rerank setup-encoder-endpoint setup-reranker-endpoint \
 	ops-monitor ops-monitor-lro ops-enable-search
 
@@ -53,7 +52,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         deploy-all deploy-all-direct run-all destroy-all seed-test seed-test-clean \
         sync-meili \
         train-smoke train-smoke-persist api-dev api-dev-hybrid clean \
-        docker-auth deploy-api deploy-kserve-models kube-creds \
+        docker-auth deploy-api deploy-api-local deploy-kserve-models kube-creds \
 		ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
         ops-accuracy-report local-accuracy-report \
@@ -76,8 +75,8 @@ doctor: ## Verify that prerequisite tools are installed
 
 # ----- Python workspace -----
 
-sync: ## uv sync (single root package + dev group)
-	uv sync --dev
+sync: ## uv sync (root package + dev group + all extras: ml, pipelines)
+	uv sync --dev --all-extras
 
 test: ## Run pytest across the workspace
 	uv run pytest
@@ -232,9 +231,13 @@ kube-creds: ## Fetch kubeconfig for the Phase 6 GKE Autopilot cluster
 	gcloud container clusters get-credentials $${GKE_CLUSTER_NAME:-hybrid-search} \
 		--region=$(REGION) --project=$(PROJECT_ID)
 
-deploy-api: ## Cloud Build + `kubectl set image` for search-api (Phase 6 replaces deploy-api-local)
+deploy-api: ## Cloud Build (kaniko cache) + `kubectl set image` for search-api
 	@GIT_SHA="$${GIT_SHA:-$$(git rev-parse HEAD 2>/dev/null || echo dev-$$(date +%s))}" \
 		uv run python -m scripts.deploy.api_gke
+
+deploy-api-local: ## ローカル docker buildx + push + rollout (BuildKit cache mount で 2 回目以降が高速)
+	@GIT_SHA="$${GIT_SHA:-$$(git rev-parse HEAD 2>/dev/null || echo dev-$$(date +%s))}" \
+		uv run python -m scripts.deploy.api_gke_local
 
 deploy-kserve-images: ## Cloud Build + image patch for property-encoder/reranker InferenceServices
 	@GIT_SHA="$${GIT_SHA:-$$(git rev-parse HEAD 2>/dev/null || echo dev-$$(date +%s))}" \
