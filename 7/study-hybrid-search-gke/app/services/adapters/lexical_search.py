@@ -89,7 +89,7 @@ class MeilisearchLexical(LexicalSearchPort):
         # マスターキーを届けるためには Cloud Run の代替ヘッダ
         # `X-Serverless-Authorization` を OIDC 用に使う必要がある (Cloud Run はこの
         # 別名でも IAM 認証を受け付けるドキュメント記載の代替)。
-        # 参照: docs/04_運用.md / 動作検証結果.md Phase 7 Run 1 (B17)
+        # 参照: docs/05_運用.md / 動作検証結果.md Phase 7 Run 1 (B17)
         if self._require_identity_token:
             # Local PDCA dev: ``MEILI_PRESIGNED_ID_TOKEN`` で
             # ``gcloud auth print-identity-token`` の値を直接注入できる

@@ -47,7 +47,7 @@ make tf-plan GITHUB_REPO=<owner>/<name>
 terraform -chdir=infra apply
 ```
 
-`docs/04_運用.md §1 STEP 7–13` で完全手順。
+`docs/05_運用.md §1 STEP 7–13` で完全手順。
 
 ## 生成される主要リソース (モジュール別)
 
@@ -68,7 +68,7 @@ terraform -chdir=infra apply
 
 ## 注意
 
-- Secret の値は Terraform 管理外 (`gcloud secrets versions add` で投入、`docs/04_運用.md §1 STEP 10`)
-- `google_dataform_repository` は IaC 管理済 (`modules/data/main.tf`、`docs/04_運用.md §1 STEP 12`)
-- ルート `outputs.tf` の `workload_identity_provider` / `github_deployer_sa_email` を GitHub Actions Variables に登録 (`docs/04_運用.md §1 STEP 11`)
+- Secret の値は Terraform 管理外 (`gcloud secrets versions add` で投入、`docs/05_運用.md §1 STEP 10`)
+- `google_dataform_repository` は IaC 管理済 (`modules/data/main.tf`、`docs/05_運用.md §1 STEP 12`)
+- ルート `outputs.tf` の `workload_identity_provider` / `github_deployer_sa_email` を GitHub Actions Variables に登録 (`docs/05_運用.md §1 STEP 11`)
 - `terraform validate` は `make tf-validate` で backend-less に走る (モジュール init も含む)

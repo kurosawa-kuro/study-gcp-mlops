@@ -179,7 +179,7 @@ ops-destroy-check: ## Assert no high-cost residual Phase 7 resources remain afte
 	uv run python -m scripts.ops.destroy_check --project-id=$(PROJECT_ID) --region=$(REGION) --vertex-location=$(VERTEX_LOCATION)
 
 destroy-phase7-learning: ## Coast-down placeholder: Dataflow Job / Feature Online Store / KServe explain pod
-	@echo "Not implemented yet. See docs/04_運用.md for current manual coast-down guidance."
+	@echo "Not implemented yet. See docs/05_運用.md for current manual coast-down guidance."
 	@exit 1
 
 seed-test: ## Insert 5 test properties for PDCA smoke
@@ -255,7 +255,7 @@ clean: ## Remove caches (.venv, .terraform, pyc)
 	rm -rf .venv $(TF_DIR)/.terraform
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune -exec rm -rf {} +
 
-# ----- GCP operations (see docs/04_運用.md §3) -----
+# ----- GCP operations (see docs/05_運用.md §3) -----
 
 ops-api-url: ## Print the search-api Gateway external URL
 	@kubectl get gateway search-api-gateway --namespace=search -o jsonpath='{.status.addresses[0].value}' 2>/dev/null | sed -e 's|^|https://|' -e 's|$$||' || echo "search-api-gateway not yet provisioned"

@@ -80,7 +80,7 @@ resource "google_bigquery_table" "training_runs" {
 #   bq rm -f --project_id=mlops-dev-a -t mlops.predictions_log
 #
 # *before* the next `terraform apply`, because the resource previously carried
-# ``deletion_protection = true``. See ``docs/04_運用.md §3.9`` for the full
+# ``deletion_protection = true``. See ``docs/05_運用.md §3.9`` for the full
 # two-phase apply checklist.
 # =========================================================================
 
@@ -425,7 +425,7 @@ resource "google_secret_manager_secret" "search_api_iap_oauth_client_secret" {
 #   `gcloud iap oauth-clients create ...`
 # and overwrite this secret via
 #   `gcloud secrets versions add search-api-iap-oauth-client-secret --data-file=-`
-# before promoting. See docs/04_運用.md "IAP 有効化".
+# before promoting. See docs/05_運用.md "IAP 有効化".
 resource "google_secret_manager_secret_version" "search_api_iap_oauth_client_secret_dev_placeholder" {
   secret      = google_secret_manager_secret.search_api_iap_oauth_client_secret.id
   secret_data = "dev-placeholder-do-not-use-in-prod"
@@ -585,7 +585,7 @@ resource "google_bigquery_dataset_iam_member" "dataform_mlops_editor" {
 # Optional git_remote_settings: supply dataform_git_token_secret_version to
 # auto-sync from GitHub; otherwise the repository is created without remote
 # (Dataform UI push / manual sync). The token secret value itself is
-# populated out-of-band (see 04_運用.md STEP 10/12).
+# populated out-of-band (see 05_運用.md STEP 10/12).
 # =========================================================================
 
 resource "google_dataform_repository" "main" {

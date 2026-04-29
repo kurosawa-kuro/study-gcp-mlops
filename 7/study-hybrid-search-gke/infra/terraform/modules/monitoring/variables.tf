@@ -34,6 +34,6 @@ variable "oncall_email" {
 
   validation {
     condition     = length(var.oncall_email) > 0 && can(regex("@", var.oncall_email))
-    error_message = "oncall_email must be a non-empty address containing '@'. Pass via -var or tfvars (see docs/04_運用.md STEP 11)."
+    error_message = "oncall_email must be a non-empty address containing '@'. Pass via -var or tfvars (see docs/05_運用.md STEP 11)."
   }
 }
