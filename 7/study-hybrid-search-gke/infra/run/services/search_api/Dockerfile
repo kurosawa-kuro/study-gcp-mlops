@@ -16,6 +16,7 @@ RUN uv sync --frozen --no-dev --extra app --no-install-project || \
 
 COPY app/ app/
 COPY ml/  ml/
+COPY scripts/ scripts/
 RUN uv sync --frozen --no-dev --extra app --no-editable || \
     uv sync --frozen --no-dev --no-editable
 
@@ -25,6 +26,7 @@ FROM python:3.12-slim-bookworm AS runtime
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /src/app /home/app/app
 COPY --from=builder /src/ml /home/app/ml
+COPY --from=builder /src/scripts /home/app/scripts
 ENV PATH="/opt/venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
