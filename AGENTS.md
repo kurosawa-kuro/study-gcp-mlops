@@ -46,6 +46,7 @@ Validation expectations:
 
 - For phases 3-7, keep the hybrid-search **5-element core** intact: **Meilisearch BM25 + multilingual-e5 + vector store (Phase 4 = BigQuery `VECTOR_SEARCH` / Phase 5+ = Vertex AI Vector Search) + RRF + LightGBM LambdaRank**.
 - For phases 5-7, the **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** trio is mandatory (training-serving skew prevention). Phase 4 prepares the BigQuery feature table / view foundation; Phase 6 strengthens the update pipeline (Dataflow / Scheduled Query); Phase 7 adds opt-in Feature Online Store reference from KServe.
+- For phases 6-7, **Cloud Composer (Managed Airflow Gen 3)** is the canonical orchestrator. Phase 6 promotes Composer to the main line and absorbs Phase 5's Cloud Scheduler / Eventarc / Cloud Function / Vertex `PipelineJobSchedule` triggers into 3 DAGs (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`). Vertex `PipelineJobSchedule` must be removed from Phase 6 onward (no double-trigger). Phase 7 inherits the same DAGs unchanged. Phase 5 must NOT introduce Composer — it continues to use Phase 4's lightweight serverless orchestration.
 - Vertex Vector Search (Phase 5+) is the **production serving index** for ME5 vector search. The canonical embedding history / metadata stays in BigQuery (data lake + serving index two-layer model).
 - Any replacement/removal of core retrieval/ranking/feature-store/vector-store components requires explicit user approval. Meilisearch is a learning-friendly substitute for the real-world reference architecture (Elasticsearch + Redis synonym dictionary); swap requires explicit user approval.
 - Phase 6 keeps `/search` default behavior aligned with Phase 5; new PMLE features should be opt-in.
@@ -67,9 +68,9 @@ Single line per phase, showing how the hybrid-search stack is upgraded step by s
 |---|---|---|---|---|
 | 3 (Local) | Meilisearch (Docker) | pgvector / 簡易 ANN | local files | uv + Docker Compose |
 | 4 (GCP) | Meilisearch on Cloud Run | **BigQuery `VECTOR_SEARCH`** | **BigQuery feature table / view** (Phase 5 Feature Store の入力源) | Cloud Run |
-| 5 (Vertex AI) | Meilisearch on Cloud Run | **Vertex AI Vector Search** (BigQuery 側に embedding 履歴・メタデータ正本) | **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** (必須) | Vertex AI Endpoint |
-| 6 (PMLE) | inherits Phase 5 | inherits Phase 5 | inherits Phase 5 + Dataflow / Scheduled Query で更新パイプライン強化 | Vertex AI Endpoint |
-| 7 (GKE/KServe, 到達ゴール) | inherits Phase 6 | inherits Phase 6 | inherits Phase 6 + KServe から Feature Online Store opt-in 参照 | GKE Deployment + KServe InferenceService |
+| 5 (Vertex AI 本番MLOps基盤) | Meilisearch on Cloud Run | **Vertex AI Vector Search** (BigQuery 側に embedding 履歴・メタデータ正本) | **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** (必須) | Vertex AI Endpoint (orchestration は Phase 4 軽量経路を継続) |
+| 6 (PMLE + 運用統合) | inherits Phase 5 | inherits Phase 5 | inherits Phase 5 + Dataflow / Scheduled Query で更新パイプライン強化 + Composer DAG で更新管理 | Vertex AI Endpoint + **Cloud Composer 本線 orchestration** (Phase 5 までの軽量経路を集約) |
+| 7 (GKE/KServe, 到達ゴール) | inherits Phase 6 | inherits Phase 6 | inherits Phase 6 + KServe から Feature Online Store opt-in 参照 | GKE Deployment + KServe InferenceService (Composer は Phase 6 から継承) |
 
 Real-world reference architecture (in design docs only, not in code): Elasticsearch + Redis 同義語辞書 + ME5 + Vertex AI Vector Search + LightGBM. The repo intentionally substitutes Meilisearch + Redis cache for learning-friendliness.
 

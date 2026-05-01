@@ -15,7 +15,7 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 - Phase 2: **App / Pipeline / Port-Adapter** を導入
 - Phase 3-5: 不動産検索ドメインで **Local → GCP → Vertex AI** へ展開
 - Phase 6: Phase 5 と**同じ不動産ハイブリッド検索ドメインを維持**し、PMLE 試験範囲の追加技術を Phase 5 実コードに **adapter / 副経路 / 追加エンドポイント / 追加 Terraform** として統合
-- Phase 7: **Phase 6 の serving 層を GKE + KServe に置き換える到達ゴール**(Vertex AI Pipelines / **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** / **Vertex Vector Search** / Model Registry / BigQuery / Meilisearch 等は Phase 6 から継承。Feature Online Store は Phase 5 構築済を KServe から **Feature View 経由で** opt-in 参照)
+- Phase 7: **Phase 6 の serving 層を GKE + KServe に置き換える到達ゴール**(Vertex AI Pipelines / **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** / **Vertex Vector Search** / **Cloud Composer orchestration (Phase 6 起点)** / Model Registry / BigQuery / Meilisearch 等は Phase 6 から継承。Feature Online Store は Phase 5 構築済を KServe から **Feature View 経由で** opt-in 参照)
 
 ### 設計思想の不変性
 
@@ -39,9 +39,9 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 | 2 | `2/study-ml-app-pipeline/` | App + Pipeline + Port/Adapter | FastAPI lifespan DI, `core → ports ← adapters`, predictor 経由推論、seed/train/predict job 分離 | FastAPI, LightGBM, PostgreSQL | Docker Compose |
 | 3 | `3/study-hybrid-search-local/` | 不動産ハイブリッド検索(Local) | lexical + semantic + rerank、LambdaRank、RRF、Port/Adapter 実践 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis, uv | uv + Docker Compose |
 | 4 | `4/study-hybrid-search-gcp/` | 不動産ハイブリッド検索(GCP) | GCP マネージドサービス化、RRF、再学習ループ、IaC/CI、**BigQuery feature table / view の土台作成** (Phase 5 Feature Store の入力源)、**Secret Manager → Cloud Run secret injection(必須習得)** | Cloud Run, GCS, BigQuery, Cloud Logging, **Secret Manager**, **Pub/Sub, Eventarc, Cloud Scheduler, Artifact Registry, Cloud Build**, Terraform, WIF, GitHub Actions | uv + クラウド実行基盤 |
-| 5 | `5/study-hybrid-search-vertex/` | Vertex AI 本番MLOps基盤移行 | Vertex Pipelines (KFP v2) / Endpoint / Model Registry / Monitoring / Dataform への adapter 差し替え。**Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store) により training-serving skew を防ぐ特徴量管理を必須化** (Online Store を使う実務では Feature View が serving 接続点)。**Vertex Vector Search を ME5 ベクトル検索の本番 serving index として採用** (BigQuery 側は embedding 生成履歴・メタデータ保持、Phase 4 の BQ `VECTOR_SEARCH` は置換)。**Cloud Composer / Managed Airflow Gen 3 を本線オーケストレーターとして導入** — Dataform / Vertex AI Pipelines / Feature Store 更新 / monitoring query を DAG で統合管理。**Phase 4 の Cloud Scheduler + Eventarc + Cloud Function trigger は軽量代替経路 / 比較対象として残す** (本線 retrain schedule は Composer が担当、別 job や smoke / manual trigger 用途には Phase 4 経路を継続活用) | Vertex AI Pipelines, Vertex AI Endpoint, Vertex AI Model Registry, Vertex AI Model Monitoring, **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)**, **Vertex Vector Search**, **Cloud Composer / Managed Airflow Gen 3**, Dataform | uv + Vertex AI + Composer + Terraform |
-| 6 | `6/study-hybrid-search-pmle/` | GCP PMLE 追加技術ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 追加エンドポイント / Terraform として統合。Phase 5 から **Cloud Composer 本線 orchestration** を継承し、PMLE 追加 DAG (Dataflow Flex Template / BQML training / Composer-managed BigQuery monitoring query 等) を Composer に増設。Feature Store / Vertex Vector Search は Phase 5 前提。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), **Cloud Composer / Managed Airflow Gen 3 (Phase 5 から継承 + PMLE DAG 増設)**, Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, **Composer-managed BigQuery monitoring query** | uv + Vertex AI + Composer + Terraform |
-| 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 のデータ基盤・Vertex AI Pipelines・Feature Store (Feature Group / Feature View / Feature Online Store)・Vertex Vector Search・**Cloud Composer orchestration** を継承し、serving 層のみ GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、TreeSHAP 用 explain 専用 Pod と、**Phase 5 で構築済みの Feature Online Store (Feature View 経由) を KServe から参照する経路** を追加 | GKE Autopilot, KServe, **Cloud Composer / Managed Airflow Gen 3 (Phase 5 → 6 → 7 と継承)**, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, **Vertex AI Feature Store (Feature Online Store / Feature View)** | uv + GKE Autopilot/KServe + Composer |
+| 5 | `5/study-hybrid-search-vertex/` | Vertex AI 本番MLOps基盤移行 | Vertex Pipelines (KFP v2) / Endpoint / Model Registry / Monitoring / Dataform への adapter 差し替え。**Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store) により training-serving skew を防ぐ特徴量管理を必須化** (Online Store を使う実務では Feature View が serving 接続点)。**Vertex Vector Search を ME5 ベクトル検索の本番 serving index として採用** (BigQuery 側は embedding 生成履歴・メタデータ保持、Phase 4 の BQ `VECTOR_SEARCH` は置換)。Dataform は BigQuery feature table / view / embedding metadata table の管理に利用。**Phase 4 の Cloud Scheduler + Eventarc + Cloud Function trigger は軽量 orchestration 経路として継続** し、Vertex Pipelines / Feature Store 更新 / Vector Search index 更新を必要最小限で接続する (Composer 本線化は Phase 6 で行う = 引き算境界 Phase 5 → 6) | Vertex AI Pipelines, Vertex AI Endpoint, Vertex AI Model Registry, Vertex AI Model Monitoring, **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)**, **Vertex Vector Search**, Dataform | uv + Vertex AI + Terraform |
+| 6 | `6/study-hybrid-search-pmle/` | GCP PMLE + 運用統合ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 追加エンドポイント / Terraform として統合。**Cloud Composer / Managed Airflow Gen 3 を本線オーケストレーターとして導入** し、Dataform / Vertex AI Pipelines / Feature Store 更新 / Vertex Vector Search index 更新 / monitoring query を DAG で統合管理 (Phase 5 までの Cloud Scheduler + Eventarc + Cloud Function trigger は軽量代替経路 / smoke / manual trigger 用途として残す = Phase 5 → 6 引き算境界)。追加 DAG として Dataflow Flex Template / BQML training / Composer-managed BigQuery monitoring query を増設。Feature Store / Vertex Vector Search は Phase 5 前提。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), **Cloud Composer / Managed Airflow Gen 3 (本線 orchestration、Phase 6 起点)**, Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, **Composer-managed BigQuery monitoring query** | uv + Vertex AI + Composer + Terraform |
+| 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 のデータ基盤・Vertex AI Pipelines・Feature Store (Feature Group / Feature View / Feature Online Store)・Vertex Vector Search・**Cloud Composer orchestration** を継承し、serving 層のみ GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、TreeSHAP 用 explain 専用 Pod と、**Phase 5 で構築済みの Feature Online Store (Feature View 経由) を KServe から参照する経路** を追加 | GKE Autopilot, KServe, **Cloud Composer / Managed Airflow Gen 3 (Phase 6 → 7 と継承)**, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, **Vertex AI Feature Store (Feature Online Store / Feature View)** | uv + GKE Autopilot/KServe + Composer |
 
 ## 1. 基本戦略：「引き算」によるPhase間コード生成
 
@@ -78,9 +78,11 @@ Phase 1 (= Phase 2 から App/Pipeline/Port-Adapter を引いたもの)
 | Phase 2 | Phase 3 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis（ハイブリッド検索一式） |
 | Phase 1 | Phase 2 | FastAPI, lifespan DI, core/ports/adapters構造, seed/predict job |
 
-### Cloud Composer の位置づけ (Phase 5 で導入、Phase 6/7 で継承)
+### Cloud Composer の位置づけ (Phase 6 で導入、Phase 7 で継承)
 
-**Phase 7 をゴール / 起点として後方 Phase を引き算で派生する** という親 [`docs/02_移行ロードマップ.md` §1](docs/02_移行ロードマップ.md) の戦略と整合させるため、Cloud Composer / Managed Airflow Gen 3 は **Phase 5 で本線オーケストレーターとして導入** する。Phase 6 / Phase 7 はそれを継承、orchestration 二重化を排除する。Phase 4 までは Cloud Scheduler + Eventarc + Cloud Function (Gen2) の serverless 軽量経路、Phase 5 で Composer 本線化が **引き算境界** (Phase 4 → 5 の差分)。
+**Phase 7 をゴール / 起点として後方 Phase を引き算で派生する** という親 [`docs/02_移行ロードマップ.md` §1](docs/02_移行ロードマップ.md) の戦略と整合させるため、Cloud Composer / Managed Airflow Gen 3 は **Phase 6 で本線オーケストレーターとして導入** する。Phase 7 はそれを継承、orchestration 二重化を排除する。Phase 5 までは Cloud Scheduler + Eventarc + Cloud Function (Gen2) の serverless 軽量経路、**Phase 6 で Composer 本線化が引き算境界** (Phase 5 → 6 の差分)。
+
+**理由 (Phase 5 ではなく Phase 6 で導入する設計判断)**: Phase 5 で Vertex AI 本番 MLOps 基盤 (Pipelines / Feature Store / Vector Search) の構築に集中させ、運用統合 (Composer DAG 化) は Phase 6 に分離することで、Phase 5 での実装検証 / コスト / 失敗原因の切り分けを軽くする (Composer は環境常駐で重く、Vertex 本体検証と混ざると切り分けが難しくなるため)。
 
 #### Composer × Vertex Pipelines は代替ではなく上下関係
 
@@ -124,13 +126,13 @@ Cloud Composer (上位 = 業務・データ・ML 横断 orchestrator)
 
 | Plane | 担当 | 上下関係 | Phase での出現 |
 |---|---|---|---|
-| **Orchestration control plane** | **Cloud Composer DAG** | **上位** (司令塔) | **Phase 5 起点 → Phase 6 継承 + 増設 → Phase 7 継承** |
-| ML pipeline execution plane | Vertex AI Pipelines | **下位** (Composer から submit される) | Phase 5 起点 |
+| **Orchestration control plane** | **Cloud Composer DAG** | **上位** (司令塔) | **Phase 6 起点 → Phase 7 継承** (Phase 5 までは Cloud Scheduler / Eventarc / Cloud Function 軽量経路) |
+| ML pipeline execution plane | Vertex AI Pipelines | **下位** (Composer から submit される) | Phase 5 起点 (Phase 5 では Cloud Function trigger 等から、Phase 6 以降は Composer DAG から submit) |
 | Streaming / batch transform | Dataflow Flex Template | 下位 (Composer DAG が起動) | Phase 6 起点 |
 | Data / feature / metric store | BigQuery / Feature Store / Vertex Vector Search | 受動 | Phase 4-5 起点 |
 | Logging plane (リアルタイム) | Pub/Sub `ranking-log` / `search-feedback` + BQ Subscription | 独立 (Composer 経由不要) | Phase 4 起点 |
 
-**Phase 5 で Composer が引き受ける orchestration 責務** (本線 retrain schedule の集約。Phase 4 経路は軽量代替として残す):
+**Phase 6 で Composer が引き受ける orchestration 責務** (本線 retrain schedule の集約。Phase 5 までの軽量経路は軽量代替として残す):
 
 - Cloud Scheduler `check-retrain-daily` → **本線 retrain schedule から外す** (Composer DAG schedule が本線)。リソース自体は軽量代替・比較教材として残してよい
 - Eventarc `retrain-to-pipeline` → 同上 (本線 retrain trigger から外す、infra は smoke / 比較用に残す)
@@ -139,30 +141,36 @@ Cloud Composer (上位 = 業務・データ・ML 横断 orchestrator)
 - 一部 Scheduled Query 起動責務 → Composer DAG に集約 (Scheduled Query 自体は BQ 機能として残す)
 - `/jobs/check-retrain` HTTP endpoint → API smoke / manual trigger 専用に **格下げ** (本線スケジューラから外す)
 
-**残す (Phase 5 後も継続)**:
+**残す (Phase 6 後も継続)**:
 
 - Pub/Sub `ranking-log` / `search-feedback` (リアルタイム ingestion)
 - BigQuery Subscription (sink)
-- Vertex AI Pipelines 本体 (execution plane、Composer から submit される側)
+- Vertex AI Pipelines 本体 (execution plane、Phase 5 では Cloud Function trigger 経由、Phase 6 以降は Composer DAG が submit する側)
 - Dataform / Dataflow Flex Template / BQML / Feature Store
-- **Phase 4 までの Cloud Scheduler / Eventarc / Cloud Function (Gen2) リソース自体** — Phase 5 でも撤去せず、軽量代替・比較対象 / smoke / manual trigger として保持 (= 「Composer が常に正解」とは限らない設計判断力を残すため)。**ただし本線 retrain schedule と同じ job を別系統で起動しないこと** (= 二重起動禁止、後述カニバリ NG §)
+- **Phase 5 までの Cloud Scheduler / Eventarc / Cloud Function (Gen2) リソース自体** — Phase 6 でも撤去せず、軽量代替・比較対象 / smoke / manual trigger として保持 (= 「Composer が常に正解」とは限らない設計判断力を残すため)。**ただし本線 retrain schedule と同じ job を別系統で起動しないこと** (= 二重起動禁止、後述カニバリ NG §)
 
-**Phase 5 内部マイルストーン (5A-5E)** — Phase 5 は密度が高いため、実装順序として 5 段階に分けて進める。Phase 番号は増やさず、Phase 5 docs / Issue / commit メッセージで `5A` 〜 `5E` のラベルとして使う。
+**Phase 5 内部マイルストーン (5A-5D)** — Phase 5 は Vertex AI 本番 MLOps 基盤の構築に集中させ、Composer 本線化は Phase 6 に分離。Phase 番号は増やさず、Phase 5 docs / Issue / commit メッセージで `5A` 〜 `5D` のラベルとして使う。
 
 | ID | スコープ | 主成果物 |
 |---|---|---|
 | **5A** | Vertex Pipelines / Model Registry / Endpoint 化 | `pipeline/{data_job,training_job}/`、`ml/serving/`、Vertex Model Registry の `production` alias 運用 |
 | **5B** | Feature Store 必須化 | Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store) の Terraform 定義 + `FeatureFetcher` Port + adapter (PR-2 完了)。Online Store を使う場合は **Feature View が serving 接続点** |
 | **5C** | Vertex Vector Search 置換 | `infra/terraform/modules/vector_search/`、`SemanticSearch` Port × Vertex Vector Search adapter (PR-1 完了)、BQ embedding テーブルとの 2 層構造 |
-| **5D** | Composer DAG 統合 | `infra/terraform/modules/composer/`、`pipeline/dags/{daily_feature_refresh,retrain_orchestration,monitoring_validation}.py`、Vertex `PipelineJobSchedule` 撤去 |
-| **5E** | Monitoring / Dataform / Scheduled feature refresh | Vertex Model Monitoring v2 / Dataform schedule / Composer-managed BigQuery monitoring query / feature parity 6 ファイル invariant の継続 PASS |
+| **5D** | Monitoring / Dataform / Scheduled feature refresh | Vertex Model Monitoring v2 / Dataform schedule / **Phase 4 から継続している Cloud Scheduler 経由の feature refresh** / feature parity 6 ファイル invariant の継続 PASS。Composer 本線化は Phase 6 で行う |
+
+**Phase 6 内部マイルストーン (6A-6B)** — Phase 6 では PMLE 追加技術と Composer 本線化を並行実装する:
+
+| ID | スコープ | 主成果物 |
+|---|---|---|
+| **6A** | Composer DAG 統合 (本線昇格) | `infra/terraform/modules/composer/`、`pipeline/dags/{daily_feature_refresh,retrain_orchestration,monitoring_validation}.py`、Vertex `PipelineJobSchedule` 撤去、Phase 5 までの Cloud Scheduler / Eventarc / Cloud Function trigger を軽量代替に格下げ |
+| **6B** | PMLE 追加技術統合 | BQML / Dataflow Flex Template / TreeSHAP Explainability / Monitoring SLO + burn-rate alert / Composer-managed BigQuery monitoring query を Composer DAG に増設 |
 
 **Phase 別 DAG 増設の段差**:
 
 | Phase | 実装 DAG | 累積 |
 |---|---|---|
-| Phase 5 (起点 = 5D で実装) | `daily_feature_refresh` (Dataform + Feature Store sync) / `retrain_orchestration` (Vertex training pipeline submit) / `monitoring_validation` (基本 skew/drift) | 3 本 |
-| Phase 6 (PMLE 増設) | 上記 3 本に加え、Dataflow Flex Template 起動 / BQML training / SLO + burn-rate 確認 / Explainability eval を **既存 DAG に増設 or 新 DAG として追加** | 3〜5 本 |
+| Phase 5 | DAG なし (Phase 4 継続の Cloud Scheduler / Eventarc / Cloud Function trigger が本線) | 0 本 |
+| Phase 6 (起点 = 6A 本線昇格 + 6B PMLE 増設) | `daily_feature_refresh` (Dataform + Feature Store sync) / `retrain_orchestration` (Vertex training pipeline submit) / `monitoring_validation` (skew/drift) + PMLE step (Dataflow / BQML / SLO / Explainability) | 3〜5 本 |
 | Phase 7 (継承のみ) | Phase 6 の DAG をそのまま継承。serving 差分は KServe 側で完結し、orchestration 層には新 DAG を追加しない | 同上 |
 
 **Feature Store のスコープ限定 (5B)** — 個人情報 / 同意管理 / TTL の運用負担を避けるため、教材として扱う対象を以下に限定:
@@ -173,15 +181,18 @@ Cloud Composer (上位 = 業務・データ・ML 横断 orchestrator)
 | **検索クエリ (`query_id` / `session_id`) 単位の特徴量** | ✅ ranking 用集計の範囲で扱う (個人特定しない粒度) |
 | **`user_id` 単位の特徴量** | ❌ 扱わない (or **opt-in のみ**)。理由: PII / 同意 / 履歴管理 / TTL / 監査が肥大化するため、本教材の MLOps 学習目的を超える |
 
-**ディレクトリ構成 (Phase 5 で確立、Phase 6/7 で継承)**:
+**ディレクトリ構成 (Phase 6 で確立、Phase 7 で継承)**:
 
 ```
-5/study-hybrid-search-vertex/  (起点)
+5/study-hybrid-search-vertex/  (Composer 未導入、Phase 4 継続経路を使う)
+└── (pipeline/dags/ や infra/terraform/modules/composer/ は存在しない)
+
+6/study-hybrid-search-pmle/  (Composer 本線昇格の起点 + PMLE 増設)
 ├── pipeline/
 │   ├── dags/
 │   │   ├── daily_feature_refresh.py
 │   │   ├── retrain_orchestration.py
-│   │   └── monitoring_validation.py
+│   │   └── monitoring_validation.py  (PMLE step を増設)
 │   └── composer/
 │       ├── README.md
 │       └── requirements.txt
@@ -190,9 +201,6 @@ Cloud Composer (上位 = 業務・データ・ML 横断 orchestrator)
     ├── variables.tf
     ├── outputs.tf
     └── versions.tf
-
-6/study-hybrid-search-pmle/  (継承 + PMLE DAG 増設)
-└── pipeline/dags/  ← Phase 5 から copy + Dataflow / BQML / drift 用 step を追加
 
 7/study-hybrid-search-gke/  (継承のみ)
 └── pipeline/dags/  ← Phase 6 と同形 (serving 層差分は別レイヤ)
@@ -213,14 +221,14 @@ Cloud Composer (上位 = 業務・データ・ML 横断 orchestrator)
 
 - ❌ Composer DAG schedule + Vertex `PipelineJobSchedule` + Cloud Scheduler + Eventarc + Cloud Function trigger が **同じ再学習を起動できる**状態
   - → 二重起動 / 責務不明 / 障害調査困難 / コスト増
-- ✅ Phase 5 以降の **本線 retrain schedule は Composer DAG のみ**。Vertex `PipelineJobSchedule` だけは併存禁止 (完全撤去)、Cloud Scheduler / Eventarc / Cloud Function (Gen2) trigger は **本線から外し、軽量代替・smoke・manual trigger 用途**として残してよい (別 job で残す or 同 job だが手動実行限定)
+- ✅ **Phase 6 以降の本線 retrain schedule は Composer DAG のみ** (Phase 5 までは Cloud Scheduler / Eventarc / Cloud Function 軽量経路が本線)。Phase 6 で Vertex `PipelineJobSchedule` だけは併存禁止 (完全撤去)、Cloud Scheduler / Eventarc / Cloud Function (Gen2) trigger は **本線から外し、軽量代替・smoke・manual trigger 用途**として残してよい (別 job で残す or 同 job だが手動実行限定)
 
 **3. orchestration 二重化 / 先祖帰り**
 
-- ❌ Phase 5 以降で Composer DAG と Cloud Scheduler が **同じ retrain job** を起動する状態 (リソースの併存自体は OK、起動経路は単一)
-- ❌ Phase 5 以降で Eventarc + Cloud Function trigger が **本線 retrain を起動している** 状態 (smoke / manual 専用に格下げした上での残置は OK)
+- ❌ Phase 6 以降で Composer DAG と Cloud Scheduler が **同じ retrain job** を起動する状態 (リソースの併存自体は OK、起動経路は単一)
+- ❌ Phase 6 以降で Eventarc + Cloud Function trigger が **本線 retrain を起動している** 状態 (smoke / manual 専用に格下げした上での残置は OK)
 - ❌ 「Composer はあるが、実際の本線 retrain は Cloud Scheduler のまま」の中途半端な状態
-- ❌ Phase 5 は Composer / Phase 6 や 7 は Scheduler という先祖帰り (Phase 6/7 は必ず Phase 5 の Composer 継承)
+- ❌ Phase 6 は Composer / Phase 7 は Scheduler という先祖帰り (Phase 7 は必ず Phase 6 の Composer 継承)
 - ❌ `/jobs/check-retrain` が本線スケジューラとして使われ続ける (manual trigger / smoke 専用に格下げ済の設計を破る)
 
 ### Phase 2 → 3 の接続(飛躍を埋める短い説明)
