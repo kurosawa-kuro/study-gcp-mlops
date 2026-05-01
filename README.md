@@ -40,8 +40,22 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 | 3 | `3/study-hybrid-search-local/` | 不動産ハイブリッド検索(Local) | lexical + semantic + rerank、LambdaRank、RRF、Port/Adapter 実践 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis, uv | uv + Docker Compose |
 | 4 | `4/study-hybrid-search-gcp/` | 不動産ハイブリッド検索(GCP) | GCP マネージドサービス化、RRF、再学習ループ、IaC/CI、**BigQuery feature table / view の土台作成** (Phase 5 Feature Store の入力源)、**Secret Manager → Cloud Run secret injection(必須習得)** | Cloud Run, GCS, BigQuery, Cloud Logging, **Secret Manager**, **Pub/Sub, Eventarc, Cloud Scheduler, Artifact Registry, Cloud Build**, Terraform, WIF, GitHub Actions | uv + クラウド実行基盤 |
 | 5 | `5/study-hybrid-search-vertex/` | Vertex AI 標準 MLOps 差分移行 | Vertex Pipelines (KFP v2) / Endpoint / Model Registry / Monitoring / Dataform への adapter 差し替え。**Vertex AI Feature Store / Feature Group / Feature Online Store により training-serving skew を防ぐ特徴量管理を必須化**。**Vertex Vector Search を ME5 ベクトル検索の本番 serving index として採用** (BigQuery 側は embedding 生成履歴・メタデータ保持、Phase 4 の BQ `VECTOR_SEARCH` は置換) | Vertex AI Pipelines, Vertex AI Endpoint, Vertex AI Model Registry, Vertex AI Model Monitoring, **Vertex AI Feature Store, Feature Group, Feature Online Store**, **Vertex Vector Search**, Dataform, Cloud Function (Gen2) | uv + Vertex AI |
-| 6 | `6/study-hybrid-search-pmle/` | GCP PMLE 追加技術ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 副経路 / 追加エンドポイント / Terraform として統合。default flag では Phase 5 挙動維持。**Feature Store は Phase 5 前提**とし、本 Phase では Dataflow / Scheduled Query による特徴量生成・更新を強化。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, Scheduled Query | uv + Vertex AI + Terraform |
+| 6 | `6/study-hybrid-search-pmle/` | GCP PMLE 追加技術ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 副経路 / 追加エンドポイント / Terraform として統合。default flag では Phase 5 挙動維持。**Feature Store は Phase 5 前提**とし、本 Phase では Dataflow / Scheduled Query / **Cloud Composer (opt-in)** による特徴量生成・更新・オーケストレーションを強化。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, Scheduled Query, **Cloud Composer / Managed Airflow Gen 3 (opt-in、副経路)** | uv + Vertex AI + Terraform |
 | 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 の serving 層を GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、TreeSHAP 用 explain 専用 Pod と、**Phase 5 で構築済みの Feature Online Store を KServe から opt-in 参照する経路** を追加 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, Vertex AI Feature Online Store (Phase 5 構築済を opt-in 参照) | uv + GKE Autopilot/KServe |
+
+### Cloud Composer の位置づけ (Phase 6 限定)
+
+Cloud Composer / Managed Airflow Gen 3 は **Phase 6 の optional orchestration lab** として扱う。Phase 5 の Vertex 標準 MLOps 主役・Phase 7 の到達ゴール論点をぼやかさないため、**Phase 5 / Phase 7 には混ぜない**。
+
+| 項目 | 方針 |
+|---|---|
+| 位置付け | Phase 6 限定の **opt-in 副経路**。default flag では Phase 5 挙動維持 |
+| 本線 | **Cloud Scheduler + Pub/Sub + Eventarc + Cloud Function (Gen2) + Vertex AI Pipelines は default として維持** (壊さない、置換しない) |
+| 副経路で扱う例 | BigQuery freshness check / Dataform / Scheduled Query 起動 / Dataflow Flex Template 起動 / BQML training / Vertex Pipeline submit / 通知 — を **DAG で束ねる比較教材** |
+| やる範囲 | Composer 環境 Terraform opt-in、DAG 1〜2 本、Cloud Scheduler 経路との比較表 docs |
+| やらない | 本線置換、全ジョブ Composer 化、複雑な DAG 設計、Airflow 教材化、Phase 7 への波及 |
+
+学習価値: 「Composer を採用するかしないか」の **設計判断軸** を手元で持てるようにする (現場で Composer 案が出たときに正しく評価できる)。日次ジョブ程度なら Cloud Scheduler 経路の方が軽い、という結論を実体験できる構成。
 
 ### Phase 2 → 3 の接続(飛躍を埋める短い説明)
 
