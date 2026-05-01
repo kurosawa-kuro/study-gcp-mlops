@@ -26,7 +26,7 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 ### 教材対象外(全 Phase 禁止)
 
 - 🚫 **教材対象外(禁止)**: **Agent Builder / Vizier / Model Garden / Gemini RAG** — ハイブリッド検索中核 (Meilisearch BM25 + Vertex Vector Search (Phase 5+) / BigQuery `VECTOR_SEARCH` (Phase 4) + multilingual-e5 + RRF + LightGBM LambdaRank) と機能カニバリを起こす、もしくは学習価値が低いため、全 Phase で導入・言及しない
-- 📝 **Vertex Vector Search はセマンティック検索の正本ストア**: 実案件想定に合わせて Phase 5 以降は ME5 ベクトルを Vertex Vector Search に格納し serving 経路もそこへ寄せる。Phase 4 のみ既存の BigQuery `VECTOR_SEARCH` 経路を維持する(GCP マネージドサービス基礎習得のため)
+- 📝 **Vertex Vector Search はセマンティック検索の本番 serving index**: 実案件想定に合わせて Phase 5 以降は ME5 ベクトルの ANN 検索を Vertex Vector Search で行い serving 経路もそこへ寄せる。**embedding 生成履歴・メタデータの正本は引き続き BigQuery 側に置く** (Vertex Vector Search は serving 用 index、BQ は data lake)。Phase 4 のみ既存の BigQuery `VECTOR_SEARCH` 経路を維持する(GCP マネージドサービス基礎習得のため)
 - **W&B / Looker Studio / Doppler は教材対象外**(2026-04-24 決定)。実験履歴は Phase 1-3 で `runs/{run_id}/` + JSON/CSV metrics + git commit hash、Phase 4 以降で GCS / BigQuery / Vertex Model Registry / Vertex Pipelines Metadata へ段階移行
 
 ---
@@ -39,9 +39,9 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 | 2 | `2/study-ml-app-pipeline/` | App + Pipeline + Port/Adapter | FastAPI lifespan DI, `core → ports ← adapters`, predictor 経由推論、seed/train/predict job 分離 | FastAPI, LightGBM, PostgreSQL | Docker Compose |
 | 3 | `3/study-hybrid-search-local/` | 不動産ハイブリッド検索(Local) | lexical + semantic + rerank、LambdaRank、RRF、Port/Adapter 実践 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis, uv | uv + Docker Compose |
 | 4 | `4/study-hybrid-search-gcp/` | 不動産ハイブリッド検索(GCP) | GCP マネージドサービス化、RRF、再学習ループ、IaC/CI、**BigQuery feature table / view の土台作成** (Phase 5 Feature Store の入力源)、**Secret Manager → Cloud Run secret injection(必須習得)** | Cloud Run, GCS, BigQuery, Cloud Logging, **Secret Manager**, **Pub/Sub, Eventarc, Cloud Scheduler, Artifact Registry, Cloud Build**, Terraform, WIF, GitHub Actions | uv + クラウド実行基盤 |
-| 5 | `5/study-hybrid-search-vertex/` | Vertex AI 標準 MLOps 差分移行 | Vertex Pipelines (KFP v2) / Endpoint / Model Registry / Monitoring / Dataform への adapter 差し替え。**Vertex AI Feature Store / Feature Group / Feature Online Store により training-serving skew を防ぐ特徴量管理を必須化**。**Vertex Vector Search を ME5 ベクトルの正本ストアに採用** (BQ `VECTOR_SEARCH` を置換) | Vertex AI Pipelines, Vertex AI Endpoint, Vertex AI Model Registry, Vertex AI Model Monitoring, **Vertex AI Feature Store, Feature Group, Feature Online Store**, **Vertex Vector Search**, Dataform, Cloud Function (Gen2) | uv + Vertex AI |
+| 5 | `5/study-hybrid-search-vertex/` | Vertex AI 標準 MLOps 差分移行 | Vertex Pipelines (KFP v2) / Endpoint / Model Registry / Monitoring / Dataform への adapter 差し替え。**Vertex AI Feature Store / Feature Group / Feature Online Store により training-serving skew を防ぐ特徴量管理を必須化**。**Vertex Vector Search を ME5 ベクトル検索の本番 serving index として採用** (BigQuery 側は embedding 生成履歴・メタデータ保持、Phase 4 の BQ `VECTOR_SEARCH` は置換) | Vertex AI Pipelines, Vertex AI Endpoint, Vertex AI Model Registry, Vertex AI Model Monitoring, **Vertex AI Feature Store, Feature Group, Feature Online Store**, **Vertex Vector Search**, Dataform, Cloud Function (Gen2) | uv + Vertex AI |
 | 6 | `6/study-hybrid-search-pmle/` | GCP PMLE 追加技術ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 副経路 / 追加エンドポイント / Terraform として統合。default flag では Phase 5 挙動維持。**Feature Store は Phase 5 前提**とし、本 Phase では Dataflow / Scheduled Query による特徴量生成・更新を強化。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, Scheduled Query | uv + Vertex AI + Terraform |
-| 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 の serving 層を GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、TreeSHAP 用 explain 専用 Pod と、**KServe から Vertex AI Feature Online Store を参照する opt-in 経路** を追加 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, Vertex AI Feature Online Store (opt-in 参照) | uv + GKE Autopilot/KServe |
+| 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 の serving 層を GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、TreeSHAP 用 explain 専用 Pod と、**Phase 5 で構築済みの Feature Online Store を KServe から opt-in 参照する経路** を追加 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, Vertex AI Feature Online Store (Phase 5 構築済を opt-in 参照) | uv + GKE Autopilot/KServe |
 
 ### Phase 2 → 3 の接続(飛躍を埋める短い説明)
 
@@ -149,7 +149,7 @@ runs/20260424_001/
 - 推論: Vertex Endpoint(deploy history)
 - モデル監視: Vertex AI Model Monitoring
 - **特徴量管理(必須)**: Vertex AI Feature Store / Feature Group / Feature Online Store。Phase 4 で BigQuery に作った feature table / view を入力源とし、training と serving で同一 feature を取り出す経路を確立する(training-serving skew 防止)
-- **ベクトルストア(必須)**: Vertex Vector Search。ME5 ベクトルの正本ストア + serving 時の ANN 検索(Phase 4 の BQ `VECTOR_SEARCH` を置換)
+- **ベクトル serving index(必須)**: Vertex Vector Search。ME5 ベクトル検索の本番 serving index (ANN)。**embedding 生成履歴・メタデータは BigQuery 側に保持し続け**、Vertex Vector Search はそれを source に build / refresh する（Phase 4 の BQ `VECTOR_SEARCH` は置換）
 
 ### Phase 6(Phase 5 継承 + PMLE 追加技術ラボ)
 
@@ -160,6 +160,7 @@ runs/20260424_001/
 
 - Phase 6 から学習/データ基盤を継承
 - serving 層のみ GKE + KServe に差し替え。Meilisearch master key は External Secrets Operator (ESO) が GCP Secret Manager から `search/meili-master-key` へ自動同期し、`sa-external-secrets` と KSA `external-secrets/external-secrets` の Workload Identity bind で取得する
+- KServe から Vertex AI Feature Online Store を opt-in 参照する経路を追加 (Phase 5 で構築済の Feature Online Store を継承利用、既定では無効)
 
 ### 運用ルール(共通)
 

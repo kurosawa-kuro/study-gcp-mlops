@@ -13,7 +13,7 @@
 raw.properties (upstream ETL)
   └─ Dataform ─> feature_mart.properties_cleaned
                  feature_mart.property_features_daily (ctr / fav_rate / inquiry_rate)
-  └─ Vertex AI KFP `property-search-embed` pipeline ─> Vertex Vector Search index (`property-embeddings`、ME5 ベクトル正本)
+  └─ Vertex AI KFP `property-search-embed` pipeline ─> Vertex Vector Search index (`property-embeddings`、ME5 ベクトル serving index。生成履歴・メタデータは BigQuery 側に残す)
   └─ Vertex AI KFP `property-search-train` pipeline ─> GCS + mlops.training_runs + Vertex Model Registry
 
          └─ GKE Deployment `search-api` (FastAPI, in namespace `search`)
