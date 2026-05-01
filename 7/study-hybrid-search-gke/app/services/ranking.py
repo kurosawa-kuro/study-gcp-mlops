@@ -13,8 +13,6 @@ both regimes during rollout.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Sequence
 from dataclasses import replace
 from typing import Any
@@ -71,17 +69,14 @@ def _safe_publish_candidates(
 
 
 RRF_K: int = 60
-DEFAULT_SEARCH_CACHE_TTL_SECONDS: int = 120
 
 # Phase E moved ``RankedCandidate`` to ``app.domain.candidate``. Re-exported
 # here for legacy callers; Phase D-1 sweeps these into ``SearchService``
 # directly.
 __all__ = [
-    "DEFAULT_SEARCH_CACHE_TTL_SECONDS",
     "RRF_K",
     "Candidate",
     "RankedCandidate",
-    "normalize_search_cache_key",
     "rrf_fuse",
     "run_search",
 ]
@@ -265,18 +260,6 @@ def run_search(
     ]
     ranked.sort(key=lambda item: item.final_rank)
     return ranked[:top_k]
-
-
-def normalize_search_cache_key(*, query: str, filters: dict[str, Any], top_k: int) -> str:
-    """Stable SHA256 cache key for /search requests."""
-    payload = {
-        "query": query.strip(),
-        "filters": filters,
-        "top_k": int(top_k),
-    }
-    normalized = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-
 
 def rrf_fuse(
     *,

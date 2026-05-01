@@ -47,8 +47,6 @@ def _replace_search_container(app, **updates: object) -> None:
             publisher=container.ranking_log_publisher,
             reranker=container.reranker_client,
             popularity_scorer=container.popularity_scorer,
-            cache=container.search_cache,
-            cache_ttl_seconds=container.settings.search_cache_ttl_seconds,
         ),
     )
     app.state.container = container

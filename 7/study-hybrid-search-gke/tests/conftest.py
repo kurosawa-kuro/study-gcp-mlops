@@ -33,7 +33,6 @@ from app.services.model_metrics_service import ModelMetricsService, default_case
 from app.services.search_service import SearchService
 from app.settings import ApiSettings
 from tests._fakes import (
-    InMemoryCacheStore,
     InMemoryCandidateRetriever,
     InMemoryFeatureFetcher,
     InMemoryFeedbackRecorder,
@@ -85,7 +84,6 @@ def fake_settings() -> ApiSettings:
         meili_base_url="",
         kserve_encoder_url="",
         kserve_reranker_url="",
-        search_cache_ttl_seconds=0,
     )
 
 
@@ -112,11 +110,6 @@ def fake_ranking_log_publisher() -> InMemoryRankingLogPublisher:
 @pytest.fixture
 def fake_feedback_recorder() -> InMemoryFeedbackRecorder:
     return InMemoryFeedbackRecorder()
-
-
-@pytest.fixture
-def fake_search_cache() -> InMemoryCacheStore:
-    return InMemoryCacheStore()
 
 
 @pytest.fixture
@@ -148,7 +141,6 @@ def fake_container_factory(
     fake_candidate_retriever: InMemoryCandidateRetriever,
     fake_ranking_log_publisher: InMemoryRankingLogPublisher,
     fake_feedback_recorder: InMemoryFeedbackRecorder,
-    fake_search_cache: InMemoryCacheStore,
     fake_retrain_queries: StubRetrainQueries,
     fake_retrain_publisher: MockPredictionPublisher,
 ) -> Callable[..., Container]:
@@ -178,7 +170,6 @@ def fake_container_factory(
             "popularity_scorer": None,
             "ranking_log_publisher": fake_ranking_log_publisher,
             "feedback_recorder": fake_feedback_recorder,
-            "search_cache": fake_search_cache,
             "feature_fetcher": None,  # PR-4 default off — preserves Phase 5 behaviour
         }
         defaults.update(overrides)
@@ -192,8 +183,6 @@ def fake_container_factory(
                 publisher=defaults["ranking_log_publisher"],
                 reranker=defaults["reranker_client"],
                 popularity_scorer=defaults["popularity_scorer"],
-                cache=defaults["search_cache"],
-                cache_ttl_seconds=defaults["settings"].search_cache_ttl_seconds,
                 feature_fetcher=defaults["feature_fetcher"],
             ),
         )

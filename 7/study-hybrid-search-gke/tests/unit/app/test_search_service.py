@@ -14,7 +14,6 @@ from app.domain.candidate import Candidate
 from app.domain.search import SearchInput
 from app.services.search_service import SearchService, SearchServiceUnavailable
 from tests._fakes import (
-    InMemoryCacheStore,
     InMemoryCandidateRetriever,
     InMemoryRankingLogPublisher,
     MockRerankerClient,
@@ -46,7 +45,6 @@ def _build_service(
     *,
     candidates: list[Candidate] | None = None,
     reranker: MockRerankerClient | None = None,
-    cache: InMemoryCacheStore | None = None,
     popularity_scorer: StubPopularityScorer | None = None,
 ) -> tuple[SearchService, dict[str, object]]:
     retriever = InMemoryCandidateRetriever(candidates=candidates)
@@ -58,15 +56,12 @@ def _build_service(
         publisher=publisher,
         reranker=reranker,
         popularity_scorer=popularity_scorer,
-        cache=cache,
-        cache_ttl_seconds=120,
     )
     deps: dict[str, object] = {
         "retriever": retriever,
         "encoder": encoder,
         "publisher": publisher,
         "reranker": reranker,
-        "cache": cache,
         "popularity_scorer": popularity_scorer,
     }
     return service, deps
@@ -118,39 +113,6 @@ def test_search_uses_reranker_scores_when_available() -> None:
     )
     assert [item.score for item in output.items] == [1.0, 0.9]
     assert reranker.predict_calls, "reranker.predict should have been called"
-
-
-def test_search_cache_hit_skips_retriever() -> None:
-    candidates = [_make_candidate("P-001", lexical_rank=1, semantic_rank=1)]
-    cache = InMemoryCacheStore()
-    service, deps = _build_service(candidates=candidates, cache=cache)
-    # Prime cache via first call
-    output1 = service.search(
-        request_id="req-4",
-        input=SearchInput(query="新宿", filters={}, top_k=3),
-    )
-    retriever = deps["retriever"]
-    assert isinstance(retriever, InMemoryCandidateRetriever)
-    assert len(retriever.calls) == 1
-    # Second call with same args should hit cache and skip retriever
-    output2 = service.search(
-        request_id="req-5",
-        input=SearchInput(query="新宿", filters={}, top_k=3),
-    )
-    assert len(retriever.calls) == 1, "cache hit should bypass retriever"
-    assert [it.property_id for it in output1.items] == [it.property_id for it in output2.items]
-
-
-def test_search_explain_bypasses_cache() -> None:
-    candidates = [_make_candidate("P-001", lexical_rank=1, semantic_rank=1)]
-    cache = InMemoryCacheStore()
-    service, _deps = _build_service(candidates=candidates, cache=cache)
-    service.search(
-        request_id="req-6",
-        input=SearchInput(query="池袋", filters={}, top_k=2, explain=True),
-    )
-    # explain=True path must not write to cache
-    assert cache.sets == [], "explain path must not populate the cache"
 
 
 def test_search_raises_unavailable_when_retriever_missing() -> None:

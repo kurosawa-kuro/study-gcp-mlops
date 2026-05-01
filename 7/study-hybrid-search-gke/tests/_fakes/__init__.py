@@ -19,7 +19,6 @@ Each class implements exactly one Port and accepts plain Python types
 so individual tests can construct them inline without builders.
 """
 
-from .in_memory_cache_store import InMemoryCacheStore
 from .in_memory_candidate_retriever import InMemoryCandidateRetriever
 from .in_memory_feature_fetcher import InMemoryFeatureFetcher
 from .in_memory_feedback_recorder import InMemoryFeedbackRecorder
@@ -33,7 +32,6 @@ from .stub_popularity_scorer import StubPopularityScorer
 from .stub_retrain_queries import StubRetrainQueries
 
 __all__ = [
-    "InMemoryCacheStore",
     "InMemoryCandidateRetriever",
     "InMemoryFeatureFetcher",
     "InMemoryFeedbackRecorder",

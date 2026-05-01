@@ -21,7 +21,6 @@ from app.api.routers import (
     search_router,
 )
 from app.domain.candidate import Candidate
-from app.services.noop_adapters import InMemoryTTLCacheStore
 from ml.common.logging import get_logger
 
 
@@ -33,7 +32,6 @@ def app_with_search_stub(
     container = fake_container_factory(
         reranker_client=None,
         model_path=None,
-        search_cache=InMemoryTTLCacheStore(default_ttl_seconds=120),
     )
     candidate_retriever = container.candidate_retriever
     if candidate_retriever is not None and hasattr(candidate_retriever, "_candidates"):

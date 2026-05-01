@@ -14,14 +14,13 @@ from __future__ import annotations
 
 from app.domain.candidate import RankedCandidate
 from app.domain.search import SearchFilters, SearchInput, SearchOutput, SearchResultItem
-from app.services.protocols.cache_store import CacheStore
 from app.services.protocols.candidate_retriever import CandidateRetriever
 from app.services.protocols.encoder_client import EncoderClient
 from app.services.protocols.feature_fetcher import FeatureFetcher
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient
-from app.services.ranking import normalize_search_cache_key, run_search
+from app.services.ranking import run_search
 from ml.common.logging import get_logger
 
 logger = get_logger("app.search_service")
@@ -38,8 +37,8 @@ class SearchService:
     """Hybrid-search use case (inbound port equivalent).
 
     All collaborators are injected — composition root constructs the
-    service once at startup. ``cache``, ``reranker``, ``popularity_scorer``
-    are optional; ``None`` means the corresponding feature is disabled.
+    service once at startup. ``reranker`` and ``popularity_scorer`` are
+    optional; ``None`` means the corresponding feature is disabled.
     """
 
     def __init__(
@@ -50,8 +49,6 @@ class SearchService:
         publisher: RankingLogPublisher,
         reranker: RerankerClient | None = None,
         popularity_scorer: PopularityScorer | None = None,
-        cache: CacheStore | None = None,
-        cache_ttl_seconds: int = 120,
         feature_fetcher: FeatureFetcher | None = None,
     ) -> None:
         self._retriever_default = retriever_default
@@ -59,8 +56,6 @@ class SearchService:
         self._publisher = publisher
         self._reranker = reranker
         self._popularity_scorer = popularity_scorer
-        self._cache = cache
-        self._cache_ttl_seconds = cache_ttl_seconds
         # Phase 7 PR-4 — opt-in fresh feature fetch (e.g. Vertex AI Feature
         # Online Store). ``None`` preserves Phase 5 / 6 behaviour exactly.
         self._feature_fetcher = feature_fetcher
@@ -82,24 +77,6 @@ class SearchService:
             raise SearchServiceUnavailable(
                 "/search disabled (enable_search=False or encoder missing)"
             )
-
-        cache_key = normalize_search_cache_key(
-            query=input.query,
-            filters=dict(input.filters),
-            top_k=input.top_k,
-        )
-
-        # Phase 6 T4 — explain bypasses cache; attributions must be per-request.
-        if self._cache is not None and not input.explain:
-            cached = self._cache.get(cache_key)
-            if cached is not None:
-                cached_items = [SearchResultItem(**dict(item)) for item in cached["results"]]
-                return SearchOutput(
-                    request_id=request_id,
-                    items=cached_items,
-                    model_path=cached.get("model_path"),
-                    ranked=[],
-                )
 
         query_vector = self._encoder.embed(input.query, "query")
         ranked: list[RankedCandidate] = run_search(
@@ -153,39 +130,6 @@ class SearchService:
             for item in ranked
         ]
         model_path = self.reranker_model_path
-
-        if self._cache is not None and not input.explain:
-            # Persist only non-explain responses so subsequent /search calls
-            # without ``?explain=true`` continue to hit the cache.
-            self._cache.set(
-                cache_key,
-                {
-                    "results": [
-                        {
-                            "property_id": it.property_id,
-                            "final_rank": it.final_rank,
-                            "lexical_rank": it.lexical_rank,
-                            "semantic_rank": it.semantic_rank,
-                            "me5_score": it.me5_score,
-                            "score": it.score,
-                            "attributions": it.attributions,
-                            "popularity_score": it.popularity_score,
-                            "title": it.title,
-                            "city": it.city,
-                            "ward": it.ward,
-                            "layout": it.layout,
-                            "rent": it.rent,
-                            "walk_min": it.walk_min,
-                            "age_years": it.age_years,
-                            "area_m2": it.area_m2,
-                            "pet_ok": it.pet_ok,
-                        }
-                        for it in items
-                    ],
-                    "model_path": model_path,
-                },
-                self._cache_ttl_seconds,
-            )
 
         return SearchOutput(
             request_id=request_id,

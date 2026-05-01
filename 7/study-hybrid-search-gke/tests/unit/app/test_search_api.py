@@ -25,8 +25,6 @@ def _replace_search_container(app, **updates: object) -> None:
             publisher=container.ranking_log_publisher,
             reranker=container.reranker_client,
             popularity_scorer=container.popularity_scorer,
-            cache=container.search_cache,
-            cache_ttl_seconds=container.settings.search_cache_ttl_seconds,
         ),
     )
     app.state.container = container
@@ -69,20 +67,6 @@ def test_search_top_k_truncates_response(search_client) -> None:
     r = search_client.post("/search", json=payload)
     assert r.status_code == 200
     assert len(r.json()["results"]) == 2
-
-
-def test_search_cache_hit_skips_second_retrieval(app_with_search_stub) -> None:
-    from fastapi.testclient import TestClient
-
-    with TestClient(app_with_search_stub) as client:
-        payload = _search_payload()
-        r1 = client.post("/search", json=payload)
-        assert r1.status_code == 200
-        r2 = client.post("/search", json=payload)
-        assert r2.status_code == 200
-
-    retriever = app_with_search_stub.state.container.candidate_retriever
-    assert len(retriever.calls) == 1
 
 
 def test_search_rejects_empty_query(search_client) -> None:

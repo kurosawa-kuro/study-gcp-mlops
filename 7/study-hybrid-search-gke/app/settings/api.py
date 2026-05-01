@@ -26,8 +26,6 @@ class KServeSettings(BaseModel):
     reranker_url: str
     reranker_explain_url: str
     predict_timeout_seconds: float
-    search_cache_ttl_seconds: int
-    search_cache_maxsize: int
 
 
 class PopularitySettings(BaseModel):
@@ -84,8 +82,6 @@ class ApiSettings(BaseAppSettings):
 
     # --- Phase 6 /search rerank (optional bolt-on) ---------------------------
     enable_rerank: bool = False
-    search_cache_ttl_seconds: int = 120
-    search_cache_maxsize: int = 2048
 
     # --- Phase 6 T1 — BQML popularity scorer --------------------------------
     bqml_popularity_enabled: bool = False
@@ -113,8 +109,6 @@ class ApiSettings(BaseAppSettings):
             reranker_url=self.kserve_reranker_url,
             reranker_explain_url=self.kserve_reranker_explain_url,
             predict_timeout_seconds=self.kserve_predict_timeout_seconds,
-            search_cache_ttl_seconds=self.search_cache_ttl_seconds,
-            search_cache_maxsize=self.search_cache_maxsize,
         )
 
     @cached_property

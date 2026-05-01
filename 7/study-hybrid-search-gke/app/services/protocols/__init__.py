@@ -1,6 +1,5 @@
 """API-side Ports — Protocols consumed by services / handlers."""
 
-from .cache_store import CacheStore
 from .candidate_retriever import CandidateRetriever
 from .data_catalog_reader import DataCatalogReader
 from .encoder_client import EncoderClient
@@ -15,7 +14,6 @@ from .retrain_queries import RetrainQueries
 from .semantic_search import SemanticSearchPort
 
 __all__ = [
-    "CacheStore",
     "CandidateRetriever",
     "DataCatalogReader",
     "EncoderClient",

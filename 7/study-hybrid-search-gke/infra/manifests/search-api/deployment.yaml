@@ -63,8 +63,6 @@ spec:
               value: "search-feedback"
             - name: RETRAIN_TOPIC
               value: "retrain-trigger"
-            - name: SEARCH_CACHE_TTL_SECONDS
-              value: "120"
             - name: ENABLE_SEARCH
               value: "true"
             - name: ENABLE_RERANK

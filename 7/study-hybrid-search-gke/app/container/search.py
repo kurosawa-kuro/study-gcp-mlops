@@ -2,7 +2,7 @@
 
 Scope:
 - singleton adapters built once at startup
-- helper selection rules for lexical / semantic / cache wiring
+- helper selection rules for lexical / semantic wiring
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ from app.services.adapters import (
     MeilisearchLexical,
     VertexVectorSearchSemanticSearch,
 )
-from app.services.noop_adapters import InMemoryTTLCacheStore, NoopCacheStore, NoopLexicalSearch
-from app.services.protocols import CacheStore, CandidateRetriever, EncoderClient, LexicalSearchPort
+from app.services.noop_adapters import NoopLexicalSearch
+from app.services.protocols import CandidateRetriever, EncoderClient, LexicalSearchPort
 from app.services.protocols.feature_fetcher import FeatureFetcher
 from app.services.protocols.reranker_client import RerankerClient
 from app.services.protocols.semantic_search import SemanticSearchPort
@@ -56,7 +56,6 @@ class SearchComponents:
     encoder_model_path: str | None
     reranker_client: RerankerClient | None
     model_path: str | None
-    search_cache: CacheStore
 
 
 class SearchBuilder:
@@ -86,14 +85,12 @@ class SearchBuilder:
             encoder_model_path = None
             candidate_retriever = None
         reranker_client, model_path = self.build_reranker_client()
-        search_cache = self.build_search_cache()
         return SearchComponents(
             candidate_retriever=candidate_retriever,
             encoder_client=encoder_client,
             encoder_model_path=encoder_model_path,
             reranker_client=reranker_client,
             model_path=model_path,
-            search_cache=search_cache,
         )
 
     def build_candidate_retriever(
@@ -249,15 +246,6 @@ class SearchBuilder:
                 token_audience=settings.meili_token_audience,
             )
         return NoopLexicalSearch()
-
-    def build_search_cache(self) -> CacheStore:
-        kserve = self._settings.kserve
-        if kserve.search_cache_ttl_seconds <= 0:
-            return NoopCacheStore()
-        return InMemoryTTLCacheStore(
-            maxsize=kserve.search_cache_maxsize,
-            default_ttl_seconds=kserve.search_cache_ttl_seconds,
-        )
 
     def build_encoder_client(self) -> tuple[EncoderClient | None, str | None]:
         settings = self._settings

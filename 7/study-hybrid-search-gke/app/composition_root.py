@@ -25,7 +25,6 @@ from app.services.data_catalog_service import DataCatalogService
 from app.services.feedback_service import FeedbackService
 from app.services.model_metrics_service import ModelMetricsService, default_cases_path
 from app.services.protocols import (
-    CacheStore,
     CandidateRetriever,
     DataCatalogReader,
     EncoderClient,
@@ -77,7 +76,6 @@ class Container:
 
     ranking_log_publisher: RankingLogPublisher
     feedback_recorder: FeedbackRecorder
-    search_cache: CacheStore
 
     # Phase 7 PR-4 — opt-in fresh feature fetch (Vertex AI Feature Online
     # Store). ``None`` when ``FEATURE_FETCHER_BACKEND`` is unconfigured or
@@ -157,8 +155,6 @@ class ContainerBuilder:
             publisher=infra.ranking_log_publisher,
             reranker=search.reranker_client,
             popularity_scorer=ml.popularity_scorer,
-            cache=search.search_cache,
-            cache_ttl_seconds=settings.search_cache_ttl_seconds,
             feature_fetcher=feature_fetcher,
         )
         feedback_service = FeedbackService(recorder=infra.feedback_recorder)
@@ -189,7 +185,6 @@ class ContainerBuilder:
             popularity_scorer=ml.popularity_scorer,
             ranking_log_publisher=infra.ranking_log_publisher,
             feedback_recorder=infra.feedback_recorder,
-            search_cache=search.search_cache,
             feature_fetcher=feature_fetcher,
             search_service=search_service,
             feedback_service=feedback_service,
@@ -217,9 +212,6 @@ class ContainerBuilder:
         override_lexical: LexicalSearchPort | None = None,
     ) -> CandidateRetriever:
         return SearchBuilder(self).build_candidate_retriever(override_lexical=override_lexical)
-
-    def _build_search_cache(self) -> CacheStore:
-        return SearchBuilder(self).build_search_cache()
 
     def _build_encoder_client(self) -> tuple[EncoderClient | None, str | None]:
         return SearchBuilder(self).build_encoder_client()
