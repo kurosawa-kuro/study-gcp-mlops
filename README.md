@@ -45,162 +45,17 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 
 ---
 
-## アーキテクチャ全体像 (関係図 / フロー図)
+## 3. 教育フェーズ設計の補助図
 
-本セクションはナビゲーション目的の **概要図** を 6 枚置く。Phase 別の詳細図 (各 plane の細部 / DAG 内訳 / Port/Adapter 配線詳細) は Phase 7 [`docs/01_仕様と設計.md` §2 / §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md) を参照。
+> 本 README は **教育フェーズ設計** (どの Phase で何を学ぶか / 引き算戦略 / 学習順) の正本。**ハイブリッド検索の実装詳細図** (アプリ構成 / シーケンス / モデル関係 / ストレージ関係) は Phase 7 [`docs/01_仕様と設計.md` §2](7/study-hybrid-search-gke/docs/01_仕様と設計.md) が canonical なので、本ファイルでは Phase 段差と技術出現の 2 枚のみを置く。
+>
+> | 知りたいこと | 参照先 |
+> |---|---|
+> | アプリ構成 (Port/Adapter 6 軸) / `/search` シーケンス / モデル関係 / ストレージ関係 | [Phase 7 docs/01 §2](7/study-hybrid-search-gke/docs/01_仕様と設計.md) |
+> | Composer × Vertex Pipelines 上下関係 / DAG 段差 / カニバリ NG | [Phase 7 docs/01 §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md) |
+> | Phase 段差 / Phase 別技術出現 (本ファイル) | 下記 図1 / 図2 |
 
-### 図1. アプリ構成図 (`search-api` の Port/Adapter 6 軸)
-
-不動産ハイブリッド検索アプリ (`search-api`) は FastAPI + DI で構築され、外部依存はすべて **6 つの Port** の背後に隔離されている。Phase 3 (Local) から Phase 7 (GKE + KServe) まで、**Port は不変・Adapter のみ差し替え** が本リポジトリの設計軸。
-
-```mermaid
-flowchart LR
-    Client[Client / UI] -->|HTTP| API["FastAPI search-api<br/>(routers: /search, /feedback, /health, /model, /retrain, /ui)"]
-    API -->|DI Container| SVC["SearchService<br/>FeedbackService"]
-
-    SVC -.uses.-> P1["Port: LexicalRetriever"]
-    SVC -.uses.-> P2["Port: SemanticEncoder"]
-    SVC -.uses.-> P3["Port: SemanticVectorStore"]
-    SVC -.uses.-> P4["Port: Reranker"]
-    SVC -.uses.-> P5["Port: FeatureFetcher"]
-    SVC -.uses.-> P6["Port: RankingLogSink"]
-
-    P1 -->|Adapter| A1[Meilisearch BM25]
-    P2 -->|Adapter| A2["multilingual-e5 encoder<br/>(KServe / Vertex Endpoint / local)"]
-    P3 -->|Adapter| A3["Vertex Vector Search (Phase 5+)<br/>or BigQuery VECTOR_SEARCH (Phase 4)"]
-    P4 -->|Adapter| A4["LightGBM LambdaRank reranker<br/>(KServe / Vertex Endpoint / local)"]
-    P5 -->|Adapter| A5["Feature Online Store (Feature View)<br/>or BigQuery feature table"]
-    P6 -->|Adapter| A6["Pub/Sub ranking-log<br/>(→ BQ Subscription → mlops.ranking_log)"]
-
-    classDef port fill:#e0f2ff,stroke:#0066aa,stroke-width:2px
-    classDef adapter fill:#fff3d4,stroke:#aa8800,stroke-width:1px
-    class P1,P2,P3,P4,P5,P6 port
-    class A1,A2,A3,A4,A5,A6 adapter
-```
-
-### 図2. ハイブリッド検索シーケンス (3 段構成: 候補取得 → RRF → rerank)
-
-クエリ受領 → **lexical / semantic 2 系統で並列候補取得** → **RRF で融合** → **LightGBM rerank で上位 20 件を確定** → 返却 + 非同期で Pub/Sub に ranking_log を送信。
-
-```mermaid
-sequenceDiagram
-    actor U as User
-    participant API as search-api (FastAPI)
-    participant ENC as Semantic Encoder (multilingual-e5)
-    participant LEX as Meilisearch (BM25)
-    participant VEC as Vertex Vector Search (ANN, Phase 5+)
-    participant FET as FeatureFetcher (Feature Online Store)
-    participant RR as LightGBM Reranker (LambdaRank)
-    participant PS as Pub/Sub ranking-log
-
-    U->>API: POST /search { query, filters }
-    par 並列候補取得
-        API->>LEX: BM25 query (filters)
-        LEX-->>API: lexical candidates (top N)
-    and
-        API->>ENC: encode(query) → query vector
-        ENC-->>API: query vector (768 dim)
-        API->>VEC: ANN search(vector, filters)
-        VEC-->>API: semantic candidates (top N)
-    end
-    API->>API: RRF 融合 (lexical + semantic)
-    API->>FET: fetch features(candidate property_ids)
-    FET-->>API: ctr / fav_rate / inquiry_rate / 物件メタ
-    API->>RR: rerank(query, candidates, features)
-    RR-->>API: top 20 properties (LambdaRank score)
-    API-->>U: 200 OK { results: [...] }
-    API-)PS: async publish ranking_log
-```
-
-### 図3. モデル関係図 (ME5 と LightGBM LambdaRank の責務分離)
-
-ハイブリッド検索で使う ML モデルは **2 つだけ**: 候補生成用 ME5 (semantic 検索) と再ランク用 LightGBM (LambdaRank)。両者は学習・推論ともに分離し、出力責務もカニバらない。
-
-```mermaid
-flowchart TB
-    subgraph TRAIN["学習側 (Vertex AI Pipelines, Phase 5+)"]
-        direction LR
-        BQ_DOC["BigQuery<br/>feature_mart.properties_cleaned"]
-        BQ_LOG["BigQuery<br/>mlops.ranking_log<br/>+ feedback_events"]
-        BQ_FEAT["BigQuery<br/>feature_mart.property_features_daily"]
-
-        BQ_DOC -->|物件テキスト| EMBED["embed pipeline<br/>(ME5 で物件 embedding 生成)"]
-        EMBED --> BQ_EMB["BigQuery<br/>property_embeddings<br/>(履歴・メタデータ正本)"]
-        BQ_EMB -->|index build| VVS_IDX["Vertex Vector Search<br/>index (serving)"]
-
-        BQ_LOG --> TRAIN_REL["build_ranker_features<br/>(query × property × features → label)"]
-        BQ_FEAT --> TRAIN_REL
-        TRAIN_REL --> TRAIN_LGB["train pipeline<br/>(LightGBM LambdaRank)"]
-        TRAIN_LGB --> REG["Vertex Model Registry<br/>(production alias)"]
-    end
-
-    subgraph SERVE["推論側 (search-api)"]
-        direction LR
-        Q[query 文] -->|encode| ENC["ME5 encoder<br/>(KServe / Endpoint)"]
-        ENC --> QV[query vector]
-        QV -->|ANN| VVS_QRY["Vertex Vector Search<br/>(query)"]
-        VVS_QRY --> CAND["候補 property 集合"]
-        CAND --> RR["LightGBM reranker<br/>(KServe / Endpoint)"]
-        RR --> TOP[top 20]
-    end
-
-    REG -.deploy.-> ENC
-    REG -.deploy.-> RR
-    VVS_IDX -.serve.-> VVS_QRY
-
-    classDef model fill:#ffe4e1,stroke:#cc3333,stroke-width:2px
-    classDef store fill:#e0f2ff,stroke:#0066aa,stroke-width:1px
-    class EMBED,TRAIN_LGB,ENC,RR model
-    class BQ_DOC,BQ_LOG,BQ_FEAT,BQ_EMB,VVS_IDX,VVS_QRY,REG store
-```
-
-### 図4. ストレージ + 検索エンジン関係図 (BQ / Meilisearch / Vertex Vector Search / Feature Store)
-
-データ層は **役割で 4 つに分離** されている: BQ = data lake / 履歴正本、Meilisearch = lexical serving、Vertex Vector Search = semantic serving index、Feature Store = training-serving 同一 feature。embedding と特徴量はすべて **BQ が正本**、serving 層はそこから build される。
-
-```mermaid
-flowchart LR
-    subgraph LAKE["BigQuery (data lake / 履歴正本)"]
-        BQ_DOC[properties_cleaned]
-        BQ_FEAT["property_features_daily<br/>ctr / fav_rate / inquiry_rate"]
-        BQ_EMB["property_embeddings<br/>ME5 ベクトル + メタ"]
-        BQ_LOG["ranking_log<br/>feedback_events"]
-    end
-
-    subgraph SERVE_LEX["Lexical serving (BM25)"]
-        MEILI["Meilisearch<br/>on Cloud Run"]
-    end
-
-    subgraph SERVE_SEM["Semantic serving (ANN)"]
-        VVS["Vertex Vector Search<br/>(Phase 5+)"]
-        BQ_VS["BigQuery VECTOR_SEARCH<br/>(Phase 4 のみ)"]
-    end
-
-    subgraph FEAT["Feature serving (training-serving skew 防止)"]
-        FG["Feature Group<br/>(definition + sync source = BQ)"]
-        FV["Feature View<br/>(serving 接続点)"]
-        FOS["Feature Online Store<br/>(low-latency)"]
-    end
-
-    BQ_DOC -->|sync| MEILI
-    BQ_EMB -->|index build| VVS
-    BQ_EMB -->|VECTOR_SEARCH function| BQ_VS
-    BQ_FEAT --> FG
-    FG --> FV
-    FV --> FOS
-
-    APP["search-api<br/>(/search)"] -->|BM25 query| MEILI
-    APP -->|ANN query| VVS
-    APP -.Phase 4.-> BQ_VS
-    APP -->|fetch features| FOS
-
-    classDef lake fill:#fff7d4,stroke:#aa8800,stroke-width:1px
-    classDef serve fill:#e0f2ff,stroke:#0066aa,stroke-width:2px
-    class BQ_DOC,BQ_FEAT,BQ_EMB,BQ_LOG lake
-    class MEILI,VVS,BQ_VS,FG,FV,FOS serve
-```
-
-### 図5. Phase 段差図 (Local ↔ GCP の関係、adapter 差し替え軸)
+### 図1. Phase 段差図 (Local ↔ GCP の関係、adapter 差し替え軸)
 
 設計思想 (Port/Adapter / `core → ports ← adapters`) は **全 Phase で不変**。各 Phase で差し替わるのは **実行基盤と adapter 実装のみ**。
 
@@ -247,7 +102,7 @@ flowchart LR
     class P7 gke
 ```
 
-### 図6. GCP / Vertex AI 技術スタック図 (依存関係)
+### 図2. GCP / Vertex AI 技術スタック図 (依存関係)
 
 Phase 5+ で導入される **Vertex AI 群** と支援 **GCP プリミティブ** の依存関係。Composer は **Phase 6 起点で全体の上位 orchestrator**、Vertex Pipelines は **下位 ML executor** として呼ばれる側 (重ねず役割分離)。
 
@@ -322,7 +177,7 @@ flowchart TB
 
 ---
 
-## 1. 基本戦略：「引き算」によるPhase間コード生成
+## 4. 基本戦略：「引き算」によるPhase間コード生成
 
 ### 1.1 起点
 - **Phase 7 (`7/study-hybrid-search-gke/`) を最終形・正本コードとする**
@@ -395,7 +250,7 @@ study-gcp-mlops/
 
 ---
 
-## 3. 非負制約(必須)
+## 5. 非負制約(必須)
 
 ### 全 Phase 共通
 
@@ -423,7 +278,7 @@ study-gcp-mlops/
 
 ---
 
-## 4. 学習運用(成果物・評価・ログの置き場)
+## 6. 学習運用(成果物・評価・ログの置き場)
 
 Phase ごとに成果物・評価結果・実行履歴の置き場を段階移行させる。詳細は phase 配下ドキュメントが正本。
 
@@ -496,7 +351,7 @@ runs/20260424_001/
 
 ---
 
-## 5. まずどこから始めるか
+## 7. まずどこから始めるか
 
 ### 学習順(推奨)
 
@@ -513,7 +368,7 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 
 ---
 
-## 6. 主要ドキュメント
+## 8. 主要ドキュメント
 
 ### 正本(Phase-local が最優先)
 
@@ -543,7 +398,7 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 
 ---
 
-## 7. 設計判断の経緯
+## 9. 設計判断の経緯
 
 ### Phase 1 → 2 の分割
 
