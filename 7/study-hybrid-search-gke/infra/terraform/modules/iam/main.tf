@@ -240,3 +240,26 @@ resource "google_project_iam_member" "endpoint_reranker_logging_writer" {
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.endpoint_reranker.email}"
 }
+
+# =========================================================================
+# Phase 7 Wave 2 W2-3: KServe pod (reranker) → Feature Online Store の
+# Feature View 経由 opt-in 参照経路で必要な権限。
+#
+# search-api SA (`api`) は既に roles/aiplatform.user 付与済 (line 148-152)
+# なので、Vertex Vector Search find_neighbors / Feature Online Store
+# fetchFeatureValues は素通りする。本ブロックは KServe encoder / reranker
+# SA に対する追加 binding。
+#
+# - encoder: ME5 で encode するだけなので、Vertex API 呼び出し不要。
+#   roles/aiplatform.user は付与しない (最小権限)。
+# - reranker: Phase 7 固有経路で `KSERVE_FEATURE_ONLINE_URL` 経路を使う場合
+#   に Feature View 経由で fetch する想定。default off (= Wave 2 W2-8 まで
+#   観測されない) だが、TF レベルでは provision 時に bind 済の方が
+#   一括 PDCA で扱いやすい。
+# =========================================================================
+
+resource "google_project_iam_member" "endpoint_reranker_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.endpoint_reranker.email}"
+}

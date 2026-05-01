@@ -184,3 +184,15 @@ variable "enable_feature_online_store" {
   type        = bool
   default     = false
 }
+
+# =========================================================================
+# Vertex AI Vector Search toggle (Phase 7 Wave 2 W2-1) — module "vector_search"
+# が ME5 ベクトル検索の本番 serving index を provision する。embedding 履歴
+# 正本は BigQuery feature_mart.property_embeddings に残る (二層構造)。
+# =========================================================================
+
+variable "enable_vector_search" {
+  description = "Provision the Vertex AI Vector Search index + endpoint + deployed index. Default false because the deployed index incurs ongoing replica cost; flip on after the BQ embedding source is populated and the backfill script (scripts/setup/backfill_vector_search_index.py) is ready."
+  type        = bool
+  default     = false
+}

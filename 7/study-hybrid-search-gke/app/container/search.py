@@ -35,6 +35,13 @@ EXPECTED_KSERVE_RERANKER_URL = (
 )
 
 
+def _resolve_index_endpoint_name(*, project_id: str, location: str, endpoint_id: str) -> str:
+    """Accept either a bare endpoint ID or a fully-qualified resource name."""
+    if endpoint_id.startswith("projects/"):
+        return endpoint_id
+    return f"projects/{project_id}/locations/{location}/indexEndpoints/{endpoint_id}"
+
+
 class SearchBuilderContext(Protocol):
     _settings: ApiSettings
     _logger: Any
@@ -206,9 +213,10 @@ class SearchBuilder:
             )
             return None
 
-        endpoint_name = (
-            f"projects/{settings.project_id}/locations/{settings.vertex_location}"
-            f"/indexEndpoints/{endpoint_id}"
+        endpoint_name = _resolve_index_endpoint_name(
+            project_id=settings.project_id,
+            location=settings.vertex_location,
+            endpoint_id=endpoint_id,
         )
         self._logger.info(
             "semantic backend = vertex_vector_search endpoint=%s deployed_index_id=%s",

@@ -48,6 +48,16 @@ module "data" {
   depends_on = [google_project_service.enabled]
 }
 
+module "vector_search" {
+  source = "../../modules/vector_search"
+
+  project_id           = var.project_id
+  region               = var.region
+  enable_vector_search = var.enable_vector_search
+
+  depends_on = [google_project_service.enabled]
+}
+
 module "vertex" {
   source = "../../modules/vertex"
 

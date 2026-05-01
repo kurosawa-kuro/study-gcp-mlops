@@ -106,6 +106,25 @@ def test_resolve_returns_vvs_adapter_when_endpoint_provisioned() -> None:
     assert semantic._deployed_index_id == "property_embeddings_v1"
 
 
+def test_resolve_accepts_fully_qualified_endpoint_name_from_terraform_output() -> None:
+    builder = _builder(
+        _settings(
+            semantic_backend="vertex_vector_search",
+            vertex_vector_search_index_endpoint_id=(
+                "projects/mlops-test/locations/asia-northeast1/indexEndpoints/98765"
+            ),
+            vertex_vector_search_deployed_index_id="property_embeddings_v1",
+        )
+    )
+
+    semantic = builder._resolve_semantic_search()
+
+    assert isinstance(semantic, VertexVectorSearchSemanticSearch)
+    assert semantic._index_endpoint_name == (
+        "projects/mlops-test/locations/asia-northeast1/indexEndpoints/98765"
+    )
+
+
 def test_resolve_falls_back_to_none_when_endpoint_id_missing(caplog) -> None:
     """Wave 2 未完了時 (endpoint 未 provision) のフォールバック契約。
 

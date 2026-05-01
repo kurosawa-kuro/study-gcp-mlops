@@ -291,7 +291,7 @@ resource "google_vertex_ai_feature_online_store_featureview" "property_features"
   count    = var.enable_feature_online_store ? 1 : 0
   provider = google-beta
 
-  name                 = "property_features"
+  name                 = var.feature_view_id
   region               = var.vertex_location
   feature_online_store = google_vertex_ai_feature_online_store.property_features[0].name
 

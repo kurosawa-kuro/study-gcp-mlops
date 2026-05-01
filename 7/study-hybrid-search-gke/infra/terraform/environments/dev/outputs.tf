@@ -78,6 +78,41 @@ output "vertex_feature_group_property_features" {
   value       = module.vertex.feature_group_property_features
 }
 
+# =========================================================================
+# Vertex AI Vector Search (Phase 7 Wave 2 W2-1) — search-api ConfigMap (W2-5) と
+# embed pipeline VVS upsert step (Wave 1 PR-3) が outputs を参照する。
+# =========================================================================
+
+output "vertex_feature_online_store_id" {
+  description = "Vertex AI Feature Online Store name. Empty string when enable_feature_online_store=false. Consumed by search-api via VERTEX_FEATURE_ONLINE_STORE_ID env."
+  value       = module.vertex.feature_online_store_id
+}
+
+output "vertex_feature_view_id" {
+  description = "Vertex AI Feature View name. Phase 7 固有 = KServe → FOS の Feature View 経由 opt-in 参照経路。Empty string when disabled. Consumed by search-api via VERTEX_FEATURE_VIEW_ID env."
+  value       = module.vertex.feature_view_id
+}
+
+output "vertex_feature_online_store_endpoint" {
+  description = "Vertex AI Feature Online Store regional public endpoint URI (Feature View 経由 fetch のため). Empty when disabled. Consumed by search-api via VERTEX_FEATURE_ONLINE_STORE_ENDPOINT env."
+  value       = module.vertex.feature_online_store_endpoint
+}
+
+output "vector_search_index_endpoint_id" {
+  description = "Vertex AI Vector Search index endpoint resource name. Empty string when enable_vector_search=false. Consumed by search-api via VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID env."
+  value       = module.vector_search.index_endpoint_id
+}
+
+output "vector_search_deployed_index_id" {
+  description = "Vertex AI Vector Search deployed index ID. Empty string when disabled. Consumed by search-api via VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID env."
+  value       = module.vector_search.deployed_index_id
+}
+
+output "vector_search_index_resource_name" {
+  description = "Vertex AI Vector Search index resource name (full path). Empty string when disabled. Consumed by embed pipeline VVS upsert step via vector_search_index_resource_name KFP param."
+  value       = module.vector_search.index_resource_name
+}
+
 output "model_monitoring_alerts_topic" {
   description = "Pub/Sub topic for Vertex model monitoring alerts"
   value       = module.vertex.model_monitoring_alerts_topic.name

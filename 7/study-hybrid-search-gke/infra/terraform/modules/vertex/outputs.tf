@@ -52,6 +52,33 @@ output "property_features_feature_group" {
   )
 }
 
+output "feature_online_store_id" {
+  description = "Vertex AI Feature Online Store name (= var.feature_online_store_id when enabled, empty string when disabled). Consumed by search-api via VERTEX_FEATURE_ONLINE_STORE_ID env (Wave 1 PR-2 settings)."
+  value = (
+    length(google_vertex_ai_feature_online_store.property_features) > 0
+    ? google_vertex_ai_feature_online_store.property_features[0].name
+    : ""
+  )
+}
+
+output "feature_view_id" {
+  description = "Vertex AI Feature View name under the Feature Online Store. Phase 7 固有 = KServe → FOS の **Feature View 経由** opt-in 参照経路で使う。Empty string when disabled. Consumed by search-api via VERTEX_FEATURE_VIEW_ID env."
+  value = (
+    length(google_vertex_ai_feature_online_store_featureview.property_features) > 0
+    ? google_vertex_ai_feature_online_store_featureview.property_features[0].name
+    : ""
+  )
+}
+
+output "feature_online_store_endpoint" {
+  description = "Vertex AI Feature Online Store dedicated serving endpoint (regional public endpoint URI). Empty string when disabled. Consumed by search-api via VERTEX_FEATURE_ONLINE_STORE_ENDPOINT env (Wave 1 PR-2 で `endpoint_resolver` seam に渡される)."
+  value = (
+    length(google_vertex_ai_feature_online_store.property_features) > 0
+    ? try(google_vertex_ai_feature_online_store.property_features[0].dedicated_serving_endpoint[0].public_endpoint_domain_name, "")
+    : ""
+  )
+}
+
 output "encoder_endpoint" {
   description = "Vertex AI encoder endpoint resource (null when disabled)"
   value = (

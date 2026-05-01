@@ -90,6 +90,48 @@ spec:
               value: "http://property-reranker-explain.kserve-inference.svc.cluster.local/explain"
             - name: KSERVE_PREDICT_TIMEOUT_SECONDS
               value: "30.0"
+            # =================================================================
+            # Phase 7 Wave 2 W2-5: semantic / feature fetcher backend 切替の
+            # env vehicle。Wave 1 PR-1 / PR-2 で adapter 側は実装済 (default
+            # = "bq" で挙動不変)。実値は ConfigMap (search-api-config) に注入
+            # され、Terraform outputs (W2-1 vector_search / W2-2 vertex feature
+            # online store) から `make sync-configmap` 経由で render される。
+            # =================================================================
+            - name: SEMANTIC_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: semantic_backend
+            - name: VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: vertex_vector_search_index_endpoint_id
+            - name: VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: vertex_vector_search_deployed_index_id
+            - name: FEATURE_FETCHER_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: feature_fetcher_backend
+            - name: VERTEX_FEATURE_ONLINE_STORE_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: vertex_feature_online_store_id
+            - name: VERTEX_FEATURE_VIEW_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: vertex_feature_view_id
+            - name: VERTEX_FEATURE_ONLINE_STORE_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: search-api-config
+                  key: vertex_feature_online_store_endpoint
           startupProbe:
             httpGet:
               path: /livez
