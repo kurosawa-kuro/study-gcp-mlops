@@ -3,7 +3,7 @@
 **不動産ハイブリッド検索 × LightGBM LambdaRank** を GKE + KServe で serving する MLOps 学習リポジトリ。Phase 5 (Vertex AI プリミティブ) を継承しつつ、**serving 層のみを GKE / KServe に差し替える** 最小差分版。
 
 > **スコープ**: 不動産検索 (クエリ文 + フィルタ → ランキング上位 20 件) のみ。
-> **Phase 5 からの差分**: `search-api` (Cloud Run → GKE Deployment + Gateway) / encoder / reranker (Vertex Endpoint → KServe `InferenceService`)。Pipelines / Feature Group / Model Registry / BigQuery VECTOR_SEARCH / Meilisearch は据え置き。
+> **Phase 5 からの差分**: `search-api` (Cloud Run → GKE Deployment + Gateway) / encoder / reranker (Vertex Endpoint → KServe `InferenceService`)。Pipelines / **Vertex AI Feature Store + Feature Group + Feature Online Store** (Phase 5 必須) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は据え置き。
 
 本 README は「機能の簡易説明 + 各ドキュメントへのリンク」だけを扱う (`docs/README.md` §1 の規約に従う)。環境構築・運用・実装詳細は下記 **§ ドキュメント** の各ファイルへ。
 
@@ -13,11 +13,11 @@
 raw.properties (upstream ETL)
   └─ Dataform ─> feature_mart.properties_cleaned
                  feature_mart.property_features_daily (ctr / fav_rate / inquiry_rate)
-  └─ Vertex AI KFP `property-search-embed` pipeline ─> feature_mart.property_embeddings
+  └─ Vertex AI KFP `property-search-embed` pipeline ─> Vertex Vector Search index (`property-embeddings`、ME5 ベクトル正本)
   └─ Vertex AI KFP `property-search-train` pipeline ─> GCS + mlops.training_runs + Vertex Model Registry
 
          └─ GKE Deployment `search-api` (FastAPI, in namespace `search`)
-              ├─ /search   KServe encoder + Meilisearch (BM25) + BQ VECTOR_SEARCH → RRF → KServe reranker
+              ├─ /search   KServe encoder + Meilisearch (BM25) + Vertex Vector Search match endpoint → RRF → KServe reranker
               │             └─ Pub/Sub "ranking-log"    ─> BQ Subscription ─> mlops.ranking_log
               ├─ /feedback └─ Pub/Sub "search-feedback" ─> BQ Subscription ─> mlops.feedback_events
               └─ /jobs/check-retrain (Cloud Scheduler 04:00 JST → Gateway HTTPS endpoint)
@@ -51,7 +51,7 @@ raw.properties (upstream ETL)
 
 詳細は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) と [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md)。
 
-- **Phase 5 からの差分**: serving 層のみ GKE + KServe に移行。Pipelines / Feature Group / Model Registry / BigQuery VECTOR_SEARCH / Meilisearch は **差分ゼロで維持**
+- **Phase 5 からの差分**: serving 層のみ GKE + KServe に移行。Pipelines / **Vertex AI Feature Store + Feature Group + Feature Online Store** (Phase 5 必須) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は **差分ゼロで維持**(Phase 6 では Dataflow / Scheduled Query で Feature Store の入力生成・更新を強化)
 - **Port / Adapter 設計**: `app.services.protocols` の `EncoderClient` / `RerankerClient` 実装を `VertexEndpointEncoder/Reranker` → `KServeEncoder/Reranker` に差し替えただけ (core / services / ports は無変更)
 - **認可境界**: Gateway API + IAP + NetworkPolicy で Cloud Run の `--no-allow-unauthenticated` + IAM 相当を再現
 - **Workload Identity**: Phase 6 の 10 SA をそのまま GKE KSA にバインドして使い回す (新規 SA は追加しない)
