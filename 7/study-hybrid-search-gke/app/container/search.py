@@ -12,6 +12,8 @@ from typing import Any, Protocol
 
 from app.services.adapters import (
     BigQueryCandidateRetriever,
+    BigQueryFeatureFetcher,
+    FeatureOnlineStoreFetcher,
     KServeEncoder,
     KServeReranker,
     MeilisearchLexical,
@@ -19,6 +21,7 @@ from app.services.adapters import (
 )
 from app.services.noop_adapters import InMemoryTTLCacheStore, NoopCacheStore, NoopLexicalSearch
 from app.services.protocols import CacheStore, CandidateRetriever, EncoderClient, LexicalSearchPort
+from app.services.protocols.feature_fetcher import FeatureFetcher
 from app.services.protocols.reranker_client import RerankerClient
 from app.services.protocols.semantic_search import SemanticSearchPort
 from app.settings import ApiSettings
@@ -113,6 +116,62 @@ class SearchBuilder:
             features_table=features_table,
             properties_table=properties_table,
             semantic=semantic,
+            client=self._context._bigquery(),
+        )
+
+    def resolve_feature_fetcher(self) -> FeatureFetcher | None:
+        """Build a ``FeatureFetcher`` based on ``settings.feature_fetcher_backend``.
+
+        PR-2 keeps this as a public ``resolve_*`` (no leading underscore) so
+        PR-4 can call it from the reranker wiring without breaking the
+        ``SearchBuilderContext`` Protocol. PR-2 itself does NOT plug the
+        result into ``Container`` — defaults stay observable-equivalent.
+
+        Returns ``None`` when:
+        - ``feature_fetcher_backend == "online_store"`` but the FeatureView
+          / endpoint config is empty (Wave 2 待ち)、または
+        - ``bq`` 選択時で ``features_table`` 解決に必要な settings が空。
+        Callers treat ``None`` as "feature fetch disabled" and fall back to
+        whatever inline mechanism existed previously.
+        """
+        settings = self._settings
+        if settings.feature_fetcher_backend == "online_store":
+            store_id = settings.vertex_feature_online_store_id
+            view_id = settings.vertex_feature_view_id
+            endpoint = settings.vertex_feature_online_store_endpoint
+            if not store_id or not view_id or not endpoint:
+                self._logger.warning(
+                    "FEATURE_FETCHER_BACKEND=online_store but "
+                    "VERTEX_FEATURE_ONLINE_STORE_ID=%r / VERTEX_FEATURE_VIEW_ID=%r / "
+                    "VERTEX_FEATURE_ONLINE_STORE_ENDPOINT=%r is empty — disabling "
+                    "Feature Online Store fetcher (Wave 2 で provision 後に再有効化).",
+                    store_id,
+                    view_id,
+                    endpoint,
+                )
+                return None
+            feature_view = (
+                f"projects/{settings.project_id}/locations/{settings.vertex_location}"
+                f"/featureOnlineStores/{store_id}/featureViews/{view_id}"
+            )
+            self._logger.info(
+                "feature fetcher = online_store feature_view=%s endpoint=%s",
+                feature_view,
+                endpoint,
+            )
+            return FeatureOnlineStoreFetcher(
+                feature_view=feature_view,
+                endpoint_resolver=lambda: endpoint,
+            )
+        # default = bq → BigQueryFeatureFetcher with the BQ client used elsewhere.
+        features_table = (
+            f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
+            f"{settings.bq_table_property_features_daily}"
+        )
+        if not features_table.strip("."):
+            return None
+        return BigQueryFeatureFetcher(
+            features_table=features_table,
             client=self._context._bigquery(),
         )
 

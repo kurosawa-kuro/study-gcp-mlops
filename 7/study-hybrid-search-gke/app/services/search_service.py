@@ -17,6 +17,7 @@ from app.domain.search import SearchFilters, SearchInput, SearchOutput, SearchRe
 from app.services.protocols.cache_store import CacheStore
 from app.services.protocols.candidate_retriever import CandidateRetriever
 from app.services.protocols.encoder_client import EncoderClient
+from app.services.protocols.feature_fetcher import FeatureFetcher
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient
@@ -52,6 +53,7 @@ class SearchService:
         popularity_scorer: PopularityScorer | None = None,
         cache: CacheStore | None = None,
         cache_ttl_seconds: int = 120,
+        feature_fetcher: FeatureFetcher | None = None,
     ) -> None:
         # ``retriever_alt`` is retained only for backward compatibility with
         # older call sites that still pass it positionally. Phase 7 retrieval
@@ -64,6 +66,9 @@ class SearchService:
         self._popularity_scorer = popularity_scorer
         self._cache = cache
         self._cache_ttl_seconds = cache_ttl_seconds
+        # Phase 7 PR-4 — opt-in fresh feature fetch (e.g. Vertex AI Feature
+        # Online Store). ``None`` preserves Phase 5 / 6 behaviour exactly.
+        self._feature_fetcher = feature_fetcher
 
     @property
     def reranker_model_path(self) -> str | None:
@@ -113,6 +118,7 @@ class SearchService:
             reranker=self._reranker,
             model_path=self.reranker_model_path,
             want_explanations=input.explain,
+            feature_fetcher=self._feature_fetcher,
         )
 
         # Phase 6 T1 — BQML auxiliary popularity scoring (opt-in).

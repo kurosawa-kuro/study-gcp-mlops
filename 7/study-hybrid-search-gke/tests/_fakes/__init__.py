@@ -21,6 +21,7 @@ so individual tests can construct them inline without builders.
 
 from .in_memory_cache_store import InMemoryCacheStore
 from .in_memory_candidate_retriever import InMemoryCandidateRetriever
+from .in_memory_feature_fetcher import InMemoryFeatureFetcher
 from .in_memory_feedback_recorder import InMemoryFeedbackRecorder
 from .in_memory_lexical_search import InMemoryLexicalSearch
 from .in_memory_ranking_log_publisher import InMemoryRankingLogPublisher
@@ -34,6 +35,7 @@ from .stub_retrain_queries import StubRetrainQueries
 __all__ = [
     "InMemoryCacheStore",
     "InMemoryCandidateRetriever",
+    "InMemoryFeatureFetcher",
     "InMemoryFeedbackRecorder",
     "InMemoryLexicalSearch",
     "InMemoryRankingLogPublisher",

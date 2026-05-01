@@ -4,6 +4,7 @@ from .cache_store import CacheStore
 from .candidate_retriever import CandidateRetriever
 from .data_catalog_reader import DataCatalogReader
 from .encoder_client import EncoderClient
+from .feature_fetcher import FeatureFetcher, FeatureRow
 from .feedback_recorder import FeedbackRecorder
 from .lexical_search import LexicalSearchPort
 from .popularity_scorer import PopularityScorer
@@ -18,6 +19,8 @@ __all__ = [
     "CandidateRetriever",
     "DataCatalogReader",
     "EncoderClient",
+    "FeatureFetcher",
+    "FeatureRow",
     "FeedbackRecorder",
     "LexicalSearchPort",
     "NoopPublisher",

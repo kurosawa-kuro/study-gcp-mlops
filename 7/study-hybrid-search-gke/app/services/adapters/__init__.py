@@ -2,7 +2,9 @@
 
 from .bigquery_candidate_retriever import BigQueryCandidateRetriever
 from .bigquery_data_catalog_reader import BigQueryDataCatalogReader
+from .bigquery_feature_fetcher import BigQueryFeatureFetcher
 from .cache_store import MemorystoreRedisCacheStore
+from .feature_online_store_fetcher import FeatureOnlineStoreFetcher
 from .kserve_encoder import KServeEncoder
 from .kserve_reranker import KServeReranker
 from .lexical_search import MeilisearchLexical
@@ -15,7 +17,9 @@ from .vertex_vector_search_semantic_search import VertexVectorSearchSemanticSear
 __all__ = [
     "BigQueryCandidateRetriever",
     "BigQueryDataCatalogReader",
+    "BigQueryFeatureFetcher",
     "BigQueryRetrainQueries",
+    "FeatureOnlineStoreFetcher",
     "KServeEncoder",
     "KServeReranker",
     "MeilisearchLexical",

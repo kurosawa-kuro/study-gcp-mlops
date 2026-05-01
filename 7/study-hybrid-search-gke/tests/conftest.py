@@ -35,6 +35,7 @@ from app.settings import ApiSettings
 from tests._fakes import (
     InMemoryCacheStore,
     InMemoryCandidateRetriever,
+    InMemoryFeatureFetcher,
     InMemoryFeedbackRecorder,
     InMemoryRankingLogPublisher,
     MockPredictionPublisher,
@@ -129,6 +130,17 @@ def fake_retrain_publisher() -> MockPredictionPublisher:
 
 
 @pytest.fixture
+def fake_feature_fetcher() -> InMemoryFeatureFetcher:
+    """Default ``feature_fetcher`` fixture — empty in-memory store.
+
+    Tests that need fresh-feature merge behaviour can construct their own
+    ``InMemoryFeatureFetcher(rows=...)`` and inject via
+    ``fake_container_factory(feature_fetcher=...)``.
+    """
+    return InMemoryFeatureFetcher()
+
+
+@pytest.fixture
 def fake_container_factory(
     fake_settings: ApiSettings,
     fake_encoder: StubEncoderClient,
@@ -167,6 +179,7 @@ def fake_container_factory(
             "ranking_log_publisher": fake_ranking_log_publisher,
             "feedback_recorder": fake_feedback_recorder,
             "search_cache": fake_search_cache,
+            "feature_fetcher": None,  # PR-4 default off — preserves Phase 5 behaviour
         }
         defaults.update(overrides)
         # Build SearchService / FeedbackService from the composed adapters so
@@ -181,6 +194,7 @@ def fake_container_factory(
                 popularity_scorer=defaults["popularity_scorer"],
                 cache=defaults["search_cache"],
                 cache_ttl_seconds=defaults["settings"].search_cache_ttl_seconds,
+                feature_fetcher=defaults["feature_fetcher"],
             ),
         )
         defaults.setdefault(

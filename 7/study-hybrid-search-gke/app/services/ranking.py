@@ -16,11 +16,13 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any
 
 from app.domain.candidate import Candidate, RankedCandidate
 from app.domain.search import SearchFilters
 from app.services.protocols.candidate_retriever import CandidateRetriever
+from app.services.protocols.feature_fetcher import FeatureFetcher
 from app.services.protocols.ranking_log_publisher import RankingLogPublisher
 from app.services.protocols.reranker_client import RerankerClient, RerankerExplainer
 from ml.common.logging import get_logger
@@ -85,6 +87,51 @@ __all__ = [
 ]
 
 
+def _augment_with_fresh_features(
+    candidates: list[Candidate],
+    feature_fetcher: FeatureFetcher,
+) -> list[Candidate]:
+    """Overwrite ``ctr`` / ``fav_rate`` / ``inquiry_rate`` from a fresher source.
+
+    Phase 7 PR-4: when a Vertex AI Feature Online Store fetcher is wired in
+    (see ``SearchBuilder.resolve_feature_fetcher``), call it once per
+    /search to get the latest behavioural signals and merge them onto the
+    BigQuery-enriched ``Candidate.property_features`` dict before
+    ``build_ranker_features`` runs.
+
+    Why merge instead of replace:
+    - ``BigQueryCandidateRetriever`` populates display-side fields (rent /
+      walk_min / age_years / area_m2 / title / city / ...) from
+      ``properties_cleaned`` that are NOT served by Feature Online Store.
+    - FOS only owns the 3 dynamic columns in ``FeatureRow``.
+    - Replacing the entire dict would drop everything else.
+
+    Failure semantics:
+    - ``feature_fetcher.fetch`` raising propagates to ``run_search``
+      caller (decision: skip rerank vs return 503 belongs upstream).
+    - ``FeatureRow`` fields equal to ``None`` are skipped (treat as "no
+      fresh data", keep BQ-enriched value).
+    """
+    if not candidates:
+        return candidates
+    rows = feature_fetcher.fetch([c.property_id for c in candidates])
+    out: list[Candidate] = []
+    for cand in candidates:
+        row = rows.get(cand.property_id)
+        if row is None:
+            out.append(cand)
+            continue
+        merged = dict(cand.property_features)
+        if row.ctr is not None:
+            merged["ctr"] = row.ctr
+        if row.fav_rate is not None:
+            merged["fav_rate"] = row.fav_rate
+        if row.inquiry_rate is not None:
+            merged["inquiry_rate"] = row.inquiry_rate
+        out.append(replace(cand, property_features=merged))
+    return out
+
+
 def _build_feature_matrix(candidates: list[Candidate]) -> list[list[float]]:
     """Build the feature matrix in FEATURE_COLS_RANKER order."""
     rows = [
@@ -124,6 +171,7 @@ def run_search(
     reranker: RerankerClient | None = None,
     model_path: str | None = None,
     want_explanations: bool = False,
+    feature_fetcher: FeatureFetcher | None = None,
 ) -> list[RankedCandidate]:
     """Execute one search and return ranked candidates truncated to top_k.
 
@@ -143,6 +191,18 @@ def run_search(
         filters=filters,
         top_k=top_k,
     )
+    # Phase 7 PR-4 — opt-in fresh feature fetch (default off when fetcher is None,
+    # i.e. composition root did not wire FOS). Failures here propagate so /search
+    # signals 503 rather than rerank with stale features.
+    if feature_fetcher is not None and candidates:
+        try:
+            candidates = _augment_with_fresh_features(candidates, feature_fetcher)
+        except Exception:
+            logger.exception(
+                "feature_fetcher.fetch failed for request_id=%s — continuing rerank "
+                "with BigQuery-enriched features (degraded freshness, not 503).",
+                request_id,
+            )
     if not candidates:
         _safe_publish_candidates(
             publisher,

@@ -35,6 +35,7 @@ from app.services.protocols import (
     RankingLogPublisher,
     RerankerClient,
 )
+from app.services.protocols.feature_fetcher import FeatureFetcher
 from app.services.protocols.popularity_scorer import PopularityScorer
 from app.services.protocols.retrain_queries import RetrainQueries
 from app.services.search_service import SearchService
@@ -77,6 +78,11 @@ class Container:
     ranking_log_publisher: RankingLogPublisher
     feedback_recorder: FeedbackRecorder
     search_cache: CacheStore
+
+    # Phase 7 PR-4 — opt-in fresh feature fetch (Vertex AI Feature Online
+    # Store). ``None`` when ``FEATURE_FETCHER_BACKEND`` is unconfigured or
+    # the FOS endpoint is not yet provisioned (Wave 2 待ち).
+    feature_fetcher: FeatureFetcher | None
 
     # Services (Phase D-1) — constructed once at startup, depend only on
     # the adapter Ports above. Handlers receive these via FastAPI Depends.
@@ -132,8 +138,15 @@ class ContainerBuilder:
     def build(self) -> Container:
         settings = self._settings
         infra = InfraBuilder(self).build()
-        search = SearchBuilder(self).build()
+        search_builder = SearchBuilder(self)
+        search = search_builder.build()
         ml = MlBuilder(self).build()
+
+        # Phase 7 PR-4 — Feature Online Store fetcher (default off).
+        # ``resolve_feature_fetcher`` returns None when the backend selection
+        # or FOS endpoint config is missing; SearchService treats None as
+        # "no fresh-feature augmentation" and uses BQ-enriched values verbatim.
+        feature_fetcher = search_builder.resolve_feature_fetcher()
 
         # Phase D-1 — service composition. Services are stateless wrappers
         # around the Ports above; constructed once at startup so handlers
@@ -146,6 +159,7 @@ class ContainerBuilder:
             popularity_scorer=ml.popularity_scorer,
             cache=search.search_cache,
             cache_ttl_seconds=settings.search_cache_ttl_seconds,
+            feature_fetcher=feature_fetcher,
         )
         feedback_service = FeedbackService(recorder=infra.feedback_recorder)
         model_metrics_service = ModelMetricsService(
@@ -176,6 +190,7 @@ class ContainerBuilder:
             ranking_log_publisher=infra.ranking_log_publisher,
             feedback_recorder=infra.feedback_recorder,
             search_cache=search.search_cache,
+            feature_fetcher=feature_fetcher,
             search_service=search_service,
             feedback_service=feedback_service,
             model_metrics_service=model_metrics_service,

@@ -17,6 +17,7 @@ from kfp import dsl
 from pipeline.data_job.components import (
     batch_predict_embeddings,
     load_properties,
+    upsert_vector_search,
     write_embeddings,
 )
 
@@ -35,6 +36,9 @@ def property_search_embed_pipeline(
     as_of_date: str = "",
     full_refresh: bool = False,
     prediction_machine_type: str = "n1-standard-4",
+    enable_vector_search_upsert: bool = False,
+    vector_search_index_resource_name: str = "",
+    vector_search_upsert_batch_size: int = 500,
 ) -> None:
     load_task = load_properties(
         project_id=project_id,
@@ -58,6 +62,18 @@ def property_search_embed_pipeline(
         target_table=embedding_table,
         predictions=predict_task.outputs["predictions"],
     )
+    # Phase 7 PR-3 — Vertex Vector Search 二重書き component.
+    # 常に DAG に含めるが、`vector_search_index_resource_name` が空なら downstream
+    # runner が manifest を見て no-op で skip する (Strangler 原則: default off)。
+    # ``enable_vector_search_upsert`` は manifest にメタデータとして乗せ、Cloud
+    # Function 側 gate で消費する設計 (Wave 2 で実装)。
+    upsert_vector_search(
+        project_id=project_id,
+        vertex_location=vertex_location,
+        index_resource_name=vector_search_index_resource_name,
+        predictions=predict_task.outputs["predictions"],
+        batch_size=vector_search_upsert_batch_size,
+    )
 
 
 def build_pipeline_spec() -> dict[str, object]:
@@ -75,8 +91,16 @@ def build_pipeline_spec() -> dict[str, object]:
             "as_of_date": "",
             "full_refresh": False,
             "prediction_machine_type": "n1-standard-4",
+            "enable_vector_search_upsert": False,
+            "vector_search_index_resource_name": "",
+            "vector_search_upsert_batch_size": 500,
         },
-        "steps": ["load_properties", "batch_predict_embeddings", "write_embeddings"],
+        "steps": [
+            "load_properties",
+            "batch_predict_embeddings",
+            "write_embeddings",
+            "upsert_vector_search",
+        ],
     }
 
 

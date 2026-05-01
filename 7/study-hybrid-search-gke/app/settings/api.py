@@ -67,6 +67,15 @@ class ApiSettings(BaseAppSettings):
     vertex_vector_search_index_endpoint_id: str = ""
     vertex_vector_search_deployed_index_id: str = ""
 
+    # --- Feature fetcher backend (Phase 7 移行ロードマップ §3.2 PR-2) -------
+    # Strangler 切替: default は ``bq``。``online_store`` 選択時に必要な
+    # FeatureView resource が空ならフォールバック (PR-4 で消費される)。
+    # PR-2 merge 段階では Container 配線していないので default 挙動は不変。
+    feature_fetcher_backend: Literal["bq", "online_store"] = "bq"
+    vertex_feature_online_store_id: str = ""
+    vertex_feature_view_id: str = ""
+    vertex_feature_online_store_endpoint: str = ""
+
     # --- KServe inference endpoints (cluster-local HTTP) ----------------------
     kserve_encoder_url: str = ""
     kserve_reranker_url: str = ""
