@@ -46,7 +46,6 @@ class SearchService:
         self,
         *,
         retriever_default: CandidateRetriever | None,
-        retriever_alt: CandidateRetriever | None = None,
         encoder: EncoderClient | None,
         publisher: RankingLogPublisher,
         reranker: RerankerClient | None = None,
@@ -55,10 +54,6 @@ class SearchService:
         cache_ttl_seconds: int = 120,
         feature_fetcher: FeatureFetcher | None = None,
     ) -> None:
-        # ``retriever_alt`` is retained only for backward compatibility with
-        # older call sites that still pass it positionally. Phase 7 retrieval
-        # is single-path by design and this parameter is never read.
-        del retriever_alt
         self._retriever_default = retriever_default
         self._encoder = encoder
         self._publisher = publisher

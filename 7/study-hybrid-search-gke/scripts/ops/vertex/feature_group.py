@@ -36,10 +36,7 @@ def main() -> int:
     project_id = env("PROJECT_ID")
     region = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
     online_store_id = env("VERTEX_FEATURE_ONLINE_STORE_ID", "mlops_dev_feature_store")
-    feature_view_id = env(
-        "VERTEX_FEATURE_VIEW_ID",
-        env("VERTEX_FEATURE_GROUP_ID", "property_features"),
-    )
+    feature_view_id = env("VERTEX_FEATURE_VIEW_ID", "property_features")
     property_id = os.environ.get("PROPERTY_ID", "p001")
     if not project_id:
         return fail("vertex-feature-group: PROJECT_ID is required")

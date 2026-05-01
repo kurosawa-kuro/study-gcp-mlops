@@ -11,7 +11,6 @@ regress it:
 - ``GET /ui/dev/model/metrics`` → HTML (accuracy dashboard)
 - ``GET /ui/dev/data`` → HTML (model info viewer)
 - ``GET /ui/dev/ops`` → HTML (destroy-all residual checker)
-- legacy ``/ui/model/metrics`` and ``/ui/data`` redirect to dev namespace
 - ``GET /metrics`` → text/plain Prometheus exposition (NOT HTML)
 - ``GET /livez`` / ``/healthz`` / ``/readyz`` reachable
 
@@ -94,16 +93,6 @@ def test_ui_ops_returns_html(app_no_lifespan) -> None:  # type: ignore[no-untype
         r = client.get("/ui/dev/ops")
         assert r.status_code == 200
         assert "運用チェック" in r.text
-
-
-def test_ui_legacy_dev_routes_redirect(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]
-    with TestClient(app_no_lifespan) as client:
-        metrics = client.get("/ui/model/metrics", follow_redirects=False)
-        data = client.get("/ui/data", follow_redirects=False)
-        assert metrics.status_code == 308
-        assert metrics.headers["location"] == "/ui/dev/model/metrics"
-        assert data.status_code == 308
-        assert data.headers["location"] == "/ui/dev/data"
 
 
 def test_metrics_serves_prometheus_exposition(app_no_lifespan) -> None:  # type: ignore[no-untyped-def]

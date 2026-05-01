@@ -76,12 +76,4 @@ def build_ui_router(*, app_root: Path) -> APIRouter:
     def ui_api_docs() -> RedirectResponse:
         return RedirectResponse(url="/docs", status_code=308)
 
-    @router.get("/model/metrics", include_in_schema=False)
-    def ui_model_metrics_legacy() -> RedirectResponse:
-        return RedirectResponse(url="/ui/dev/model/metrics", status_code=308)
-
-    @router.get("/data", include_in_schema=False)
-    def ui_data_legacy() -> RedirectResponse:
-        return RedirectResponse(url="/ui/dev/data", status_code=308)
-
     return router

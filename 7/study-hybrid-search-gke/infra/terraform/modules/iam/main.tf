@@ -252,8 +252,8 @@ resource "google_project_iam_member" "endpoint_reranker_logging_writer" {
 #
 # - encoder: ME5 で encode するだけなので、Vertex API 呼び出し不要。
 #   roles/aiplatform.user は付与しない (最小権限)。
-# - reranker: Phase 7 固有経路で `KSERVE_FEATURE_ONLINE_URL` 経路を使う場合
-#   に Feature View 経由で fetch する想定。default off (= Wave 2 W2-8 まで
+# - reranker: Phase 7 固有経路で `FEATURE_FETCHER_BACKEND=online_store`
+#   のときに Feature View 経由で fetch する想定。default off (= Wave 2 W2-8 まで
 #   観測されない) だが、TF レベルでは provision 時に bind 済の方が
 #   一括 PDCA で扱いやすい。
 # =========================================================================

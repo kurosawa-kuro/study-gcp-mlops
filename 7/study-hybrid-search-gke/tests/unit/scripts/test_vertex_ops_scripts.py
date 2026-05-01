@@ -45,12 +45,11 @@ def test_backfill_build_spec_rejects_non_int_batch_size(monkeypatch) -> None:
         raise AssertionError("expected ValueError for non-int batch size")
 
 
-def test_feature_group_prefers_feature_view_env_over_legacy_name(monkeypatch) -> None:
+def test_feature_group_uses_feature_view_env(monkeypatch) -> None:
     monkeypatch.setenv("PROJECT_ID", "mlops-test")
     monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
     monkeypatch.setenv("VERTEX_FEATURE_ONLINE_STORE_ID", "store-a")
     monkeypatch.setenv("VERTEX_FEATURE_VIEW_ID", "view-a")
-    monkeypatch.setenv("VERTEX_FEATURE_GROUP_ID", "legacy-group")
     monkeypatch.setenv("PROPERTY_ID", "p001")
 
     calls: list[object] = []
@@ -110,4 +109,3 @@ def test_feature_group_prefers_feature_view_env_over_legacy_name(monkeypatch) ->
         "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
         "p001",
     ) in calls
-
