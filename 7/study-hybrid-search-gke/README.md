@@ -3,7 +3,7 @@
 **不動産ハイブリッド検索 × LightGBM LambdaRank** を GKE + KServe で serving する MLOps 学習リポジトリ。Phase 5 (Vertex AI プリミティブ) を継承しつつ、**serving 層のみを GKE / KServe に差し替える** 最小差分版。
 
 > **スコープ**: 不動産検索 (クエリ文 + フィルタ → ランキング上位 20 件) のみ。
-> **Phase 5 からの差分**: `search-api` (Cloud Run → GKE Deployment + Gateway) / encoder / reranker (Vertex Endpoint → KServe `InferenceService`)。Pipelines / **Vertex AI Feature Store + Feature Group + Feature Online Store** (Phase 5 必須を継承) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は据え置き。Phase 7 固有として KServe から Feature Online Store を opt-in 参照する経路を追加。
+> **Phase 5 からの差分**: `search-api` (Cloud Run → GKE Deployment + Gateway) / encoder / reranker (Vertex Endpoint → KServe `InferenceService`)。Pipelines / **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** (Phase 5 必須を継承) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は据え置き。Phase 7 固有として KServe から Feature Online Store を opt-in 参照する経路を追加。
 
 本 README は「機能の簡易説明 + 各ドキュメントへのリンク」だけを扱う (`docs/README.md` §1 の規約に従う)。環境構築・運用・実装詳細は下記 **§ ドキュメント** の各ファイルへ。
 
@@ -51,7 +51,7 @@ raw.properties (upstream ETL)
 
 詳細は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) と [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md)。
 
-- **Phase 5 からの差分**: serving 層のみ GKE + KServe に移行。Pipelines / **Vertex AI Feature Store + Feature Group + Feature Online Store** (Phase 5 必須を継承) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は **差分ゼロで維持**。Phase 7 固有として KServe から Feature Online Store を opt-in 参照する経路を追加
+- **Phase 5 からの差分**: serving 層のみ GKE + KServe に移行。Pipelines / **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** (Phase 5 必須を継承) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は **差分ゼロで維持**。Phase 7 固有として KServe から Feature Online Store を opt-in 参照する経路を追加
 - **Port / Adapter 設計**: `app.services.protocols` の `EncoderClient` / `RerankerClient` 実装を `VertexEndpointEncoder/Reranker` → `KServeEncoder/Reranker` に差し替えただけ (core / services / ports は無変更)
 - **認可境界**: Gateway API + IAP + NetworkPolicy で Cloud Run の `--no-allow-unauthenticated` + IAM 相当を再現
 - **Workload Identity**: Phase 6 の 10 SA をそのまま GKE KSA にバインドして使い回す (新規 SA は追加しない)
