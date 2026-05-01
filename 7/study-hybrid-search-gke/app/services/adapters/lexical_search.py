@@ -7,7 +7,7 @@ This is the only lexical adapter — Phase 7 dropped the Discovery Engine varian
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from google.auth import default as google_auth_default
@@ -54,16 +54,24 @@ class MeilisearchLexical(LexicalSearchPort):
             source_credentials, _ = google_auth_default(
                 scopes=["https://www.googleapis.com/auth/cloud-platform"]
             )
-            target_credentials = impersonated_credentials.Credentials(
-                source_credentials=source_credentials,
-                target_principal=self._impersonate_service_account,
-                target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
-                lifetime=600,
+            credentials_ctor: Any = impersonated_credentials.Credentials
+            target_credentials = cast(
+                Any,
+                credentials_ctor(
+                    source_credentials=source_credentials,
+                    target_principal=self._impersonate_service_account,
+                    target_scopes=["https://www.googleapis.com/auth/cloud-platform"],
+                    lifetime=600,
+                ),
             )
-            id_credentials = impersonated_credentials.IDTokenCredentials(
-                target_credentials,
-                target_audience=audience,
-                include_email=True,
+            id_credentials_ctor: Any = impersonated_credentials.IDTokenCredentials
+            id_credentials = cast(
+                Any,
+                id_credentials_ctor(
+                    target_credentials,
+                    target_audience=audience,
+                    include_email=True,
+                ),
             )
             id_credentials.refresh(Request())
             token = getattr(id_credentials, "token", "")

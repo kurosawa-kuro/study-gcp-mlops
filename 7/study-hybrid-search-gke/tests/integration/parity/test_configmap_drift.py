@@ -43,5 +43,16 @@ def test_generated_configmap_keeps_deployment_referenced_keys() -> None:
     so the regression surfaces even before the committed file updates.
     """
     rendered = render()
-    for required in ("project_id:", "models_bucket:", "meili_base_url:"):
+    for required in (
+        "project_id:",
+        "models_bucket:",
+        "meili_base_url:",
+        "semantic_backend:",
+        "vertex_vector_search_index_endpoint_id:",
+        "vertex_vector_search_deployed_index_id:",
+        "feature_fetcher_backend:",
+        "vertex_feature_online_store_id:",
+        "vertex_feature_view_id:",
+        "vertex_feature_online_store_endpoint:",
+    ):
         assert required in rendered, f"sync_configmap.render() dropped required key: {required!r}"

@@ -96,7 +96,7 @@ def search_volume(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     row = rows[0] if rows else {}
     return SearchVolumeResponse(
-        requests_24h=int(row.get("n") or 0),
+        requests_24h=_as_int(row.get("n")),
         first_ts=str(row.get("first_ts")) if row.get("first_ts") is not None else None,
         last_ts=str(row.get("last_ts")) if row.get("last_ts") is not None else None,
     )
@@ -115,13 +115,43 @@ def runs_recent(
             TrainingRunSummaryResponse(
                 run_id=str(row.get("run_id") or ""),
                 finished_at=str(row.get("finished_at")) if row.get("finished_at") else None,
-                ndcg_at_10=float(row["ndcg_at_10"]) if row.get("ndcg_at_10") is not None else None,
-                map_score=float(row["map"]) if row.get("map") is not None else None,
-                recall_at_20=float(row["recall_at_20"])
-                if row.get("recall_at_20") is not None
-                else None,
+                ndcg_at_10=_as_float(row.get("ndcg_at_10")),
+                map_score=_as_float(row.get("map")),
+                recall_at_20=_as_float(row.get("recall_at_20")),
                 model_path=str(row.get("model_path")) if row.get("model_path") else None,
             )
             for row in rows
         ]
     )
+
+
+def _as_int(value: object | None) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, str, bytes, bytearray)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _as_float(value: object | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float, str, bytes, bytearray)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return None

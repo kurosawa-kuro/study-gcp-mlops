@@ -105,3 +105,6 @@ disable_error_code = ["untyped-decorator", "no-untyped-call"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
+markers = [
+    "live_gcp: requires real GCP resources / credentials and is skipped in local offline runs",
+]

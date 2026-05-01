@@ -153,8 +153,15 @@ def _as_str(value: object) -> str | None:
 def _as_int(value: object) -> int | None:
     if value is None:
         return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, str, bytes, bytearray)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
     try:
-        return int(value)  # type: ignore[arg-type]
+        return int(str(value))
     except (TypeError, ValueError):
         return None
 
@@ -162,8 +169,15 @@ def _as_int(value: object) -> int | None:
 def _as_float(value: object) -> float | None:
     if value is None:
         return None
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float, str, bytes, bytearray)):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
     try:
-        return float(value)  # type: ignore[arg-type]
+        return float(str(value))
     except (TypeError, ValueError):
         return None
 

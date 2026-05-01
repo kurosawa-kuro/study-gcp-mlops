@@ -19,6 +19,7 @@ Design notes:
 from __future__ import annotations
 
 from collections.abc import Callable
+from collections.abc import Generator
 from typing import Any
 
 import pytest
@@ -237,6 +238,6 @@ def fake_app(fake_container: Container) -> FastAPI:
 
 
 @pytest.fixture
-def fake_client(fake_app: FastAPI) -> TestClient:
+def fake_client(fake_app: FastAPI) -> Generator[TestClient, None, None]:
     with TestClient(fake_app) as client:
         yield client

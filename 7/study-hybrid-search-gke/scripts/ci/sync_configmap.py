@@ -44,6 +44,10 @@ def render() -> str:
         "# Run `make sync-configmap` to regenerate after changing setting.yaml.\n"
         "# `meili_base_url` is environment-specific (Cloud Run URL) — overlay\n"
         "# the real value before `make apply-manifests`.\n"
+        "#\n"
+        "# Phase 7 Wave 2 W2-5: Vertex Vector Search / Feature Online Store の\n"
+        '# env vehicle を追加。default は空文字 / "bq" で暫定配線を維持し、\n'
+        "# live apply / smoke 後に canonical 1 経路へ収束させる。\n"
         "apiVersion: v1\n"
         "kind: ConfigMap\n"
         "metadata:\n"
@@ -53,6 +57,15 @@ def render() -> str:
         f"  project_id: {project_id!r}\n".replace("'", '"')
         + f"  models_bucket: {models_bucket!r}\n".replace("'", '"')
         + f"  meili_base_url: {MEILI_BASE_URL_PLACEHOLDER!r}\n".replace("'", '"')
+        + "\n"
+        + '  semantic_backend: "bq"\n'
+        + '  vertex_vector_search_index_endpoint_id: ""\n'
+        + '  vertex_vector_search_deployed_index_id: ""\n'
+        + "\n"
+        + '  feature_fetcher_backend: "bq"\n'
+        + '  vertex_feature_online_store_id: ""\n'
+        + '  vertex_feature_view_id: ""\n'
+        + '  vertex_feature_online_store_endpoint: ""\n'
     )
 
 

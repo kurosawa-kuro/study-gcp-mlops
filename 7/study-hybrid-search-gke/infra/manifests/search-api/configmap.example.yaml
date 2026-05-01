@@ -4,11 +4,8 @@
 # the real value before `make apply-manifests`.
 #
 # Phase 7 Wave 2 W2-5: Vertex Vector Search / Feature Online Store の
-# env vehicle を追加。default は空文字 / "bq" で Strangler 原則を維持
-# (Wave 1 PR-1 / PR-2 が settings 側で吸収する設計、空なら既存の
-# BigQuery 経路にフォールバック)。
-# Wave 2 W2-8 (= M6) で `semantic_backend` / `feature_fetcher_backend` の
-# default を `vertex_vector_search` / `online_store` に flip する。
+# env vehicle を追加。default は空文字 / "bq" で暫定配線を維持し、
+# live apply / smoke 後に canonical 1 経路へ収束させる。
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,12 +16,10 @@ data:
   models_bucket: "mlops-dev-a-models"
   meili_base_url: "https://meili-search-XXXXX-an.a.run.app"
 
-  # Wave 1 PR-1 — semantic search backend 切替 (Strangler default = bq)
   semantic_backend: "bq"
   vertex_vector_search_index_endpoint_id: ""
   vertex_vector_search_deployed_index_id: ""
 
-  # Wave 1 PR-2 — feature fetcher backend 切替 (Strangler default = bq)
   feature_fetcher_backend: "bq"
   vertex_feature_online_store_id: ""
   vertex_feature_view_id: ""
