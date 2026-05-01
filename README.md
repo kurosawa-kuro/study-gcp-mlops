@@ -15,7 +15,7 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 - Phase 2: **App / Pipeline / Port-Adapter** を導入
 - Phase 3-5: 不動産検索ドメインで **Local → GCP → Vertex AI** へ展開
 - Phase 6: Phase 5 と**同じ不動産ハイブリッド検索ドメインを維持**し、PMLE 試験範囲の追加技術を Phase 5 実コードに **adapter / 副経路 / 追加エンドポイント / 追加 Terraform** として統合
-- Phase 7: **Phase 6 の serving 層を GKE + KServe に置き換える到達ゴール**(Vertex AI Pipelines / Feature Group / Model Registry / BigQuery / Meilisearch 等は Phase 6 から継承)
+- Phase 7: **Phase 6 の serving 層を GKE + KServe に置き換える到達ゴール**(Vertex AI Pipelines / **Vertex AI Feature Store + Feature Group + Feature Online Store** / **Vertex Vector Search** / Model Registry / BigQuery / Meilisearch 等は Phase 6 から継承。Feature Online Store は Phase 5 構築済を KServe から opt-in 参照)
 
 ### 設計思想の不変性
 
