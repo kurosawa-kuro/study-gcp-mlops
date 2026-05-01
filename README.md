@@ -102,88 +102,60 @@ flowchart LR
     class P7 gke
 ```
 
-### 図2. GCP / Vertex AI 技術スタック図 (依存関係)
+### 図2. Phase 別 技術出現図 (どの Phase で何が初登場するか)
 
-Phase 5+ で導入される **Vertex AI 群** と支援 **GCP プリミティブ** の依存関係。Composer は **Phase 6 起点で全体の上位 orchestrator**、Vertex Pipelines は **下位 ML executor** として呼ばれる側 (重ねず役割分離)。
+教育設計の俯瞰用。**どの Phase で何が初めて入るか** を見るための図 (実装的な依存関係 / 配線詳細は Phase 7 [`docs/01_仕様と設計.md` §2.5](7/study-hybrid-search-gke/docs/01_仕様と設計.md) を参照)。
 
 ```mermaid
-flowchart TB
-    subgraph ORCH["Orchestration (Phase 6 起点)"]
-        COMP["Cloud Composer<br/>(Managed Airflow Gen 3)<br/>= 上位 orchestrator"]
+flowchart LR
+    subgraph P3["Phase 3 (Local)"]
+        P3_TECH["Meilisearch / multilingual-e5 /<br/>LightGBM LambdaRank / Redis /<br/>Docker Compose / uv"]
     end
 
-    subgraph VERTEX_AI["Vertex AI スタック"]
-        VAI_PIPE["Vertex AI Pipelines<br/>(KFP v2)<br/>= 下位 ML executor"]
-        VAI_REG["Vertex AI Model Registry<br/>(staging / production alias)"]
-        VAI_EP["Vertex AI Endpoint<br/>(Phase 5/6 serving)"]
-        VAI_FS["Vertex AI Feature Store<br/>(Feature Group / Feature View / Online Store)"]
-        VAI_VVS["Vertex AI Vector Search<br/>(ME5 ベクトル ANN serving index)"]
-        VAI_MON["Vertex AI Model Monitoring v2<br/>(drift / skew)"]
+    subgraph P4["Phase 4 (GCP Serverless)"]
+        P4_TECH["Cloud Run / GCS / BigQuery /<br/>Cloud Logging / Pub/Sub / Eventarc /<br/>Cloud Scheduler / Cloud Function /<br/>Secret Manager / Terraform / WIF /<br/>BQ VECTOR_SEARCH / Dataform"]
     end
 
-    subgraph GCP_BASE["GCP プリミティブ"]
-        BQ["BigQuery<br/>data lake / 履歴正本"]
-        DATAFORM["Dataform<br/>(BQ feature pipeline)"]
-        DF["Dataflow Flex Template<br/>(streaming / batch transform)"]
-        BQML["BQML<br/>(popularity 等の補助モデル)"]
-        GCS[GCS]
-        PUBSUB["Pub/Sub<br/>(ranking-log / feedback)"]
-        SCHED["Cloud Scheduler / Eventarc /<br/>Cloud Function (Gen2)<br/>= Phase 4-5 軽量 orchestration<br/>(Phase 6 以降は軽量代替・smoke 用)"]
-        SECMGR[Secret Manager]
-        CR["Cloud Run<br/>(Phase 4-6 search-api,<br/> Phase 5+ Meilisearch)"]
+    subgraph P5["Phase 5 (Vertex AI 本番MLOps基盤)"]
+        P5_TECH["Vertex AI Pipelines (KFP v2) /<br/>Vertex Endpoint /<br/>Vertex Model Registry /<br/>Vertex Model Monitoring /<br/><b>Vertex AI Feature Store</b><br/>(Feature Group / Feature View / Online Store) /<br/><b>Vertex Vector Search</b>"]
     end
 
-    subgraph K8S["GKE / KServe (Phase 7)"]
-        GKE_CL[GKE Autopilot]
-        KSERVE["KServe InferenceService<br/>(encoder / reranker)"]
-        ESO["External Secrets Operator<br/>(↔ Secret Manager)"]
+    subgraph P6["Phase 6 (PMLE + Composer 本線)"]
+        P6_TECH["<b>Cloud Composer (本線)</b> /<br/>BQML / Dataflow Flex Template /<br/>TreeSHAP Explainability /<br/>Monitoring SLO + burn-rate /<br/>Composer-managed BQ monitoring query"]
     end
 
-    COMP -->|submit| VAI_PIPE
-    COMP -->|run| DATAFORM
-    COMP -->|launch| DF
-    COMP -->|train / validate| BQML
-    COMP -->|monitoring query| BQ
+    subgraph P7["Phase 7 (GKE + KServe)"]
+        P7_TECH["GKE Autopilot / KServe /<br/>Gateway API + HTTPRoute /<br/>External Secrets Operator /<br/>Workload Identity / GMP / HPA /<br/>IAP / NetworkPolicy / Helm provider /<br/>Feature Online Store (Feature View 経由) opt-in"]
+    end
 
-    VAI_PIPE -->|register| VAI_REG
-    VAI_REG -->|deploy| VAI_EP
-    VAI_REG -.Phase 7.-> KSERVE
+    P3 -->|+ GCP マネージド化| P4
+    P4 -->|+ Vertex AI 本番MLOps基盤| P5
+    P5 -->|+ Composer 本線昇格 / PMLE 追加| P6
+    P6 -->|serving 層を K8s ネイティブへ| P7
 
-    VAI_PIPE -->|read / write| BQ
-    VAI_PIPE -->|artifact| GCS
-    DATAFORM --> BQ
-    DF --> BQ
-    BQ -->|sync source| VAI_FS
-    BQ -->|index build| VAI_VVS
-    VAI_EP -->|attach| VAI_MON
-
-    PUBSUB -->|BQ Subscription| BQ
-    SECMGR -.inject.-> CR
-    SECMGR -.sync.-> ESO
-    ESO -.k8s Secret.-> KSERVE
-    GKE_CL --> KSERVE
-
-    SCHED -.Phase 4-5 本線 / Phase 6+ 軽量代替.-> VAI_PIPE
-
-    classDef orch fill:#f3e5f5,stroke:#6a1b9a,stroke-width:3px
-    classDef vertex fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef base fill:#e3f2fd,stroke:#1565c0
-    classDef k8s fill:#ffebee,stroke:#c62828,stroke-width:2px
-    class COMP orch
-    class VAI_PIPE,VAI_REG,VAI_EP,VAI_FS,VAI_VVS,VAI_MON vertex
-    class BQ,DATAFORM,DF,BQML,GCS,PUBSUB,SCHED,SECMGR,CR base
-    class GKE_CL,KSERVE,ESO k8s
+    classDef local fill:#e8f5e9,stroke:#2e7d32
+    classDef gcp fill:#e3f2fd,stroke:#1565c0
+    classDef vertex fill:#fff3e0,stroke:#e65100
+    classDef pmle fill:#f3e5f5,stroke:#6a1b9a
+    classDef gke fill:#ffebee,stroke:#c62828,stroke-width:2px
+    class P3 local
+    class P4 gcp
+    class P5 vertex
+    class P6 pmle
+    class P7 gke
 ```
+
+各技術の役割 / 上下関係 (Composer × Vertex Pipelines) / 配線は Phase 7 [`docs/01_仕様と設計.md` §2 / §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md) が canonical。
 
 ---
 
 ## 4. 基本戦略：「引き算」によるPhase間コード生成
 
-### 1.1 起点
+### 4.1 起点
 - **Phase 7 (`7/study-hybrid-search-gke/`) を最終形・正本コードとする**
 - Phase 7のコードを起点に、後方Phase（6 → 5 → 4 → 3 → 2 → 1）へ向かって**引き算で派生コードを生成する**
 
-### 1.2 派生フロー（厳守）
+### 4.2 派生フロー（厳守）
 
 ```
 Phase 7 (起点)
@@ -201,13 +173,13 @@ Phase 2 (= Phase 3 からハイブリッド検索 を引いたもの)
 Phase 1 (= Phase 2 から App/Pipeline/Port-Adapter を引いたもの)
 ```
 
-### 1.3 引き算の対応関係（明示）
+### 4.3 引き算の対応関係（明示）
 
 | 生成対象Phase | コピー元 | 引き算する技術領域 |
 |---|---|---|
 | Phase 6 | Phase 7 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, **KServe → Feature Online Store (Feature View 経由) opt-in 参照経路**, **TreeSHAP 用 explain 専用 Pod** |
 | Phase 5 | Phase 6 | BQML, Dataflow (Apache Beam Flex Template), **Cloud Composer / Managed Airflow Gen 3 (本線 orchestration)**, Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, **Composer-managed BigQuery monitoring query** |
-| Phase 4 | Phase 5 | Vertex AI Pipelines (KFP v2), Vertex Endpoint, Vertex Feature Group, Vertex Model Registry, Vertex Model Monitoring, Dataform, Cloud Function (Gen2) |
+| Phase 4 | Phase 5 | Vertex AI Pipelines (KFP v2), Vertex Endpoint, Vertex Model Registry, Vertex Model Monitoring, **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)**, **Vertex Vector Search** |
 | Phase 3 | Phase 4 | Cloud Run, GCS, BigQuery, Cloud Logging, Secret Manager, Pub/Sub, Eventarc, Cloud Scheduler, Artifact Registry, Cloud Build, Terraform, WIF, GitHub Actions |
 | Phase 2 | Phase 3 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis（ハイブリッド検索一式） |
 | Phase 1 | Phase 2 | FastAPI, lifespan DI, core/ports/adapters構造, seed/predict job |
@@ -278,75 +250,38 @@ study-gcp-mlops/
 
 ---
 
-## 6. 学習運用(成果物・評価・ログの置き場)
+## 6. 学習運用 (Phase 別 成果物の置き場 — 教育設計レベルの段差表)
 
-Phase ごとに成果物・評価結果・実行履歴の置き場を段階移行させる。詳細は phase 配下ドキュメントが正本。
+Phase ごとに成果物・評価結果・実行履歴の置き場を **段階移行** させる。具体的なコマンド / SA bind / IAM 設定など実装詳細は phase 配下 `docs/04_運用.md` (Phase 7 は `docs/05_運用.md`) が正本。本表は「どの Phase で何が登場するか」の俯瞰のみ。
 
-### 全 Phase 共通ツール(横断的に登場)
+### 全 Phase 共通ツール
 
-Phase 表には各 Phase で**新規に登場する**技術を載せる。次のツールは Phase を跨いで継続利用するため、ここに切り出す。
+Phase 表には各 Phase で**新規に登場する**技術を載せる。下記は Phase を跨いで継続利用:
 
 | ツール | 役割 | 初登場 | 本格活用 |
 |---|---|---|---|
-| Git | 親リポで全 Phase を単一管理 | リポジトリ開始時点 | 全 Phase |
-| Git commit hash | 再現性管理 | Phase 1 | 全 Phase |
-| pytest | 全 Phase 共通のテストランナー | Phase 1 | 全 Phase |
+| Git / commit hash | 親リポ単一管理 + 再現性 | リポジトリ開始 | 全 Phase |
+| pytest | テストランナー | Phase 1 | 全 Phase |
 | pydantic-settings (YAML) | 設定とシークレットの分離 | Phase 1 | 全 Phase |
-| JSON / CSV metrics | ローカル評価結果・run 履歴保存 | Phase 1 | Phase 1-3 |
 | Docker / Docker Compose | ローカル実行基盤 | Phase 1 | Phase 1-3 |
 | uv | Python 依存管理 | Phase 3 | Phase 3-7 |
 
-GCP 周辺(WIF / Cloud Run / Vertex AI / Secret Manager 等)は Phase 4 以降に集中するため、Phase 表に残す。
+### Phase 別 成果物・評価・ログの置き場 (段差俯瞰)
 
-### Phase 1〜3(ローカル成果物)
+| Phase | モデル | 評価 / 実験履歴 | ログ / 監視 | CI/CD / IaC | 秘匿情報 |
+|---|---|---|---|---|---|
+| 1-3 (Local) | `model.pkl` (local filesystem) | `runs/{run_id}/` + JSON/CSV metrics | local | — | local `.env` |
+| 4 (GCP Serverless) | GCS | BigQuery table | Cloud Logging + Cloud Monitoring | GitHub Actions + WIF + Terraform | **Secret Manager → Cloud Run secret injection (必須習得)** |
+| 5 (Vertex AI 本番MLOps基盤) | **Vertex Model Registry** (昇格運用) | **Vertex Pipelines Metadata** (lineage) | Cloud Monitoring + **Vertex Model Monitoring** | Phase 4 継承 | Phase 4 継承 |
+| 6 (PMLE + Composer 本線) | Phase 5 継承 | Phase 5 継承 | Phase 5 継承 + **Composer-managed BQ monitoring query** + SLO + burn-rate | Phase 5 継承 | Phase 5 継承 |
+| 7 (GKE + KServe) | Phase 6 継承 | Phase 6 継承 | Phase 6 継承 + **GMP (PodMonitoring)** | Phase 6 継承 | + **External Secrets Operator** (Secret Manager → K8s Secret 自動同期) |
 
-```text
-model.pkl
-metrics.json
-params.yaml
-runs/20260424_001/
-```
+Phase 5+ で必須となる **Vertex AI Feature Store** (Feature Group / Feature View / Feature Online Store、training-serving skew 防止) と **Vertex Vector Search** (ME5 ベクトルの本番 serving index、BQ は embedding 履歴正本) は §2 Phase 一覧と Phase 7 [`docs/01_仕様と設計.md`](7/study-hybrid-search-gke/docs/01_仕様と設計.md) §2 を参照。
 
-- metric 保存: JSON / CSV
-- model 保存: local filesystem
-- 実験履歴: run_id 付きディレクトリ
-- 再現性: `config.yaml` + git commit hash
-
-### Phase 4(GCP Serverless)
-
-- モデル成果物: GCS(`gs://<project>-models/` 配下に `models/` / `reports/` / `artifacts/`)
-- 評価結果: BigQuery table
-- 実行ログ: Cloud Logging
-- 監視: Cloud Monitoring
-- CI/CD: GitHub Actions + WIF
-- IaC: Terraform
-- **Secret Manager(必須習得)**: Secret 作成 → SA IAM bind → Cloud Run `--set-secrets=MEILI_MASTER_KEY=meili-master-key:latest` 注入 → app 側 pydantic-settings 読み取り。題材は **Meilisearch master key**(Phase 4-7 横断で使える実在の秘匿情報)
-
-### Phase 5(Vertex AI 標準)
-
-- モデル正本: Vertex Model Registry(昇格運用)
-- Pipeline 履歴: Vertex AI Pipelines / Metadata(lineage)
-- 推論: Vertex Endpoint(deploy history)
-- モデル監視: Vertex AI Model Monitoring
-- **特徴量管理(必須)**: Vertex AI Feature Store / Feature Group / Feature Online Store。Phase 4 で BigQuery に作った feature table / view を入力源とし、training と serving で同一 feature を取り出す経路を確立する(training-serving skew 防止)
-- **ベクトル serving index(必須)**: Vertex Vector Search。ME5 ベクトル検索の本番 serving index (ANN)。**embedding 生成履歴・メタデータは BigQuery 側に保持し続け**、Vertex Vector Search はそれを source に build / refresh する（Phase 4 の BQ `VECTOR_SEARCH` は置換）
-
-### Phase 6(Phase 5 継承 + PMLE 追加技術ラボ)
-
-- Phase 5 の運用面をそのまま継承
-- 追加技術は adapter / 副経路 / 追加エンドポイント / 追加 Terraform モジュールとして実装し、default flag では Phase 5 挙動を維持
-
-### Phase 7(到達ゴール: GKE + KServe)
-
-- Phase 6 から学習/データ基盤を継承
-- serving 層のみ GKE + KServe に差し替え。Meilisearch master key は External Secrets Operator (ESO) が GCP Secret Manager から `search/meili-master-key` へ自動同期し、`sa-external-secrets` と KSA `external-secrets/external-secrets` の Workload Identity bind で取得する
-- KServe から Vertex AI Feature Online Store を **Feature View 経由で** opt-in 参照する経路を追加 (Phase 5 で構築済の Feature Online Store を継承利用、既定では無効)
-
-### 運用ルール(共通)
+### 運用ルール (共通)
 
 - 変更は原則 Phase 単位で閉じる
-- 学習用途のため、重複コードは許容(意図的複製)
-- Phase を跨ぐ共有ライブラリ化は優先しない
+- 学習用途のため、重複コードは許容 (意図的複製)、Phase を跨ぐ共有ライブラリ化は優先しない
 - ドキュメントは「現行フェーズの実態」を最優先で更新する
 
 ---
@@ -389,7 +324,7 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 - `6/study-hybrid-search-pmle/README.md`(PMLE 技術を Phase 5 実コードに実統合、2026-04-24 完了)
 - `6/study-hybrid-search-pmle/docs/01_仕様と設計.md`(統合トピック詳細 + ファイル配置図)
 - `6/study-hybrid-search-pmle/docs/02_移行ロードマップ.md`(決定的仕様)
-- `7/study-hybrid-search-gke/docs/02_移行ロードマップ.md`(到達ゴール: GKE + KServe)
+- `7/study-hybrid-search-gke/docs/02_移行ロードマップ.md`(到達ゴール: GKE + KServe。**§4 Wave 2 = クラウド側 (GCP インフラ) の修正作業計画の母艦** — Terraform / IAM / Manifest / backfill / Composer 継承 / default flip の実施順序 W2-1〜W2-9)
 
 ### 過去の設計判断ログ(archive)
 
