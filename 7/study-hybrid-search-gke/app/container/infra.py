@@ -68,9 +68,7 @@ class InfraBuilder:
             f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
             f"{settings.bq_table_property_embeddings}"
         )
-        ranking_log_table = (
-            f"{settings.project_id}.{settings.bq_dataset_mlops}.ranking_log"
-        )
+        ranking_log_table = f"{settings.project_id}.{settings.bq_dataset_mlops}.ranking_log"
         return InfraComponents(
             retrain_trigger_publisher=self.build_retrain_publisher(),
             retrain_queries=BigQueryRetrainQueries(

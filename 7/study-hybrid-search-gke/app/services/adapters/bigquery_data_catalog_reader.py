@@ -126,9 +126,7 @@ class BigQueryDataCatalogReader(DataCatalogReader):
         )
 
     def _ranking_log_preview(self) -> DataCatalogTablePreview:
-        latest = self._scalar(
-            f"SELECT CAST(MAX(ts) AS STRING) FROM `{self._ranking_log_table}`"
-        )
+        latest = self._scalar(f"SELECT CAST(MAX(ts) AS STRING) FROM `{self._ranking_log_table}`")
         rows = self._query(
             f"""
             SELECT
@@ -259,7 +257,9 @@ class BigQueryDataCatalogReader(DataCatalogReader):
         *,
         columns: Sequence[str],
     ) -> dict[str, object | None]:
-        return {col: BigQueryDataCatalogReader._jsonish(row[idx]) for idx, col in enumerate(columns)}
+        return {
+            col: BigQueryDataCatalogReader._jsonish(row[idx]) for idx, col in enumerate(columns)
+        }
 
     @staticmethod
     def _jsonish(value: object | None) -> object | None:

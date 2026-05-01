@@ -17,7 +17,9 @@ def test_destroy_check_returns_summary(monkeypatch) -> None:  # type: ignore[no-
         "collect_findings",
         lambda project_id, region, vertex_location: [
             Finding(label="GKE clusters", severity="OK", items=()),
-            Finding(label="Managed residual buckets", severity="WARN", items=("mlops-dev-a-tfstate",)),
+            Finding(
+                label="Managed residual buckets", severity="WARN", items=("mlops-dev-a-tfstate",)
+            ),
             Finding(label="Cloud Run services", severity="FAIL", items=("meili-search",)),
         ],
     )
@@ -39,7 +41,11 @@ def test_search_volume_returns_summary(monkeypatch) -> None:  # type: ignore[no-
         ops_router_module,
         "_run_bq_query",
         lambda project_id, sql_path: [
-            {"n": "17", "first_ts": "2026-04-27 00:00:00+00:00", "last_ts": "2026-04-27 23:00:00+00:00"}
+            {
+                "n": "17",
+                "first_ts": "2026-04-27 00:00:00+00:00",
+                "last_ts": "2026-04-27 23:00:00+00:00",
+            }
         ],
     )
     app = FastAPI()

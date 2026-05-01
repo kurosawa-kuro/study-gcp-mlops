@@ -117,7 +117,9 @@ def runs_recent(
                 finished_at=str(row.get("finished_at")) if row.get("finished_at") else None,
                 ndcg_at_10=float(row["ndcg_at_10"]) if row.get("ndcg_at_10") is not None else None,
                 map_score=float(row["map"]) if row.get("map") is not None else None,
-                recall_at_20=float(row["recall_at_20"]) if row.get("recall_at_20") is not None else None,
+                recall_at_20=float(row["recall_at_20"])
+                if row.get("recall_at_20") is not None
+                else None,
                 model_path=str(row.get("model_path")) if row.get("model_path") else None,
             )
             for row in rows

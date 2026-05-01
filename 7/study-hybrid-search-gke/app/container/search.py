@@ -15,10 +15,12 @@ from app.services.adapters import (
     KServeEncoder,
     KServeReranker,
     MeilisearchLexical,
+    VertexVectorSearchSemanticSearch,
 )
 from app.services.noop_adapters import InMemoryTTLCacheStore, NoopCacheStore, NoopLexicalSearch
 from app.services.protocols import CacheStore, CandidateRetriever, EncoderClient, LexicalSearchPort
 from app.services.protocols.reranker_client import RerankerClient
+from app.services.protocols.semantic_search import SemanticSearchPort
 from app.settings import ApiSettings
 
 EXPECTED_KSERVE_ENCODER_URL = (
@@ -103,14 +105,62 @@ class SearchBuilder:
             f"{settings.bq_table_properties_cleaned}"
         )
         lexical = self._resolve_lexical_search(override_lexical=override_lexical)
+        semantic = self._resolve_semantic_search()
         return BigQueryCandidateRetriever(
             project_id=settings.project_id,
             lexical=lexical,
             embeddings_table=embeddings_table,
             features_table=features_table,
             properties_table=properties_table,
-            semantic=None,
+            semantic=semantic,
             client=self._context._bigquery(),
+        )
+
+    def _resolve_semantic_search(self) -> SemanticSearchPort | None:
+        """Choose ``SemanticSearchPort`` impl based on ``settings.semantic_backend``.
+
+        Default (``bq``): return ``None`` so ``BigQueryCandidateRetriever``
+        constructs its built-in ``BigQuerySemanticSearch`` and existing
+        Phase 4 / Phase 5 default behaviour is preserved unchanged
+        (Strangler 原則 — see Phase 7 ``docs/02_移行ロードマップ.md`` §2.1).
+
+        ``vertex_vector_search``: build ``VertexVectorSearchSemanticSearch``
+        using the configured Index Endpoint resource. If endpoint /
+        deployed-index ID is not yet provisioned (Wave 2 待ち)、warn loudly
+        and fall back to the BigQuery default so the app stays serviceable.
+        """
+        settings = self._settings
+        if settings.semantic_backend != "vertex_vector_search":
+            return None
+
+        endpoint_id = settings.vertex_vector_search_index_endpoint_id
+        deployed_id = settings.vertex_vector_search_deployed_index_id
+        if not endpoint_id or not deployed_id:
+            self._logger.warning(
+                "SEMANTIC_BACKEND=vertex_vector_search but "
+                "VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID=%r / "
+                "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID=%r is empty — "
+                "falling back to BigQuery VECTOR_SEARCH (Phase 4 default). "
+                "Provision Wave 2 Terraform vector_search module to enable.",
+                endpoint_id,
+                deployed_id,
+            )
+            return None
+
+        endpoint_name = (
+            f"projects/{settings.project_id}/locations/{settings.vertex_location}"
+            f"/indexEndpoints/{endpoint_id}"
+        )
+        self._logger.info(
+            "semantic backend = vertex_vector_search endpoint=%s deployed_index_id=%s",
+            endpoint_name,
+            deployed_id,
+        )
+        return VertexVectorSearchSemanticSearch(
+            index_endpoint_name=endpoint_name,
+            deployed_index_id=deployed_id,
+            project=settings.project_id,
+            location=settings.vertex_location,
         )
 
     def _resolve_lexical_search(

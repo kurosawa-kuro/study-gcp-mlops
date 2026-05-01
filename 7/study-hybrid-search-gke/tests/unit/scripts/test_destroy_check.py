@@ -26,9 +26,7 @@ def test_classify_bucket_names_splits_fail_and_warn() -> None:
 
 
 def test_classify_artifact_repos_splits_google_managed_repo() -> None:
-    fail_items, warn_items = destroy_check._classify_artifact_repos(
-        ("gcf-artifacts", "mlops")
-    )
+    fail_items, warn_items = destroy_check._classify_artifact_repos(("gcf-artifacts", "mlops"))
 
     assert fail_items == ("mlops",)
     assert warn_items == ("gcf-artifacts",)

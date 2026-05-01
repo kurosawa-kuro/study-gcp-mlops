@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import cached_property
+from typing import Literal
 
 from pydantic import BaseModel, SecretStr
 
@@ -54,6 +55,17 @@ class ApiSettings(BaseAppSettings):
 
     # --- Vertex AI location (used by Model Registry / Pipelines) -------------
     vertex_location: str = "asia-northeast1"
+
+    # --- Semantic backend (Phase 7 移行ロードマップ §3.1 PR-1) ---------------
+    # Strangler 切替: default は ``bq`` (Phase 4 同等の BigQuery VECTOR_SEARCH)。
+    # Wave 2 で Vertex AI Vector Search index endpoint が provision された後、
+    # ``vertex_vector_search`` に flip して Phase 5+ 仕様の本番 serving index
+    # 経路に切り替える。``vertex_vector_search`` 選択時に endpoint/deployed
+    # ID が空なら ``SearchBuilder._resolve_semantic_search`` が WARN を出して
+    # default の BigQuerySemanticSearch にフォールバックする。
+    semantic_backend: Literal["bq", "vertex_vector_search"] = "bq"
+    vertex_vector_search_index_endpoint_id: str = ""
+    vertex_vector_search_deployed_index_id: str = ""
 
     # --- KServe inference endpoints (cluster-local HTTP) ----------------------
     kserve_encoder_url: str = ""

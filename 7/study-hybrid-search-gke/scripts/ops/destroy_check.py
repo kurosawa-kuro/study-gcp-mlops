@@ -247,9 +247,7 @@ def _collect_artifact_repos(project_id: str, region: str) -> tuple[tuple[str, ..
 
 
 def _collect_bq_datasets(project_id: str) -> tuple[tuple[str, ...], str | None]:
-    rows, error = _run_bq_json(
-        ["bq", f"--project_id={project_id}", "ls", "--format=prettyjson"]
-    )
+    rows, error = _run_bq_json(["bq", f"--project_id={project_id}", "ls", "--format=prettyjson"])
     names = []
     for row in rows:
         dataset_ref = row.get("datasetReference") or {}
@@ -259,7 +257,9 @@ def _collect_bq_datasets(project_id: str) -> tuple[tuple[str, ...], str | None]:
     return tuple(sorted(names)), error
 
 
-def _classify_bucket_names(project_id: str, buckets: tuple[str, ...]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _classify_bucket_names(
+    project_id: str, buckets: tuple[str, ...]
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     fail_items = []
     warn_items = []
     high_cost_buckets = {f"{project_id}-{suffix}" for suffix in HIGH_COST_BUCKET_SUFFIXES}
