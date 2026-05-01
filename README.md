@@ -225,7 +225,7 @@ flowchart LR
     end
 
     subgraph GKE["到達ゴール (Phase 7)"]
-        P7["Phase 7<br/>Phase 6 継承<br/>+ serving 層のみ GKE + KServe に差し替え<br/>+ KServe → Feature Online Store opt-in 参照"]
+        P7["Phase 7<br/>Phase 6 継承<br/>+ serving 層のみ GKE + KServe に差し替え<br/>+ KServe → Feature Online Store (Feature View 経由) opt-in 参照"]
     end
 
     P1 -->|Port/Adapter 導入| P2
@@ -350,8 +350,8 @@ Phase 1 (= Phase 2 から App/Pipeline/Port-Adapter を引いたもの)
 
 | 生成対象Phase | コピー元 | 引き算する技術領域 |
 |---|---|---|
-| Phase 6 | Phase 7 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, Feature Online Store (opt-in), explain 専用 Pod |
-| Phase 5 | Phase 6 | BQML, Dataflow, Monitoring SLO + burn-rate alert, TreeSHAP (Explainable AI), Scheduled Query |
+| Phase 6 | Phase 7 | GKE Autopilot, KServe, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, **KServe → Feature Online Store (Feature View 経由) opt-in 参照経路**, **TreeSHAP 用 explain 専用 Pod** |
+| Phase 5 | Phase 6 | BQML, Dataflow (Apache Beam Flex Template), **Cloud Composer / Managed Airflow Gen 3 (本線 orchestration)**, Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, **Composer-managed BigQuery monitoring query** |
 | Phase 4 | Phase 5 | Vertex AI Pipelines (KFP v2), Vertex Endpoint, Vertex Feature Group, Vertex Model Registry, Vertex Model Monitoring, Dataform, Cloud Function (Gen2) |
 | Phase 3 | Phase 4 | Cloud Run, GCS, BigQuery, Cloud Logging, Secret Manager, Pub/Sub, Eventarc, Cloud Scheduler, Artifact Registry, Cloud Build, Terraform, WIF, GitHub Actions |
 | Phase 2 | Phase 3 | Meilisearch, multilingual-e5, LightGBM LambdaRank, Redis（ハイブリッド検索一式） |
@@ -485,7 +485,7 @@ runs/20260424_001/
 
 - Phase 6 から学習/データ基盤を継承
 - serving 層のみ GKE + KServe に差し替え。Meilisearch master key は External Secrets Operator (ESO) が GCP Secret Manager から `search/meili-master-key` へ自動同期し、`sa-external-secrets` と KSA `external-secrets/external-secrets` の Workload Identity bind で取得する
-- KServe から Vertex AI Feature Online Store を opt-in 参照する経路を追加 (Phase 5 で構築済の Feature Online Store を継承利用、既定では無効)
+- KServe から Vertex AI Feature Online Store を **Feature View 経由で** opt-in 参照する経路を追加 (Phase 5 で構築済の Feature Online Store を継承利用、既定では無効)
 
 ### 運用ルール(共通)
 
