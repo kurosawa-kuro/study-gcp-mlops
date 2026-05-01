@@ -23,8 +23,11 @@ Phase 間でコードは共有しないが、**設計思想（Port/Adapter、`co
 
 ## 非負制約（Phase 3/4/5/6/7 共通）
 
-- ハイブリッド検索の基本構成は **LightGBM + multilingual-e5 + Meilisearch + RRF + LightGBM LambdaRank** を必須とする
-- この 3 要素 (+ 融合 + 再ランク) を削除・置換・無効化する変更は、明示的な user 合意がない限り実施しない
+- ハイブリッド検索の中核 **5 要素** を必須とする: **Meilisearch BM25 + multilingual-e5 + ベクトルストア (Phase 4 = BigQuery `VECTOR_SEARCH` / Phase 5+ = Vertex AI Vector Search) + RRF + LightGBM LambdaRank**
+- この 5 要素を削除・置換・無効化する変更は、明示的な user 合意がない限り実施しない
+- **Vertex Vector Search の役割 (Phase 5+)**: ME5 ベクトル検索の本番 serving index。embedding 生成履歴・メタデータの正本は BigQuery 側に置き続ける (data lake / serving index の二層構造)
+- **Feature Store (Phase 5 必須)**: Vertex AI Feature Store + Feature Group + Feature Online Store により training-serving skew を防ぐ。Phase 4 で BQ feature table / view の土台を作り、Phase 5 で格上げ。Phase 6 では Dataflow / Scheduled Query で更新パイプラインを強化、Phase 7 では KServe から Feature Online Store を opt-in 参照
+- **実案件 reference architecture**: Elasticsearch + Redis 同義語辞書 + ME5 + Vertex Vector Search + LightGBM (詳細は [`5/study-hybrid-search-vertex/docs/01_仕様と設計.md` §「実案件想定の reference architecture」](5/study-hybrid-search-vertex/docs/01_仕様と設計.md))。本リポは Meilisearch + Redis cache を **学習用 substitute** として据え置く。Port/Adapter で `MeilisearchAdapter` ↔ `ElasticsearchAdapter` の差し替えで到達可能な構造を維持。**Meilisearch を Elasticsearch に置換するのは user 合意必須**
 - Phase 6 では **中核コード (`/search` デフォルト挙動) は絶対に変えない**。それ以外は PMLE 学習のため積極的に改変してよい (新 Port / Adapter / 新エンドポイント / 新 pipeline / 新 Terraform モジュール / feature flag 追加)
 
 ## 最重要ルール — 必ず phase 配下の CLAUDE.md を読む
@@ -68,7 +71,7 @@ cd 2/study-ml-app-pipeline && make              # Docker Compose 系: build/seed
 cd 3/study-hybrid-search-local && make help     # ops-bootstrap / ops-daily / ops-weekly 系 (Docker Compose)
 cd 4/study-hybrid-search-gcp && make help     # uv + Terraform + Cloud Run 系 (make check が CI 同等)
 cd 5/study-hybrid-search-vertex && make help    # Phase 4 継承 + Vertex AI
-cd 6/study-hybrid-search-pmle && make help    # Phase 5 継承 + PMLE 8 技術統合 (+ ops-slo-status / bqml-train-popularity / enrich-properties)
+cd 6/study-hybrid-search-pmle && make help    # Phase 5 継承 + PMLE 4 技術統合 (BQML / Dataflow / Explainable AI / Monitoring SLO) + Feature Store 入力強化 (+ ops-slo-status / bqml-train-popularity / enrich-properties)
 cd 7/study-hybrid-search-gke && make help       # Phase 6 継承 + GKE + KServe (到達ゴール)
 ```
 
