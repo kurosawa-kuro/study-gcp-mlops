@@ -43,6 +43,285 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 | 6 | `6/study-hybrid-search-pmle/` | GCP PMLE + 運用統合ラボ (Phase 5 実コードへ統合) | PMLE 範囲の追加技術を adapter / 追加エンドポイント / Terraform として統合。**Cloud Composer / Managed Airflow Gen 3 を本線オーケストレーターとして導入** し、Dataform / Vertex AI Pipelines / Feature Store 更新 / Vertex Vector Search index 更新 / monitoring query を DAG で統合管理 (Phase 5 までの Cloud Scheduler + Eventarc + Cloud Function trigger は軽量代替経路 / smoke / manual trigger 用途として残す = Phase 5 → 6 引き算境界)。追加 DAG として Dataflow Flex Template / BQML training / Composer-managed BigQuery monitoring query を増設。Feature Store / Vertex Vector Search は Phase 5 前提。不変はハイブリッド検索中核 (`/search` default) のみ | BQML, Dataflow (Apache Beam Flex Template), **Cloud Composer / Managed Airflow Gen 3 (本線 orchestration、Phase 6 起点)**, Monitoring SLO + burn-rate alert, TreeSHAP / Explainability, **Composer-managed BigQuery monitoring query** | uv + Vertex AI + Composer + Terraform |
 | 7 | `7/study-hybrid-search-gke/` | GKE/KServe 差分移行(到達ゴール) | Phase 6 のデータ基盤・Vertex AI Pipelines・Feature Store (Feature Group / Feature View / Feature Online Store)・Vertex Vector Search・**Cloud Composer orchestration** を継承し、serving 層のみ GKE + KServe へ置換。Kubernetes 運用論点は抑え、まず動かす。SLO は `k8s_service` 化し、TreeSHAP 用 explain 専用 Pod と、**Phase 5 で構築済みの Feature Online Store (Feature View 経由) を KServe から参照する経路** を追加 | GKE Autopilot, KServe, **Cloud Composer / Managed Airflow Gen 3 (Phase 6 → 7 と継承)**, Gateway API + HTTPRoute, External Secrets Operator, Workload Identity, GMP (PodMonitoring), HPA, IAP (GCPBackendPolicy), NetworkPolicy, Helm provider, **Vertex AI Feature Store (Feature Online Store / Feature View)** | uv + GKE Autopilot/KServe + Composer |
 
+---
+
+## アーキテクチャ全体像 (関係図 / フロー図)
+
+本セクションはナビゲーション目的の **概要図** を 6 枚置く。Phase 別の詳細図 (各 plane の細部 / DAG 内訳 / Port/Adapter 配線詳細) は Phase 7 [`docs/01_仕様と設計.md` §2 / §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md) を参照。
+
+### 図1. アプリ構成図 (`search-api` の Port/Adapter 6 軸)
+
+不動産ハイブリッド検索アプリ (`search-api`) は FastAPI + DI で構築され、外部依存はすべて **6 つの Port** の背後に隔離されている。Phase 3 (Local) から Phase 7 (GKE + KServe) まで、**Port は不変・Adapter のみ差し替え** が本リポジトリの設計軸。
+
+```mermaid
+flowchart LR
+    Client[Client / UI] -->|HTTP| API["FastAPI search-api<br/>(routers: /search, /feedback, /health, /model, /retrain, /ui)"]
+    API -->|DI Container| SVC["SearchService<br/>FeedbackService"]
+
+    SVC -.uses.-> P1["Port: LexicalRetriever"]
+    SVC -.uses.-> P2["Port: SemanticEncoder"]
+    SVC -.uses.-> P3["Port: SemanticVectorStore"]
+    SVC -.uses.-> P4["Port: Reranker"]
+    SVC -.uses.-> P5["Port: FeatureFetcher"]
+    SVC -.uses.-> P6["Port: RankingLogSink"]
+
+    P1 -->|Adapter| A1[Meilisearch BM25]
+    P2 -->|Adapter| A2["multilingual-e5 encoder<br/>(KServe / Vertex Endpoint / local)"]
+    P3 -->|Adapter| A3["Vertex Vector Search (Phase 5+)<br/>or BigQuery VECTOR_SEARCH (Phase 4)"]
+    P4 -->|Adapter| A4["LightGBM LambdaRank reranker<br/>(KServe / Vertex Endpoint / local)"]
+    P5 -->|Adapter| A5["Feature Online Store (Feature View)<br/>or BigQuery feature table"]
+    P6 -->|Adapter| A6["Pub/Sub ranking-log<br/>(→ BQ Subscription → mlops.ranking_log)"]
+
+    classDef port fill:#e0f2ff,stroke:#0066aa,stroke-width:2px
+    classDef adapter fill:#fff3d4,stroke:#aa8800,stroke-width:1px
+    class P1,P2,P3,P4,P5,P6 port
+    class A1,A2,A3,A4,A5,A6 adapter
+```
+
+### 図2. ハイブリッド検索シーケンス (3 段構成: 候補取得 → RRF → rerank)
+
+クエリ受領 → **lexical / semantic 2 系統で並列候補取得** → **RRF で融合** → **LightGBM rerank で上位 20 件を確定** → 返却 + 非同期で Pub/Sub に ranking_log を送信。
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant API as search-api (FastAPI)
+    participant ENC as Semantic Encoder (multilingual-e5)
+    participant LEX as Meilisearch (BM25)
+    participant VEC as Vertex Vector Search (ANN, Phase 5+)
+    participant FET as FeatureFetcher (Feature Online Store)
+    participant RR as LightGBM Reranker (LambdaRank)
+    participant PS as Pub/Sub ranking-log
+
+    U->>API: POST /search { query, filters }
+    par 並列候補取得
+        API->>LEX: BM25 query (filters)
+        LEX-->>API: lexical candidates (top N)
+    and
+        API->>ENC: encode(query) → query vector
+        ENC-->>API: query vector (768 dim)
+        API->>VEC: ANN search(vector, filters)
+        VEC-->>API: semantic candidates (top N)
+    end
+    API->>API: RRF 融合 (lexical + semantic)
+    API->>FET: fetch features(candidate property_ids)
+    FET-->>API: ctr / fav_rate / inquiry_rate / 物件メタ
+    API->>RR: rerank(query, candidates, features)
+    RR-->>API: top 20 properties (LambdaRank score)
+    API-->>U: 200 OK { results: [...] }
+    API-)PS: async publish ranking_log
+```
+
+### 図3. モデル関係図 (ME5 と LightGBM LambdaRank の責務分離)
+
+ハイブリッド検索で使う ML モデルは **2 つだけ**: 候補生成用 ME5 (semantic 検索) と再ランク用 LightGBM (LambdaRank)。両者は学習・推論ともに分離し、出力責務もカニバらない。
+
+```mermaid
+flowchart TB
+    subgraph TRAIN["学習側 (Vertex AI Pipelines, Phase 5+)"]
+        direction LR
+        BQ_DOC["BigQuery<br/>feature_mart.properties_cleaned"]
+        BQ_LOG["BigQuery<br/>mlops.ranking_log<br/>+ feedback_events"]
+        BQ_FEAT["BigQuery<br/>feature_mart.property_features_daily"]
+
+        BQ_DOC -->|物件テキスト| EMBED["embed pipeline<br/>(ME5 で物件 embedding 生成)"]
+        EMBED --> BQ_EMB["BigQuery<br/>property_embeddings<br/>(履歴・メタデータ正本)"]
+        BQ_EMB -->|index build| VVS_IDX["Vertex Vector Search<br/>index (serving)"]
+
+        BQ_LOG --> TRAIN_REL["build_ranker_features<br/>(query × property × features → label)"]
+        BQ_FEAT --> TRAIN_REL
+        TRAIN_REL --> TRAIN_LGB["train pipeline<br/>(LightGBM LambdaRank)"]
+        TRAIN_LGB --> REG["Vertex Model Registry<br/>(production alias)"]
+    end
+
+    subgraph SERVE["推論側 (search-api)"]
+        direction LR
+        Q[query 文] -->|encode| ENC["ME5 encoder<br/>(KServe / Endpoint)"]
+        ENC --> QV[query vector]
+        QV -->|ANN| VVS_QRY["Vertex Vector Search<br/>(query)"]
+        VVS_QRY --> CAND["候補 property 集合"]
+        CAND --> RR["LightGBM reranker<br/>(KServe / Endpoint)"]
+        RR --> TOP[top 20]
+    end
+
+    REG -.deploy.-> ENC
+    REG -.deploy.-> RR
+    VVS_IDX -.serve.-> VVS_QRY
+
+    classDef model fill:#ffe4e1,stroke:#cc3333,stroke-width:2px
+    classDef store fill:#e0f2ff,stroke:#0066aa,stroke-width:1px
+    class EMBED,TRAIN_LGB,ENC,RR model
+    class BQ_DOC,BQ_LOG,BQ_FEAT,BQ_EMB,VVS_IDX,VVS_QRY,REG store
+```
+
+### 図4. ストレージ + 検索エンジン関係図 (BQ / Meilisearch / Vertex Vector Search / Feature Store)
+
+データ層は **役割で 4 つに分離** されている: BQ = data lake / 履歴正本、Meilisearch = lexical serving、Vertex Vector Search = semantic serving index、Feature Store = training-serving 同一 feature。embedding と特徴量はすべて **BQ が正本**、serving 層はそこから build される。
+
+```mermaid
+flowchart LR
+    subgraph LAKE["BigQuery (data lake / 履歴正本)"]
+        BQ_DOC[properties_cleaned]
+        BQ_FEAT["property_features_daily<br/>ctr / fav_rate / inquiry_rate"]
+        BQ_EMB["property_embeddings<br/>ME5 ベクトル + メタ"]
+        BQ_LOG["ranking_log<br/>feedback_events"]
+    end
+
+    subgraph SERVE_LEX["Lexical serving (BM25)"]
+        MEILI["Meilisearch<br/>on Cloud Run"]
+    end
+
+    subgraph SERVE_SEM["Semantic serving (ANN)"]
+        VVS["Vertex Vector Search<br/>(Phase 5+)"]
+        BQ_VS["BigQuery VECTOR_SEARCH<br/>(Phase 4 のみ)"]
+    end
+
+    subgraph FEAT["Feature serving (training-serving skew 防止)"]
+        FG["Feature Group<br/>(definition + sync source = BQ)"]
+        FV["Feature View<br/>(serving 接続点)"]
+        FOS["Feature Online Store<br/>(low-latency)"]
+    end
+
+    BQ_DOC -->|sync| MEILI
+    BQ_EMB -->|index build| VVS
+    BQ_EMB -->|VECTOR_SEARCH function| BQ_VS
+    BQ_FEAT --> FG
+    FG --> FV
+    FV --> FOS
+
+    APP["search-api<br/>(/search)"] -->|BM25 query| MEILI
+    APP -->|ANN query| VVS
+    APP -.Phase 4.-> BQ_VS
+    APP -->|fetch features| FOS
+
+    classDef lake fill:#fff7d4,stroke:#aa8800,stroke-width:1px
+    classDef serve fill:#e0f2ff,stroke:#0066aa,stroke-width:2px
+    class BQ_DOC,BQ_FEAT,BQ_EMB,BQ_LOG lake
+    class MEILI,VVS,BQ_VS,FG,FV,FOS serve
+```
+
+### 図5. Phase 段差図 (Local ↔ GCP の関係、adapter 差し替え軸)
+
+設計思想 (Port/Adapter / `core → ports ← adapters`) は **全 Phase で不変**。各 Phase で差し替わるのは **実行基盤と adapter 実装のみ**。
+
+```mermaid
+flowchart LR
+    subgraph LOCAL["Local 実行 (Phase 1-3)"]
+        P1["Phase 1<br/>ML 基礎"]
+        P2["Phase 2<br/>App + Pipeline + Port/Adapter"]
+        P3["Phase 3<br/>不動産検索 Local<br/>Meilisearch + ME5 + LightGBM<br/>Docker Compose + uv"]
+    end
+
+    subgraph GCP_BASE["GCP マネージド (Phase 4)"]
+        P4["Phase 4<br/>Cloud Run + BigQuery<br/>BQ VECTOR_SEARCH + Meilisearch<br/>Cloud Scheduler + Eventarc + Cloud Function<br/>= 軽量 orchestration"]
+    end
+
+    subgraph VERTEX["Vertex AI 本番MLOps基盤 (Phase 5)"]
+        P5["Phase 5<br/>Vertex Pipelines / Endpoint / Model Registry / Monitoring<br/>+ Vertex Vector Search ←必須<br/>+ Vertex Feature Store ←必須<br/>orchestration は Phase 4 軽量経路を継続"]
+    end
+
+    subgraph PMLE["PMLE + 運用統合 (Phase 6)"]
+        P6["Phase 6<br/>Phase 5 継承<br/>+ Cloud Composer 本線昇格 ←引き算境界<br/>+ BQML / Dataflow / Monitoring SLO / Explainable AI"]
+    end
+
+    subgraph GKE["到達ゴール (Phase 7)"]
+        P7["Phase 7<br/>Phase 6 継承<br/>+ serving 層のみ GKE + KServe に差し替え<br/>+ KServe → Feature Online Store opt-in 参照"]
+    end
+
+    P1 -->|Port/Adapter 導入| P2
+    P2 -->|検索ドメインへ展開| P3
+    P3 -->|実行基盤を GCP マネージドへ| P4
+    P4 -->|Vertex AI 本番MLOps基盤化| P5
+    P5 -->|Composer + PMLE 運用統合| P6
+    P6 -->|serving 層を K8s ネイティブへ| P7
+
+    classDef local fill:#e8f5e9,stroke:#2e7d32
+    classDef gcp fill:#e3f2fd,stroke:#1565c0
+    classDef vertex fill:#fff3e0,stroke:#e65100
+    classDef pmle fill:#f3e5f5,stroke:#6a1b9a
+    classDef gke fill:#ffebee,stroke:#c62828,stroke-width:3px
+    class P1,P2,P3 local
+    class P4 gcp
+    class P5 vertex
+    class P6 pmle
+    class P7 gke
+```
+
+### 図6. GCP / Vertex AI 技術スタック図 (依存関係)
+
+Phase 5+ で導入される **Vertex AI 群** と支援 **GCP プリミティブ** の依存関係。Composer は **Phase 6 起点で全体の上位 orchestrator**、Vertex Pipelines は **下位 ML executor** として呼ばれる側 (重ねず役割分離)。
+
+```mermaid
+flowchart TB
+    subgraph ORCH["Orchestration (Phase 6 起点)"]
+        COMP["Cloud Composer<br/>(Managed Airflow Gen 3)<br/>= 上位 orchestrator"]
+    end
+
+    subgraph VERTEX_AI["Vertex AI スタック"]
+        VAI_PIPE["Vertex AI Pipelines<br/>(KFP v2)<br/>= 下位 ML executor"]
+        VAI_REG["Vertex AI Model Registry<br/>(staging / production alias)"]
+        VAI_EP["Vertex AI Endpoint<br/>(Phase 5/6 serving)"]
+        VAI_FS["Vertex AI Feature Store<br/>(Feature Group / Feature View / Online Store)"]
+        VAI_VVS["Vertex AI Vector Search<br/>(ME5 ベクトル ANN serving index)"]
+        VAI_MON["Vertex AI Model Monitoring v2<br/>(drift / skew)"]
+    end
+
+    subgraph GCP_BASE["GCP プリミティブ"]
+        BQ["BigQuery<br/>data lake / 履歴正本"]
+        DATAFORM["Dataform<br/>(BQ feature pipeline)"]
+        DF["Dataflow Flex Template<br/>(streaming / batch transform)"]
+        BQML["BQML<br/>(popularity 等の補助モデル)"]
+        GCS[GCS]
+        PUBSUB["Pub/Sub<br/>(ranking-log / feedback)"]
+        SCHED["Cloud Scheduler / Eventarc /<br/>Cloud Function (Gen2)<br/>= Phase 4-5 軽量 orchestration<br/>(Phase 6 以降は軽量代替・smoke 用)"]
+        SECMGR[Secret Manager]
+        CR["Cloud Run<br/>(Phase 4-6 search-api,<br/> Phase 5+ Meilisearch)"]
+    end
+
+    subgraph K8S["GKE / KServe (Phase 7)"]
+        GKE_CL[GKE Autopilot]
+        KSERVE["KServe InferenceService<br/>(encoder / reranker)"]
+        ESO["External Secrets Operator<br/>(↔ Secret Manager)"]
+    end
+
+    COMP -->|submit| VAI_PIPE
+    COMP -->|run| DATAFORM
+    COMP -->|launch| DF
+    COMP -->|train / validate| BQML
+    COMP -->|monitoring query| BQ
+
+    VAI_PIPE -->|register| VAI_REG
+    VAI_REG -->|deploy| VAI_EP
+    VAI_REG -.Phase 7.-> KSERVE
+
+    VAI_PIPE -->|read / write| BQ
+    VAI_PIPE -->|artifact| GCS
+    DATAFORM --> BQ
+    DF --> BQ
+    BQ -->|sync source| VAI_FS
+    BQ -->|index build| VAI_VVS
+    VAI_EP -->|attach| VAI_MON
+
+    PUBSUB -->|BQ Subscription| BQ
+    SECMGR -.inject.-> CR
+    SECMGR -.sync.-> ESO
+    ESO -.k8s Secret.-> KSERVE
+    GKE_CL --> KSERVE
+
+    SCHED -.Phase 4-5 本線 / Phase 6+ 軽量代替.-> VAI_PIPE
+
+    classDef orch fill:#f3e5f5,stroke:#6a1b9a,stroke-width:3px
+    classDef vertex fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef base fill:#e3f2fd,stroke:#1565c0
+    classDef k8s fill:#ffebee,stroke:#c62828,stroke-width:2px
+    class COMP orch
+    class VAI_PIPE,VAI_REG,VAI_EP,VAI_FS,VAI_VVS,VAI_MON vertex
+    class BQ,DATAFORM,DF,BQML,GCS,PUBSUB,SCHED,SECMGR,CR base
+    class GKE_CL,KSERVE,ESO k8s
+```
+
+---
+
 ## 1. 基本戦略：「引き算」によるPhase間コード生成
 
 ### 1.1 起点
