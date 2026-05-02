@@ -813,9 +813,9 @@ def test_cost_estimate_documented_in_runbook() -> None:
         "runbook §1.4-bis (cost estimation section) is missing"
     )
     assert "DCU-hour" in runbook, "runbook must explain DCU-hour pricing model"
-    # 信頼できる数字 (1 cycle ¥400-500、当日 destroy 前提) が明記されていること
-    assert "~¥400-500" in runbook or "¥400-500" in runbook, (
-        "runbook must pin Phase 7 full Stage 3 1 cycle cost as ~¥400-500"
+    # 信頼できる数字 (3h 学習 1 回 ~¥800-1,300、当日 destroy 前提) が明記されていること
+    assert "~¥800-1,300" in runbook or "¥800-1,300" in runbook, (
+        "runbook must pin Phase 7 full 3h learning-session cost as ~¥800-1,300"
     )
     # 当日 destroy 契約が言及されていること
     assert "当日 destroy 前提" in runbook, (

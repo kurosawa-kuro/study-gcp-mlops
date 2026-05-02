@@ -197,14 +197,15 @@ variable "enable_vector_search" {
 # Cloud Composer toggle (Phase 7 W2-4) — module "composer" provisions the
 # canonical Managed Airflow Gen 3 environment that runs the 3 main DAGs
 # (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`).
-# Cost (Gen 3 DCU-hour 課金): single 50-65min verify ≒ ~¥150-300; the real
-# risk is destroy leak (24h leak ≒ ~¥2,800, multi-day ¥10,000+, full month
-# always-on ≒ ~¥84,000). Stage 1 keeps default=false to preserve current
-# deploy-all behaviour; Stage 3 flips to default=true.
+# Cost (Gen 3 DCU-hour 課金): Composer 単体でも常駐課金がある。Phase 7 full を
+# 3h 学習セッションで回すと全体で概ね ~¥800-1,300 レンジを見込む一方、真の
+# リスクは destroy leak (24h leak ≒ ~¥4,000-6,000, multi-day / monthly は
+# さらに増える)。Stage 1 keeps default=false to preserve current deploy-all
+# behaviour; Stage 3 flips to default=true.
 # =========================================================================
 
 variable "enable_composer" {
-  description = "Provision the Cloud Composer (Gen 3) environment. Default true (Stage 3 flip 2026-05-02): Phase 7 = canonical 起点として `make deploy-all` で Composer 環境を立ち上げる本線運用。当日 destroy 前提なら 1 cycle ~¥400-500 (詳細 docs/runbook/05_運用.md §1.4-bis)。`enable_composer=false` で provisioning skip も可 (Composer 不要な作業時)。"
+  description = "Provision the Cloud Composer (Gen 3) environment. Default true (Stage 3 flip 2026-05-02): Phase 7 = canonical 起点として `make deploy-all` で Composer 環境を立ち上げる本線運用。現設定の 3h 学習 1 回では full 構成全体で ~¥800-1,300 が目安 (詳細 docs/runbook/05_運用.md §1.4-bis)。`enable_composer=false` で provisioning skip も可 (Composer 不要な作業時)。"
   type        = bool
   default     = true
 }
