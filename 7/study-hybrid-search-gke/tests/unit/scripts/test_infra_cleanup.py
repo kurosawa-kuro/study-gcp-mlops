@@ -157,9 +157,9 @@ def test_wait_for_deployed_index_absent_polls_until_stale_index_disappears() -> 
     with (
         patch.object(
             vertex_cleanup,
-            "deployed_index_exists",
-            side_effect=[True, True, False],
-        ) as exists_mock,
+            "deployed_index_state",
+            side_effect=["transitional", "transitional", "absent"],
+        ) as state_mock,
         patch.object(vertex_cleanup.time, "sleep") as sleep_mock,
         patch.object(
             vertex_cleanup.time,
@@ -169,5 +169,37 @@ def test_wait_for_deployed_index_absent_polls_until_stale_index_disappears() -> 
     ):
         vertex_cleanup.wait_for_deployed_index_absent("p", "r", "property_embeddings_v3")
 
-    assert exists_mock.call_count == 3
+    assert state_mock.call_count == 3
     assert sleep_mock.call_count == 2
+
+
+def test_wait_for_deployed_index_absent_early_exits_on_ready_state() -> None:
+    """Resume idempotency: 既に READY な DeployedIndex は wait しない。"""
+    with (
+        patch.object(
+            vertex_cleanup,
+            "deployed_index_state",
+            return_value="ready",
+        ) as state_mock,
+        patch.object(vertex_cleanup.time, "sleep") as sleep_mock,
+    ):
+        vertex_cleanup.wait_for_deployed_index_absent("p", "r", "property_embeddings_v3")
+
+    assert state_mock.call_count == 1
+    assert sleep_mock.call_count == 0
+
+
+def test_deployed_index_state_classifies_ready_vs_transitional() -> None:
+    """`indexSyncTime` あり → ready / なし → transitional / 存在せず → absent."""
+    payload_ready = json.dumps(
+        [{"name": "ep-a", "deployedIndexes": [{"id": "x_v3", "indexSyncTime": "2026-05-03T00:00:00Z"}]}]
+    )
+    payload_transitional = json.dumps([{"name": "ep-a", "deployedIndexes": [{"id": "x_v3"}]}])
+    payload_absent = json.dumps([{"name": "ep-a", "deployedIndexes": []}])
+
+    with patch.object(subprocess, "run", return_value=_completed(stdout=payload_ready)):
+        assert vertex_cleanup.deployed_index_state("p", "r", "x_v3") == "ready"
+    with patch.object(subprocess, "run", return_value=_completed(stdout=payload_transitional)):
+        assert vertex_cleanup.deployed_index_state("p", "r", "x_v3") == "transitional"
+    with patch.object(subprocess, "run", return_value=_completed(stdout=payload_absent)):
+        assert vertex_cleanup.deployed_index_state("p", "r", "x_v3") == "absent"
