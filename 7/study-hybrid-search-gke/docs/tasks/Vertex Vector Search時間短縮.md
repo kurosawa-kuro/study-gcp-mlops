@@ -1,3 +1,28 @@
+実装完了報告 — VVS 永続化アーキテクチャ MVP
+変更内容
+ファイル	変更
+infra/terraform/modules/vector_search/main.tf	google_vertex_ai_index と google_vertex_ai_index_endpoint に lifecycle { prevent_destroy = true } を追加。google_vertex_ai_index_endpoint_deployed_index (replica = 課金 resource) は除外
+scripts/setup/destroy_all.py	PERSISTENT_VVS_RESOURCES 定数追加、step [6/6] で state_list 全件から persistent prefix を除外した集合を -target 指定で destroy
+tests/integration/workflow/test_destroy_all_contract.py	永続化契約 1 本追加 (Index/Endpoint prevent_destroy + destroy_all PERSISTENT_VVS_RESOURCES + state_list ベース除外を pin)
+tests/unit/scripts/test_composer_deploy_dags.py	DAG smoke 修正に伴う既存 unit test を pipeline shim layout に対応 + 2 本追加
+docs/runbook/05_運用.md §1.4	「残るもの」に VVS Index/Endpoint を追加、deploy-all 短縮効果 (27 min → 10-15 min) を明記
+Gate 通過
+make tf-validate Success
+pytest -q 646 passed (前回 643 → +3 = 永続化契約 1 + composer_deploy_dags 詳細 2)
+期待効果
+シナリオ	従来	新
+初回 deploy-all	27-30 min	27-30 min (Index build 込み)
+2 回目以降 deploy-all	27-30 min	10-15 min (deployed_index attach のみ)
+destroy-all (PDCA)	12-17 min	同程度 (deployed_index undeploy のみ)
+維持コスト (放置時)	replica 課金 ¥1,460/日	¥0/月 (Index/Endpoint は無料)
+残作業
+Stage 3.7 = live verify: make destroy-all を実行して以下を確認するのがロードマップ最終ゲート:
+
+Index / Endpoint が state にも GCP にも残る
+deployed_index は destroy される
+次回 deploy-all で deployed_index のみ create されて時間短縮
+実行してよろしいですか?
+
 ## 結論
 
 **「persistent stack に GCS embedding archive + Index Endpoint だけ destroy / Index は維持」のハイブリッド構成が最適解。deploy 時間を 27分 → 10-12分 に短縮しつつ、維持コストを ¥約30/月 に抑え込めます。**
