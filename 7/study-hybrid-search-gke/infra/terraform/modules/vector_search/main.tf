@@ -33,7 +33,13 @@ resource "google_vertex_ai_index" "property_embeddings" {
       approximate_neighbors_count = var.approximate_neighbors_count
       distance_measure_type       = var.distance_measure_type
       shard_size                  = var.shard_size
-      feature_norm_type           = "NONE"
+      # COSINE_DISTANCE distanceMeasureType requires UNIT_L2_NORM featureNormType
+      # (GCP Vertex AI Vector Search 制約)。`NONE` だと API が
+      # ``Error 400: Index with COSINE_DISTANCE distanceMeasureType currently only
+      # supports UNIT_L2_NORM featureNormType`` を返して create に失敗する。
+      # multilingual-e5 の embedding は L2 normalize 前提で training されている
+      # (HuggingFace モデルカード) ため UNIT_L2_NORM が canonical。
+      feature_norm_type           = "UNIT_L2_NORM"
 
       algorithm_config {
         tree_ah_config {
