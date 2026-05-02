@@ -93,6 +93,11 @@ DIRECTORY_RULES: dict[str, frozenset[str]] = {
     # data/eval/batch_serving jobs pull Ports via direct
     # ``from pipeline.training_job.ports import ...``.
     "pipeline/training_job/ports/": ADAPTER_BANS | frozenset({"kfp"}),
+    # pipeline/dags/ — Composer (Airflow Gen 3) DAG files. airflow / google.cloud /
+    # scripts.* import 可 (Composer worker が動かす)、ただし `app.*` import 禁止
+    # — search-api コードを Composer worker が引っ張ると import が重く scheduler
+    # reparse コストが膨らむため。Phase 7 W2-4 で追加。
+    "pipeline/dags/": frozenset({"app"}),
     # app/services/* (top-level files only — adapters/protocols/fakes are
     # carved out below). Protocol Ports never import google.cloud, plain
     # services delegate to Ports. Composition root is the explicit

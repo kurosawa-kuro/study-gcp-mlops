@@ -19,6 +19,7 @@ ARTIFACT_REPO ?= $(call _yaml_get,artifact_repo)
 VERTEX_LOCATION ?= $(call _yaml_get,vertex_location)
 PIPELINE_ROOT_BUCKET ?= $(call _yaml_get,pipeline_root_bucket)
 PIPELINE_TEMPLATE_GCS_PATH ?= $(call _yaml_get,pipeline_template_gcs_path)
+COMPOSER_ENV  ?= hybrid-search-orchestrator
 
 # Override-able via CLI: `make tf-plan GITHUB_REPO=other/repo ONCALL_EMAIL=...`
 GITHUB_REPO   ?= $(call _yaml_get,github_repo)
@@ -53,6 +54,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         sync-meili \
         train-smoke train-smoke-persist api-dev api-dev-hybrid clean \
         docker-auth deploy-api deploy-api-local deploy-kserve-models kube-creds \
+        composer-deploy-dags ops-composer-trigger ops-composer-list-runs \
 		ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
         ops-accuracy-report local-accuracy-report \
@@ -251,6 +253,21 @@ deploy-kserve-images: ## Cloud Build + image patch for property-encoder/reranker
 
 deploy-kserve-models: ## Sync Model Registry artifacts into KServe InferenceService
 	uv run python -m scripts.deploy.kserve_models
+
+composer-deploy-dags: ## Upload pipeline/dags/*.py to Composer DAG GCS bucket (Phase 7 W2-4)
+	uv run python -m scripts.deploy.composer_deploy_dags
+
+ops-composer-trigger: ## Trigger a Composer DAG manually (DAG=retrain_orchestration etc.)
+	@if [ -z "$(DAG)" ]; then echo "Usage: make ops-composer-trigger DAG=<dag_id>"; exit 1; fi
+	gcloud composer environments run $(COMPOSER_ENV) \
+	  --project=$(PROJECT_ID) --location=$(REGION) \
+	  dags trigger -- $(DAG)
+
+ops-composer-list-runs: ## List recent runs of a Composer DAG (DAG=retrain_orchestration etc.)
+	@if [ -z "$(DAG)" ]; then echo "Usage: make ops-composer-list-runs DAG=<dag_id>"; exit 1; fi
+	gcloud composer environments run $(COMPOSER_ENV) \
+	  --project=$(PROJECT_ID) --location=$(REGION) \
+	  dags list-runs -- --dag-id $(DAG)
 
 seed-lgbm-model: ## Seed a synthetic LightGBM model into gs://$(MODELS_BUCKET)/lgbm/latest/ (idempotent)
 	uv run python -m scripts.deploy.seed_lgbm_model

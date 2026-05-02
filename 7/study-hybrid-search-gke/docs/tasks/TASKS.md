@@ -17,7 +17,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 | Wave | フェーズ | 状態 | 内容 |
 |---|---|---|---|
 | **Wave 1** | ローカル完結 (検索アプリ層) | **✅ 完了 (M-Local 達成)** | PR-1 〜 PR-4 全 merge、`make lint` / `make fmt-check` / 関連 mypy / pytest 63 passed |
-| **Wave 2** | GCP インフラ層 (クラウド側主作業) | 🟡 live 検証中 | local ADC-free boot、G3-G8 (`ops-search-components` / VVS / FOS / feedback / ranking / accuracy / retrain wait) は実測 PASS。canonical ConfigMap auto-flip も実装済。未完了は full PDCA 完走、Composer 継承確認、互換レイヤのコード削除 |
+| **Wave 2** | GCP インフラ層 (クラウド側主作業) | 🟢 wiring + run-all-core 完走 (W2-8 / W2-4 残) | local ADC-free boot、G3-G8 (`ops-search-components` / VVS / FOS / feedback / ranking / accuracy / retrain wait) は実測 PASS。canonical ConfigMap auto-flip / W2-4 Composer module skeleton 着地済 (`enable_composer=false` default)。未完了は **W2-8 互換レイヤ削除 / W2-4 Composer 3 DAG 本実装 + live verify / live_gcp parity 本実行** |
 | **Wave 3** | docs / reference architecture 整合 | ⏳ Wave 2 後 | `03_実装カタログ.md` / `05_運用.md` の semantic / feature / Composer 経路記述を Wave 1/2 に追従 |
 
 ## 今回の作業対象 (Wave 2 の残り)
@@ -26,7 +26,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 
 - [ ] `infra/terraform/modules/vector_search/` の **live apply** + deployed index の作成
 - [x] `enable_feature_online_store` を `dev` で `true` に flip + Feature View outputs 反映の live apply
-- [ ] **Composer 継承確認**: Phase 6 の `daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation` 3 DAG が Phase 7 環境でも稼働すること
+- [ ] **W2-4 Composer 本実装** (Phase 7 = canonical 起点): Stage 1 skeleton 着地済、Stage 2 で 3 DAG (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`) + `composer_deploy_dags.py` + Make target + `deploy_all` 15 step + DAG unit tests 本実装、Stage 3 で `enable_composer=true` flip + 軽量 trigger 格下げ + live verify (詳細 `TASKS_ROADMAP.md §4.7`)
 - [ ] **live GCP smoke**: `tests/integration/parity/test_semantic_backend_parity.py` / `test_feature_fetcher_parity.py` の `live_gcp` marker 付きを実 GCP で実行
 - [ ] **互換レイヤ削除** (Wave 2 完了後): `BigQuerySemanticSearch` / `BigQueryFeatureFetcher` / `SEMANTIC_BACKEND` / `FEATURE_FETCHER_BACKEND` env / legacy alias を撤去し、canonical 1 本に収束
 - [ ] `scripts/setup/backfill_vector_search_index.py` の live 実行 (BQ embedding → VVS index 初回 backfill)

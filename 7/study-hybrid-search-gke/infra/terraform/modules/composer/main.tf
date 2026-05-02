@@ -11,9 +11,16 @@
 # を選ぶ。Gen 3 image (`composer-3-airflow-2.10.5`) は Autopilot worker で
 # 動き、scheduler / web_server / worker の cpu/memory を細かく指定できる。
 #
-# Cost: Composer Gen 3 SMALL ≒ ¥80,000-90,000/月 if 常時稼働、PDCA
-# `make destroy-all` で約 ¥9,000/月 に抑制可能。`enable_composer=false`
-# で provisioning 自体 skip も可。
+# Cost (Gen 3 DCU-hour 課金、12 DCU × ~$0.06/DCU-hour ≒ ~$0.72/h ≒ ~¥115/h、
+# 為替 ¥160/$):
+# - Stage 3 1 回 verify (50-65 min) → 約 ¥120-300 (数百円レベル)
+# - destroy 漏れで 1 日放置 (24h) → 約 ¥2,800
+# - 数日放置 → 約 ¥8,000-19,000、月常時稼働 → 約 ¥84,000
+#
+# 真のリスクは **destroy 漏れ**。1 回の verify そのものは安い。
+# `make destroy-all` で連鎖 destroy するか、`enable_composer=false` で
+# provisioning 自体 skip する運用が前提。ストレージ / DB / ネットワーク /
+# Monitoring を含めても 1 時間 verify は数百円レベル。
 # =========================================================================
 
 resource "google_composer_environment" "this" {

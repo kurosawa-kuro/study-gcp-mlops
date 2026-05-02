@@ -197,9 +197,10 @@ variable "enable_vector_search" {
 # Cloud Composer toggle (Phase 7 W2-4) — module "composer" provisions the
 # canonical Managed Airflow Gen 3 environment that runs the 3 main DAGs
 # (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`).
-# Cost: ~¥9,000/month with PDCA destroy-all loop, ~¥80,000/month if left
-# running. Stage 1 keeps default=false to preserve current deploy-all
-# behaviour; Stage 3 flips to default=true.
+# Cost (Gen 3 DCU-hour 課金): single 50-65min verify ≒ ~¥150-300; the real
+# risk is destroy leak (24h leak ≒ ~¥2,800, multi-day ¥10,000+, full month
+# always-on ≒ ~¥84,000). Stage 1 keeps default=false to preserve current
+# deploy-all behaviour; Stage 3 flips to default=true.
 # =========================================================================
 
 variable "enable_composer" {

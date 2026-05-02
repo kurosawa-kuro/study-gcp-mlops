@@ -1,5 +1,5 @@
 variable "enable_composer" {
-  description = "Provision the Cloud Composer (Gen 3, Managed Airflow 2.x) environment for Phase 7 canonical orchestration. Default true; cost is bounded by `make destroy-all` between PDCA cycles. Composer Gen 3 SMALL costs ~¥9,000/month if torn down between cycles, ~¥80,000/month if left running."
+  description = "Provision the Cloud Composer (Gen 3, Managed Airflow 2.x) environment for Phase 7 canonical orchestration. Default true; cost is bounded by `make destroy-all` between PDCA cycles. DCU-hour pricing (Gen 3): ~$0.72/h (12 DCU × $0.06) ≒ ~¥115/h. Single 50-65min verify costs ~¥150-300; the real risk is destroy leak (24h leak ≒ ¥2,800, multi-day leak can reach ¥10,000+, full month always-on ≒ ¥84,000)."
   type        = bool
   default     = true
 }

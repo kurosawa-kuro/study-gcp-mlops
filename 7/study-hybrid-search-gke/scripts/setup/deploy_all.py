@@ -61,6 +61,7 @@ from pathlib import Path
 from scripts._common import cloud_run_url, env, run, terraform_var_args
 from scripts.ci.sync_dataform import main as sync_dataform_main
 from scripts.deploy.api_gke import main as deploy_api_main
+from scripts.deploy.composer_deploy_dags import main as composer_deploy_dags_main
 from scripts.deploy.configmap_overlay import main as overlay_configmap_main
 from scripts.deploy.seed_lgbm_model import main as seed_lgbm_main
 from scripts.infra.feature_view_sync import main as feature_view_sync_main
@@ -88,6 +89,8 @@ TF_APPLY_STAGE1_TARGETS = (
     "module.meilisearch",
     "module.monitoring",
     "module.slo",
+    # Phase 7 W2-4 Stage 1: Composer 環境 (kserve provider 初期化前に立てる)
+    "module.composer",
 )
 
 # Overall start time; per-step timing relates elapsed time to the wall-clock
@@ -262,6 +265,10 @@ def _run_overlay_configmap() -> int:
     return overlay_configmap_main()
 
 
+def _run_composer_deploy_dags() -> int:
+    return composer_deploy_dags_main()
+
+
 def _run_deploy_api() -> int:
     return deploy_api_main()
 
@@ -335,6 +342,12 @@ def _steps() -> list[DeployStep]:
         ),
         DeployStep(
             14,
+            "composer-deploy-dags",
+            "upload pipeline/dags/*.py to Composer DAG GCS bucket (Phase 7 W2-4)",
+            _run_composer_deploy_dags,
+        ),
+        DeployStep(
+            15,
             "deploy-api",
             "deploy-api (Cloud Build + kubectl rollout search-api)",
             _run_deploy_api,
@@ -353,7 +366,7 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--to-step",
-        default="14",
+        default="15",
         help="Stop after this step number or name (e.g. 9, sync-meili, deploy-api).",
     )
     return parser.parse_args()
