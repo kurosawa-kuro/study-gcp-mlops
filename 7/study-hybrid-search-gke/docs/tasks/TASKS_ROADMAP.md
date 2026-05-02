@@ -1,32 +1,3 @@
-停止します。destroy-all は実行しません。
-
-  現在の残状態だけ明確にします。
-
-  - 稼働環境は残したまま
-  - deploy-all 本線修正はワークツリーに未コミットで残存
-  - live で確認済み
-      - ops-search-components PASS
-      - ops-vertex-vector-search-smoke PASS
-      - ops-vertex-feature-group PASS
-  - 未解決
-      - run-all-core は make ops-search の /search read timeout で停止
-  - 直近の追加修正
-      - scripts/ops/search.py に retry を追加
-      - 対応 unit test を追加
-      - ただしこの修正後の run-all-core 再通しは未実施
-
-  引き継ぎ先が見るべき主ファイル:
-
-  - 7/study-hybrid-search-gke/docs/tasks/TASKS_ROADMAP.md
-  - 7/study-hybrid-search-gke/scripts/setup/deploy_all.py
-  - 7/study-hybrid-search-gke/scripts/ops/search.py
-  - 7/study-hybrid-search-gke/docs/runbook/04_検証.md
-  - 7/study-hybrid-search-gke/docs/runbook/05_運用.md
-
-  必要になれば、再開時はここから続けられます。
-
-
-
 # 02. 移行ロードマップ — 検索アプリを最新仕様へ
 
 Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md) §1-§3 / 親 [docs/01_仕様と設計.md](../../../../docs/architecture/01_仕様と設計.md) / 本 phase [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md)) に追従させるための移行計画。
@@ -44,19 +15,15 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 | Wave | フェーズ | 状態 | 内容 |
 |---|---|---|---|
 | **Wave 1** | ローカル完結 (検索アプリ層) | **✅ 完了 (M-Local 達成)** | PR-1 〜 PR-4 全 merge、`make lint` / `make fmt-check` / 関連 mypy / pytest 63 passed |
-| **Wave 2** | **GCP インフラ層 (= クラウド側の主作業計画)** | 🟡 live 検証中 | §4 が母艦。**W2-1 / W2-2 / W2-3 / W2-5 / W2-6 / W2-7 の live wiring は成立**: VVS smoke / FOS fetch / feedback / ranking / accuracy / retrain wait を実測 PASS。**追加で canonical ConfigMap auto-flip と `ops-train-wait` を実装**。未完了は full PDCA 完走、Composer 継承、互換レイヤのコード削除 |
+| **Wave 2** | **GCP インフラ層 (= クラウド側の主作業計画)** | 🟢 wiring + run-all-core 完走 (W2-8 残) | §4 が母艦。**W2-1 / W2-2 / W2-3 / W2-5 / W2-6 / W2-7 の live wiring は成立 + `make run-all-core` 完走 (`ndcg_at_10=1.0`)**。**ops-search 透過 retry / canonical ConfigMap auto-flip / `ops-train-wait` 実装済**。未完了は **W2-8 互換レイヤ削除 / Composer 継承 / live_gcp parity 本実行 / 最終 destroy-all** |
 | Wave 3 | docs / reference architecture 整合 | ⏳ Wave 2 後 | 03_実装カタログ.md / 05_運用.md の「semantic 経路」「feature 取得経路」「Composer DAG 経路」記述を Wave 1/2 に追従 |
 
 ## 現在地サマリ (2026-05-02)
 
 ### 残り作業
 
-- full PDCA 完走
-  - `destroy-all -> deploy-all -> run-all-core -> destroy-all`
-  - **完走するまで未完了扱い**
-- `/search` 統合経路の安定化
-  - 現在の本丸。`run-all-core` はここで止まる
-- `run-all-core` 完走後の docs / acceptance gate 最終同期
+- 最後の `destroy-all` (PDCA cycle clean state リセット)
+  - `destroy-all -> deploy-all -> run-all-core` までは PASS、最後の `destroy-all` のみ user 判断待ち (cluster は残置中)
 - `W2-8` 互換レイヤ撤去
   - `SEMANTIC_BACKEND`
   - `FEATURE_FETCHER_BACKEND`
@@ -65,12 +32,11 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 - Composer 継承確認
 - `tests/e2e/` / `live_gcp` parity の本実行
 
-### 現在詰まっていること
+### 現在の状態 (2026-05-02 終端)
 
-- `run-all-core` の `make ops-search`
-  - `/search` が `TimeoutError: The read operation timed out` で FAIL
-  - `ops-search-components` / `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` は PASS 済み
-  - つまり VVS/FOS wiring 単体ではなく、**統合 `/search` 経路**が未安定
+- **`run-all-core` 完走 ✅** (exit 0)
+  - `ops-livez` / `ops-search-components` (`lexical=1 semantic=3 rerank=5`) / `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` / `ops-search` / `ops-feedback` / `ops-ranking` / `ops-train-now` + `ops-train-wait` / `ops-label-seed` / `ops-daily` / `ops-accuracy-report` (`ndcg_at_10=1.0 hit_rate=1.0 mrr=1.0`) が全 PASS
+- **`/search` の read timeout は解消** — `scripts/ops/search.py` に `SEARCH_RETRIES` (default 3) / `SEARCH_RETRY_SLEEP` (default 2.0s) の transient リトライを実装。今回の run-all-core 実走では retry を一度も発火させずに 1 発 PASS。リトライは将来の cold-start / rolling restart 中の偶発 timeout 用 safety net として残置
 - `deploy-all` は完走するが、managed service の長待機が大きい
   - VVS deployed index attach は 2026-05-02 実測で **26m21s**
   - 待機そのものは bug ではないが、PDCA 速度を大きく悪化させる
@@ -111,6 +77,9 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
   - **#8 deploy_all 失敗時 last-line summary** — `scripts/setup/deploy_all.py::main()` の except 句で `==> deploy-all FAILED at step N (name)` を stdout 末尾に出力 (pipe で exit code が消える wrapper invocation 対策)
   - **#10 feature_group.py 404 診断強化** — `scripts/ops/vertex/feature_group.py::_emit_404_diagnostics()` で recent FeatureViewSyncs / BQ source row count / next_action hint を表示
   - **#11 enable_vector_search / enable_feature_online_store default=true** — `infra/terraform/environments/dev/variables.tf` で両 var の default を `true` に。`TF_VAR_enable_*=true` の手動 export 不要
+- **9 件目 (run-all-core 中断 root cause) も解消済み** (2026-05-02 終端):
+  - **`scripts/ops/search.py` に transient リトライを追加** — `SEARCH_RETRIES` (default 3) / `SEARCH_RETRY_SLEEP` (default 2.0s)。`TimeoutError` / `URLError` / `OSError` のみ retry、それ以外は即 fail。`fail()` の出力先 (stderr) に対応した unit test 4 件 (`tests/unit/scripts/test_vertex_ops_scripts.py::test_ops_search_*`) も同 PR に同梱
+  - **`make run-all-core` を retry 反映後に live 再走 → 完走 (exit 0)** — `ops-search` 1 発 PASS (retry 未発火)、`ops-accuracy-report` で `ndcg_at_10=1.0 hit_rate=1.0 mrr=1.0`
 - local boot contract:
   - Docker build 成功
   - import smoke 成功
@@ -140,39 +109,18 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
   - `04_検証.md`
   - `05_運用.md`
 
-**この時点で進行中**
+**full PDCA 再検証 (2026-05-02 終端)**
 
-- full PDCA 再検証:
-  - `destroy-all` 完了
-  - clean state から `deploy-all` を再実行中
-  - `step 6 tf-apply` は staged apply 化により、前回の blocker だった
-    `property_features_online_latest` 404 と `module.kserve` / `helm_release`
-    の GKE ready race を回避できる構造へ修正済み
-  - live 再実行では `property_features_online_latest` 作成成功、
-    `module.kserve` に入る前の `stage1` まで到達し、現在は
-    `module.vector_search.google_vertex_ai_index_endpoint_deployed_index`
-    の attach 長時間化 (10 分超の create 待ち) を観測中
-  - その後の live 実測で `deploy-all` 自体は完走。VVS attach は
-    **26m21s** で最終的に成功した
-  - `deploy-all` 完走直後の実測では、
-    - `ops-vertex-feature-group` は PASS
-    - `ops-vertex-vector-search-smoke` は VVS index 空のため `0 neighbors` で FAIL
-    - `ops-search-components` は lexical lane 未同期のため `lexical=0` で FAIL
-  - root cause は `deploy-all` 本線に `backfill_vector_search_index --apply`
-    と `sync-meili` が入っていなかったこと。両方を step 追加で修正し、
-    workflow contract も `seed-test -> sync-meili -> backfill-vvs -> trigger-fv-sync`
-    に更新済み
-  - 修正後、`uv run python -m scripts.setup.deploy_all --from-step 8 --to-step 14`
-    を live 再実行し、その直後に
-    - `make ops-search-components`
-    - `make ops-vertex-vector-search-smoke`
-    - `make ops-vertex-feature-group`
-    が全て PASS することを確認
-  - 続いて `run-all-core` → 最後の `destroy-all` を通す
+- `destroy-all → deploy-all → run-all-core` まで PASS。最後の `destroy-all` は user 判断待ちで cluster 残置中
+- `deploy-all` の staged apply 化により、前回の blocker だった `property_features_online_latest` 404 / `module.kserve` / `helm_release` の GKE ready race は解消済み
+- VVS deployed index attach は実測 **26m21s** (待機そのものは bug ではない)
+- 旧 root cause だった「`deploy-all` 本線に `backfill_vector_search_index --apply` と `sync-meili` が無い」は修正済 (workflow contract は `seed-test -> sync-meili -> backfill-vvs -> trigger-fv-sync`)
+- `make run-all-core` 完走時の実測:
+  - `ops-livez` / `ops-search` / `ops-search-components` (`lexical=1 semantic=3 rerank=5`) / `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` / `ops-feedback` / `ops-ranking` / `ops-train-now` + `ops-train-wait` / `ops-label-seed` / `ops-daily` / `ops-accuracy-report` (`ndcg_at_10=1.0 hit_rate=1.0 mrr=1.0`) が全 PASS
 
 **まだ未完了**
 
-- **W2-8 互換レイヤ削除**
+- **W2-8 互換レイヤ削除** (= 教育コード完成条件、次の主作業)
   - `SEMANTIC_BACKEND`
   - `FEATURE_FETCHER_BACKEND`
   - `BigQuerySemanticSearch`
@@ -180,12 +128,13 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
   - manifest / docs 上の暫定切替 vehicle
 - Composer 継承確認
 - `tests/integration/parity/*` の `live_gcp` 本実行
+- 最後の `destroy-all` (PDCA cycle clean リセット、user 判断)
 
 要点:
 
 - 「主要な live wiring が動くか」は確認済み
-- 「PDCA を clean state から最後まで 1 発で完走できるか」はまだ進行中
-- 「暫定互換レイヤをコードごと消す」はまだ未着手ではなく、次の主作業として残っている
+- 「PDCA (`destroy-all → deploy-all → run-all-core`) を 1 発で完走できるか」も完走済み (最後の `destroy-all` のみ user 判断待ち)
+- 「暫定互換レイヤをコードごと消す」が次の主作業として残っている
 
 **Wave 1 の位置付け**:
 
