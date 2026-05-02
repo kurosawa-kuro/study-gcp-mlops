@@ -53,6 +53,17 @@ resource "google_vertex_ai_index" "property_embeddings" {
   index_update_method = "STREAM_UPDATE"
 
   labels = var.labels
+
+  # 永続化契約 (2026-05-03 追加、`docs/tasks/Vertex Vector Search時間短縮.md`):
+  # **Index 自体は undeployed なら課金されない** (公式: "Models that are not
+  # deployed or have failed to deploy are not charged.")。一方 build に
+  # 5-15 min かかるため、PDCA 1 cycle ごとに作り直すと deploy-all 全体が
+  # 27 min → 10-15 min に短縮できない。Index は永続化、`destroy-all` でも
+  # 削除しない (`scripts/setup/destroy_all.py::PROTECTED_TARGETS` で除外)。
+  # 完全 reset したい場合は手動で `terraform destroy -target=...` する。
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_vertex_ai_index_endpoint" "property_embeddings" {
@@ -66,6 +77,14 @@ resource "google_vertex_ai_index_endpoint" "property_embeddings" {
   public_endpoint_enabled = true
 
   labels = var.labels
+
+  # 永続化契約 (2026-05-03 追加): **空の Index Endpoint も課金されない**
+  # (deployed_index が無いと replica = 0)。endpoint 自体の create / DNS
+  # propagation には数分かかるため、Index と同様に永続化する。課金対象は
+  # 別 resource ``google_vertex_ai_index_endpoint_deployed_index`` のみ。
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_vertex_ai_index_endpoint_deployed_index" "property_embeddings" {

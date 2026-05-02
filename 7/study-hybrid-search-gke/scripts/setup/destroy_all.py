@@ -48,6 +48,7 @@ from scripts.infra import gcs_cleanup, kube_cleanup, vertex_cleanup
 from scripts.infra.terraform_state import (
     addresses_starting_with,
     filter_targets_in_state,
+    state_list,
     state_rm,
     state_size,
 )
@@ -90,6 +91,22 @@ PROTECTED_TARGETS = [
 # `module.kserve` を **module 単位で指定** することで、新規に
 # `helm_release.<name>` / `kubernetes_*` を追加した時の取りこぼしを防ぐ。
 KSERVE_MODULE_TARGET = "module.kserve"
+
+# 永続化対象 (`docs/tasks/Vertex Vector Search時間短縮.md` 採用、2026-05-03)。
+#
+# Vertex Vector Search の課金構造は非対称: **Index 自体 / 空の Index Endpoint
+# は無料**、deployed_index (replica 起動状態) のみ課金。Index build には
+# 5-15 min、Endpoint 作成には別途数分 + DNS propagation がかかるため、
+# PDCA 1 cycle ごとに作り直すと deploy-all 全体が 10-15 min 短縮できない。
+#
+# 本契約: `destroy-all` は `module.vector_search` 内の Index / Endpoint を
+# **state にも GCP にも残し**、deployed_index と FOS / GKE / Composer 等の
+# 課金 resource のみを destroy する。Terraform 側にも `lifecycle.prevent_destroy
+# = true` を入れて多重防御 (`infra/terraform/modules/vector_search/main.tf`)。
+PERSISTENT_VVS_RESOURCES = (
+    "module.vector_search.google_vertex_ai_index.property_embeddings",
+    "module.vector_search.google_vertex_ai_index_endpoint.property_embeddings",
+)
 
 
 def main() -> int:
@@ -196,16 +213,49 @@ def main() -> int:
         else:
             print("    module.kserve in state: empty (nothing to rm)")
 
-    print("==> [6/6] terraform destroy -auto-approve (本体)")
-    run(
-        [
-            "terraform",
-            f"-chdir={INFRA}",
-            "destroy",
-            "-auto-approve",
-            *common_vars,
-        ]
-    )
+    # 永続化 VVS resource (Index / Endpoint) は destroy 対象から除外する。
+    # 「除外」は terraform に `-target=` で指定したものだけを destroy する仕様
+    # を逆手に取り、state list 全 address から永続化対象を引いた集合を全件
+    # `-target` で渡す方式で実現する (Index / Endpoint には Terraform 側に
+    # `prevent_destroy = true` も入っているため二重防御)。
+    all_addrs = state_list(INFRA)
+    persistent_prefixes = tuple(f"{p}" for p in PERSISTENT_VVS_RESOURCES)
+    destroy_addrs = [a for a in all_addrs if not a.startswith(persistent_prefixes)]
+
+    if not destroy_addrs:
+        print(
+            "==> [6/6] state は永続化 VVS resource のみ — 本体 destroy をスキップ"
+        )
+        return 0
+
+    excluded = len(all_addrs) - len(destroy_addrs)
+    if excluded:
+        print(
+            f"==> [6/6] terraform destroy -auto-approve "
+            f"(本体: {len(destroy_addrs)} addr 対象、永続 VVS {excluded} addr 除外)"
+        )
+        target_args = [arg for addr in destroy_addrs for arg in ("-target", addr)]
+        run(
+            [
+                "terraform",
+                f"-chdir={INFRA}",
+                "destroy",
+                "-auto-approve",
+                *common_vars,
+                *target_args,
+            ]
+        )
+    else:
+        print("==> [6/6] terraform destroy -auto-approve (本体)")
+        run(
+            [
+                "terraform",
+                f"-chdir={INFRA}",
+                "destroy",
+                "-auto-approve",
+                *common_vars,
+            ]
+        )
 
     print()
     print("==> destroy-all complete.")

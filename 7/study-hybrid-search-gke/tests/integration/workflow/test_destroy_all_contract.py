@@ -124,6 +124,68 @@ def test_recover_wif_handles_soft_delete_undelete() -> None:
     )
 
 
+def test_destroy_all_persists_vvs_index_and_endpoint() -> None:
+    """**VVS 永続化契約** (2026-05-03 追加、`docs/tasks/Vertex Vector Search時間短縮.md`):
+    Vertex Vector Search の Index と Index Endpoint は **無料で残せる** (replica 0
+    の Endpoint と未 deploy の Index は課金されない)。Index build に 5-15 min、
+    Endpoint 作成に数分 + DNS propagation がかかるため、PDCA cycle ごとに作り
+    直すと deploy-all 27 min → 10-15 min の短縮効果が出ない。
+
+    本契約は以下を pin する:
+    1. `module.vector_search` の Index と Endpoint が `lifecycle { prevent_destroy = true }`
+    2. `destroy_all.py` の `PERSISTENT_VVS_RESOURCES` に Index / Endpoint アドレス
+    3. `destroy_all.py` が state_list 全件から永続化アドレスを除いた集合を `-target` 指定して destroy
+    """
+    main_tf = _read("infra/terraform/modules/vector_search/main.tf")
+    destroy_all_py = _read("scripts/setup/destroy_all.py")
+
+    # main.tf — Index / Endpoint に prevent_destroy
+    import re as _re
+
+    index_block = _re.search(
+        r'resource "google_vertex_ai_index" "property_embeddings" \{.*?\n\}',
+        main_tf,
+        flags=_re.DOTALL,
+    )
+    endpoint_block = _re.search(
+        r'resource "google_vertex_ai_index_endpoint" "property_embeddings" \{.*?\n\}',
+        main_tf,
+        flags=_re.DOTALL,
+    )
+    deployed_block = _re.search(
+        r'resource "google_vertex_ai_index_endpoint_deployed_index" "property_embeddings" \{.*?\n\}',
+        main_tf,
+        flags=_re.DOTALL,
+    )
+    assert index_block is not None and endpoint_block is not None
+    assert "prevent_destroy = true" in index_block.group(0), (
+        "google_vertex_ai_index.property_embeddings must declare lifecycle.prevent_destroy=true"
+    )
+    assert "prevent_destroy = true" in endpoint_block.group(0), (
+        "google_vertex_ai_index_endpoint.property_embeddings must declare lifecycle.prevent_destroy=true"
+    )
+    # deployed_index は永続化対象外 (これが課金 resource、PDCA 毎に destroy する)
+    if deployed_block is not None:
+        assert "prevent_destroy = true" not in deployed_block.group(0), (
+            "google_vertex_ai_index_endpoint_deployed_index must NOT have prevent_destroy "
+            "(this is the billed replica resource, must be destroyed each PDCA cycle)"
+        )
+
+    # destroy_all.py の persistent list
+    assert "PERSISTENT_VVS_RESOURCES" in destroy_all_py
+    assert (
+        '"module.vector_search.google_vertex_ai_index.property_embeddings"'
+        in destroy_all_py
+    )
+    assert (
+        '"module.vector_search.google_vertex_ai_index_endpoint.property_embeddings"'
+        in destroy_all_py
+    )
+    # destroy 時に state_list で全 addr を取得 → persistent を除外して -target 指定
+    assert "state_list(INFRA)" in destroy_all_py
+    assert "persistent_prefixes" in destroy_all_py
+
+
 def test_no_vertex_pipeline_job_schedule_resource_in_terraform() -> None:
     """カニバリ NG: Vertex `PipelineJobSchedule` は Phase 7 で完全撤去
     (docs/01 §3.6)。Composer DAG schedule との二重起動を防ぐ。"""
