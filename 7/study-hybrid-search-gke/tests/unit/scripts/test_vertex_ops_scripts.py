@@ -29,6 +29,24 @@ def test_backfill_build_spec_reads_required_env(monkeypatch) -> None:
     assert spec.batch_size == 123
 
 
+def test_backfill_build_spec_falls_back_to_terraform_output(monkeypatch) -> None:
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.delenv("VERTEX_VECTOR_SEARCH_INDEX_RESOURCE_NAME", raising=False)
+    monkeypatch.setattr(
+        backfill_vector_search_index,
+        "_terraform_output_map",
+        lambda: {
+            "vector_search_index_resource_name": (
+                "projects/mlops-test/locations/asia-northeast1/indexes/123"
+            )
+        },
+    )
+
+    spec = backfill_vector_search_index.build_spec()
+
+    assert spec.index_resource_name.endswith("/indexes/123")
+
+
 def test_backfill_build_spec_rejects_non_int_batch_size(monkeypatch) -> None:
     monkeypatch.setenv("PROJECT_ID", "mlops-test")
     monkeypatch.setenv(

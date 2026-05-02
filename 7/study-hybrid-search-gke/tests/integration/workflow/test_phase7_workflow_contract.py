@@ -48,13 +48,16 @@ def test_deploy_all_step_sequence_pins_one_shot_pdca_contract() -> None:
         "tf-apply",
         "seed-lgbm-model",
         "seed-test",
+        "backfill-vvs",
         "trigger-fv-sync",
         "apply-manifests",
         "overlay-configmap",
         "deploy-api",
     ], "deploy-all drifted from the Phase 7 one-shot PDCA path"
-    assert [step.number for step in steps] == list(range(1, 13))
+    assert [step.number for step in steps] == list(range(1, 14))
     assert names.index("seed-test") < names.index("trigger-fv-sync")
+    assert names.index("seed-test") < names.index("backfill-vvs")
+    assert names.index("backfill-vvs") < names.index("trigger-fv-sync")
     assert names.index("trigger-fv-sync") < names.index("apply-manifests")
     assert names.index("overlay-configmap") < names.index("deploy-api")
 

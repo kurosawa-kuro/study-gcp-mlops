@@ -305,6 +305,10 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
     `module.kserve` に入る前の `stage1` まで到達し、現在は
     `module.vector_search.google_vertex_ai_index_endpoint_deployed_index`
     の attach 長時間化 (10 分超の create 待ち) を観測中
+  - `deploy-all` 完走後の実測で、`ops-vertex-feature-group` は PASS した一方、
+    `ops-vertex-vector-search-smoke` は VVS index 空のため 0 neighbors で FAIL。
+    root cause は `deploy-all` 本線に `backfill_vector_search_index --apply`
+    が入っていないこと。これを step 追加で修正中
   - 続いて `run-all-core` → 最後の `destroy-all` を通す
 
 **まだ未完了**

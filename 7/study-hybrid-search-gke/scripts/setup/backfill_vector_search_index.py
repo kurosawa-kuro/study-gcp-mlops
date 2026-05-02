@@ -33,14 +33,17 @@ unit test (本ファイルが直接 import 可能なよう、SDK 呼び出しは
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from scripts._common import env
+from scripts._common import env, run
 
 DEFAULT_BATCH_SIZE = 500
+INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,21 @@ class BackfillSpec:
     index_resource_name: str
     embeddings_table: str
     batch_size: int
+
+
+def _terraform_output_map() -> dict[str, str]:
+    proc = run(["terraform", f"-chdir={INFRA}", "output", "-json"], capture=True, check=False)
+    if proc.returncode != 0:
+        return {}
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return {}
+    resolved: dict[str, str] = {}
+    for key, meta in payload.items():
+        value = meta.get("value", "") if isinstance(meta, dict) else ""
+        resolved[key] = str(value or "")
+    return resolved
 
 
 def build_spec() -> BackfillSpec:
@@ -62,7 +80,11 @@ def build_spec() -> BackfillSpec:
     if not project_id:
         raise ValueError("PROJECT_ID is required")
     location = env("VERTEX_LOCATION", "asia-northeast1")
-    index_resource_name = env("VERTEX_VECTOR_SEARCH_INDEX_RESOURCE_NAME")
+    outputs = _terraform_output_map()
+    index_resource_name = env(
+        "VERTEX_VECTOR_SEARCH_INDEX_RESOURCE_NAME",
+        outputs.get("vector_search_index_resource_name", ""),
+    )
     if not index_resource_name:
         raise ValueError(
             "VERTEX_VECTOR_SEARCH_INDEX_RESOURCE_NAME is required "

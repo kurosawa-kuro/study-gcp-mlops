@@ -17,17 +17,21 @@
    model. No model found in gs://...`` で CrashLoopBackOff に陥る)。
 8. `seed-test` — `feature_mart.property_features_daily` など smoke に必要な
    最小 row を seed。Feature View manual sync の source row をここで作る。
-9. `trigger-fv-sync` — Feature Online Store / Feature View live path 向けに
+9. `backfill-vvs` — `feature_mart.property_embeddings` から Vertex Vector Search
+   index へ初回 datapoint を upsert する。endpoint / deployed index だけを作っても
+   中身が空だと `ops-vertex-vector-search-smoke` が 0 neighbors で fail するため、
+   Phase 7 canonical path の一部として本線に組み込む。
+10. `trigger-fv-sync` — Feature Online Store / Feature View live path 向けに
    regional REST API で manual sync を起動し、完了まで poll する。
-10. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
+11. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
    旧運用は手で `make apply-manifests` を叩く前提だったが、PDCA loop で
    毎回手作業を要求すると `destroy-all → deploy-all` が成立しない)。
-11. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
+12. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
    placeholder を実 URL で上書き。実装は `scripts/deploy/configmap_overlay.py`
    で、ConfigMap schema は `scripts/lib/config.py` に集約 (Phase 7 W2-5 で
    `_run_overlay_configmap` と `sync_configmap.py` が独立にキー列を手書き
    していて drift した教訓 — 構造的に防止)。
-12. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
+13. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the
@@ -59,6 +63,7 @@ from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
 from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
 from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT
+from scripts.setup.backfill_vector_search_index import main as backfill_vector_search_main
 from scripts.setup.recover_wif import main as recover_wif_main
 from scripts.setup.seed_minimal import main as seed_minimal_main
 from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
@@ -189,6 +194,10 @@ def _run_trigger_feature_view_sync() -> int:
     return feature_view_sync_main()
 
 
+def _run_backfill_vvs() -> int:
+    return backfill_vector_search_main(["--apply"])
+
+
 def _run_apply_manifests() -> int:
     """`kubectl apply -k infra/manifests/` against the freshly-provisioned cluster.
 
@@ -249,24 +258,30 @@ def _steps() -> list[DeployStep]:
         ),
         DeployStep(
             9,
+            "backfill-vvs",
+            "backfill VVS from feature_mart.property_embeddings (canonical semantic path)",
+            _run_backfill_vvs,
+        ),
+        DeployStep(
+            10,
             "trigger-fv-sync",
             "trigger Feature View sync and wait for completion (FOS live path)",
             _run_trigger_feature_view_sync,
         ),
         DeployStep(
-            10,
+            11,
             "apply-manifests",
             "kubectl apply -k infra/manifests/ (Gateway / Deployment / ISVC / policies)",
             _run_apply_manifests,
         ),
         DeployStep(
-            11,
+            12,
             "overlay-configmap",
             "overlay search-api-config (resolve real meili_base_url + VVS/FOS outputs)",
             _run_overlay_configmap,
         ),
         DeployStep(
-            12,
+            13,
             "deploy-api",
             "deploy-api (Cloud Build + kubectl rollout search-api)",
             _run_deploy_api,
