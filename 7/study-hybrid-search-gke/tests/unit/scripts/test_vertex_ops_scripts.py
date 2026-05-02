@@ -112,3 +112,92 @@ def test_feature_group_uses_feature_view_env(monkeypatch) -> None:
         "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
         "p001",
     ) in calls
+
+
+def test_feature_group_404_emits_sync_and_bq_diagnostics(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
+    monkeypatch.setenv("VERTEX_FEATURE_ONLINE_STORE_ID", "store-a")
+    monkeypatch.setenv("VERTEX_FEATURE_VIEW_ID", "view-a")
+    monkeypatch.setenv("PROPERTY_ID", "p404")
+
+    class _NotFoundError(Exception):
+        code = 404
+
+    class _AdminClient:
+        def __init__(self, *, client_options):
+            pass
+
+        def get_feature_online_store(self, *, name):
+            return type(
+                "Store",
+                (),
+                {
+                    "dedicated_serving_endpoint": type(
+                        "Endpoint", (), {"public_endpoint_domain_name": "featurestore.example"}
+                    )()
+                },
+            )()
+
+    class _DataKey:
+        def __init__(self, *, key):
+            self.key = key
+
+    class _Request:
+        def __init__(self, *, feature_view, data_key):
+            self.feature_view = feature_view
+            self.data_key = data_key
+
+    class _ServingClient:
+        def __init__(self, *, client_options):
+            pass
+
+        def fetch_feature_values(self, *, request):
+            raise _NotFoundError("404 entity missing")
+
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    fake_module = SimpleNamespace(
+        FeatureOnlineStoreAdminServiceClient=_AdminClient,
+        FeatureOnlineStoreServiceClient=_ServingClient,
+        FeatureViewDataKey=_DataKey,
+        FetchFeatureValuesRequest=_Request,
+    )
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform_v1beta1", fake_module)
+
+    fake_bq_module = SimpleNamespace(bigquery=SimpleNamespace())
+    fake_client = MagicMock()
+    fake_client.query.return_value.result.return_value = [SimpleNamespace(c=5)]
+    fake_bq_module.bigquery.Client = MagicMock(return_value=fake_client)
+    monkeypatch.setitem(sys.modules, "google.cloud", fake_bq_module)
+
+    with (
+        patch.object(feature_group, "_access_token", return_value="tok"),
+        patch.object(
+            feature_group,
+            "_request_json",
+            return_value={
+                "featureViewSyncs": [
+                    {
+                        "name": "sync-1",
+                        "runTime": {
+                            "startTime": "2026-05-02T00:00:00Z",
+                            "endTime": "2026-05-02T00:01:00Z",
+                        },
+                        "finalStatus": {"code": 0},
+                    }
+                ]
+            },
+        ),
+    ):
+        assert feature_group.main() == 1
+
+    captured = capsys.readouterr()
+    assert "vertex-feature-group diagnostics:" in captured.out
+    assert "recent_sync: name=sync-1" in captured.out
+    assert "source_table_rows: table=mlops-test.feature_mart.property_features_daily count=5" in (
+        captured.out
+    )
+    assert "fetch failed: 404 entity missing" in captured.err

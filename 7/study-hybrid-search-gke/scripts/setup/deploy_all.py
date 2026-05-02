@@ -12,18 +12,22 @@
 6. `terraform apply tfplan -auto-approve` — apply infra
 7. `seed-lgbm-model` — `gs://<project>-models/lgbm/latest/model.bst` に
    合成 LightGBM ranker を seed (Phase 7 Run 5: tf-apply 直後の bucket は空で、
-   step 8 で apply される `property-reranker` InferenceService の
+   step 10 で apply される `property-reranker` InferenceService の
    storage-initializer init container が ``RuntimeError: Failed to fetch
    model. No model found in gs://...`` で CrashLoopBackOff に陥る)。
-8. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
+8. `seed-test` — `feature_mart.property_features_daily` など smoke に必要な
+   最小 row を seed。Feature View manual sync の source row をここで作る。
+9. `trigger-fv-sync` — Feature Online Store / Feature View live path 向けに
+   regional REST API で manual sync を起動し、完了まで poll する。
+10. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
    旧運用は手で `make apply-manifests` を叩く前提だったが、PDCA loop で
    毎回手作業を要求すると `destroy-all → deploy-all` が成立しない)。
-9. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
+11. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
    placeholder を実 URL で上書き。実装は `scripts/deploy/configmap_overlay.py`
    で、ConfigMap schema は `scripts/lib/config.py` に集約 (Phase 7 W2-5 で
    `_run_overlay_configmap` と `sync_configmap.py` が独立にキー列を手書き
    していて drift した教訓 — 構造的に防止)。
-10. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
+12. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the
@@ -50,8 +54,10 @@ from scripts.ci.sync_dataform import main as sync_dataform_main
 from scripts.deploy.api_gke import main as deploy_api_main
 from scripts.deploy.configmap_overlay import main as overlay_configmap_main
 from scripts.deploy.seed_lgbm_model import main as seed_lgbm_main
+from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.setup.recover_wif import main as recover_wif_main
+from scripts.setup.seed_minimal import main as seed_minimal_main
 from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
 from scripts.setup.tf_init import main as tf_init_main
 from scripts.setup.tf_plan import main as tf_plan_main
@@ -136,6 +142,14 @@ def _run_seed_lgbm_model() -> int:
     return seed_lgbm_main()
 
 
+def _run_seed_test() -> int:
+    return seed_minimal_main()
+
+
+def _run_trigger_feature_view_sync() -> int:
+    return feature_view_sync_main()
+
+
 def _run_apply_manifests() -> int:
     """`kubectl apply -k infra/manifests/` against the freshly-provisioned cluster.
 
@@ -190,18 +204,30 @@ def _steps() -> list[DeployStep]:
         ),
         DeployStep(
             8,
+            "seed-test",
+            "seed-test (populate feature_mart tables for smoke + Feature View sync)",
+            _run_seed_test,
+        ),
+        DeployStep(
+            9,
+            "trigger-fv-sync",
+            "trigger Feature View sync and wait for completion (FOS live path)",
+            _run_trigger_feature_view_sync,
+        ),
+        DeployStep(
+            10,
             "apply-manifests",
             "kubectl apply -k infra/manifests/ (Gateway / Deployment / ISVC / policies)",
             _run_apply_manifests,
         ),
         DeployStep(
-            9,
+            11,
             "overlay-configmap",
-            "overlay search-api-config (resolve real meili_base_url)",
+            "overlay search-api-config (resolve real meili_base_url + VVS/FOS outputs)",
             _run_overlay_configmap,
         ),
         DeployStep(
-            10,
+            12,
             "deploy-api",
             "deploy-api (Cloud Build + kubectl rollout search-api)",
             _run_deploy_api,
@@ -220,8 +246,8 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--to-step",
-        default="10",
-        help="Stop after this step number or name (e.g. 8, apply-manifests, deploy-api).",
+        default="12",
+        help="Stop after this step number or name (e.g. 9, trigger-fv-sync, deploy-api).",
     )
     return parser.parse_args()
 
@@ -259,12 +285,23 @@ def main() -> int:
         f"steps={[step.name for step in selected]}"
     )
 
-    for step in selected:
-        _step(step.number, total, step.label)
-        rc = step.run()
-        if rc != 0:
-            return rc
-        _step_done()
+    current_step: DeployStep | None = None
+    try:
+        for step in selected:
+            current_step = step
+            _step(step.number, total, step.label)
+            rc = step.run()
+            if rc != 0:
+                print(f"==> deploy-all FAILED at step {step.number} ({step.name}) — see logs above")
+                return rc
+            _step_done()
+    except BaseException:
+        if current_step is not None:
+            print(
+                f"==> deploy-all FAILED at step {current_step.number} ({current_step.name}) "
+                "— see traceback above"
+            )
+        raise
 
     if _DEPLOY_ALL_STARTED_AT is not None:
         total_elapsed = time.monotonic() - _DEPLOY_ALL_STARTED_AT

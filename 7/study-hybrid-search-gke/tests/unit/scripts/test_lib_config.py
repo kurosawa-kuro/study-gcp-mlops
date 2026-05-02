@@ -60,6 +60,24 @@ def test_strangler_defaults_preserve_phase5_behaviour() -> None:
         assert data[k] == ""
 
 
+def test_generate_configmap_data_accepts_live_vertex_outputs() -> None:
+    data = generate_configmap_data(
+        project_id="p",
+        models_bucket="b",
+        meili_base_url="u",
+        vertex_vector_search_index_endpoint_id="idx-endpoint",
+        vertex_vector_search_deployed_index_id="deploy-1",
+        vertex_feature_online_store_id="store-1",
+        vertex_feature_view_id="view-1",
+        vertex_feature_online_store_endpoint="store.example.com",
+    )
+    assert data["vertex_vector_search_index_endpoint_id"] == "idx-endpoint"
+    assert data["vertex_vector_search_deployed_index_id"] == "deploy-1"
+    assert data["vertex_feature_online_store_id"] == "store-1"
+    assert data["vertex_feature_view_id"] == "view-1"
+    assert data["vertex_feature_online_store_endpoint"] == "store.example.com"
+
+
 def test_render_committed_form_matches_example_yaml() -> None:
     """with_header=True must render byte-for-byte the committed example."""
     repo_root = Path(__file__).resolve().parents[3]

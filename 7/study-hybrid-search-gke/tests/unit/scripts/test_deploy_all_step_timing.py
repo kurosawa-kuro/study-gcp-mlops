@@ -116,3 +116,25 @@ def test_main_honors_from_step_and_to_step(
     assert rc == 0
     assert calls == ["two", "three"]
     assert "from_step=2 to_step=3" in out
+
+
+def test_main_prints_failure_summary_for_nonzero_step(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    steps = [
+        dall.DeployStep(1, "one", "one", lambda: 0),
+        dall.DeployStep(2, "broken", "broken", lambda: 7),
+    ]
+
+    with (
+        patch(
+            "scripts.setup.deploy_all._parse_args",
+            return_value=type("Args", (), {"from_step": "1", "to_step": "2"})(),
+        ),
+        patch("scripts.setup.deploy_all._steps", return_value=steps),
+    ):
+        rc = dall.main()
+
+    out = capsys.readouterr().out
+    assert rc == 7
+    assert "deploy-all FAILED at step 2 (broken)" in out

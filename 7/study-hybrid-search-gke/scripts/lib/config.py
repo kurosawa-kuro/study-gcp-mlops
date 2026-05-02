@@ -55,6 +55,12 @@ def generate_configmap_data(
     project_id: str,
     models_bucket: str,
     meili_base_url: str,
+    *,
+    vertex_vector_search_index_endpoint_id: str = "",
+    vertex_vector_search_deployed_index_id: str = "",
+    vertex_feature_online_store_id: str = "",
+    vertex_feature_view_id: str = "",
+    vertex_feature_online_store_endpoint: str = "",
 ) -> dict[str, str]:
     """Build the search-api ConfigMap `data` mapping.
 
@@ -70,6 +76,11 @@ def generate_configmap_data(
     }
     for k, v in _DEFAULTS.items():
         data[k] = v
+    data["vertex_vector_search_index_endpoint_id"] = vertex_vector_search_index_endpoint_id
+    data["vertex_vector_search_deployed_index_id"] = vertex_vector_search_deployed_index_id
+    data["vertex_feature_online_store_id"] = vertex_feature_online_store_id
+    data["vertex_feature_view_id"] = vertex_feature_view_id
+    data["vertex_feature_online_store_endpoint"] = vertex_feature_online_store_endpoint
     return data
 
 

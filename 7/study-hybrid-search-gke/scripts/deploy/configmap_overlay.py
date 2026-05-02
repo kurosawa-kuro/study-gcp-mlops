@@ -18,11 +18,15 @@ ConfigMap schema (キー列 / default 値) は ``scripts/lib/config.py`` で
 
 from __future__ import annotations
 
+import json
 import subprocess
+from pathlib import Path
 
 from scripts._common import env, gcs_bucket_name, run
 from scripts.lib.config import generate_configmap_data, render_configmap_yaml
 from scripts.lib.gcp_resources import MEILI_SERVICE_NAME_DEFAULT
+
+INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
 
 
 def _resolve_meili_url(project_id: str, region: str) -> str:
@@ -51,6 +55,26 @@ def _resolve_meili_url(project_id: str, region: str) -> str:
     return url
 
 
+def _terraform_output_map() -> dict[str, str]:
+    """Return `terraform output -json` as a flat name->string map."""
+    proc = run(
+        ["terraform", f"-chdir={INFRA}", "output", "-json"],
+        capture=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise SystemExit("[error] terraform output -json failed for ConfigMap overlay")
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"[error] terraform output JSON decode failed: {exc}") from exc
+    resolved: dict[str, str] = {}
+    for key, meta in payload.items():
+        value = meta.get("value", "") if isinstance(meta, dict) else ""
+        resolved[key] = str(value or "")
+    return resolved
+
+
 def main() -> int:
     project_id = env("PROJECT_ID")
     if not project_id:
@@ -58,6 +82,7 @@ def main() -> int:
     region = env("REGION", "asia-northeast1")
     meili_url = _resolve_meili_url(project_id, region)
     models_bucket = env("MODELS_BUCKET", gcs_bucket_name("models"))
+    tf_outputs = _terraform_output_map()
     print(f"[info] resolved meili_base_url={meili_url}")
     print(f"[info] models_bucket={models_bucket}")
 
@@ -65,6 +90,17 @@ def main() -> int:
         project_id=project_id,
         models_bucket=models_bucket,
         meili_base_url=meili_url,
+        vertex_vector_search_index_endpoint_id=tf_outputs.get(
+            "vector_search_index_endpoint_id", ""
+        ),
+        vertex_vector_search_deployed_index_id=tf_outputs.get(
+            "vector_search_deployed_index_id", ""
+        ),
+        vertex_feature_online_store_id=tf_outputs.get("vertex_feature_online_store_id", ""),
+        vertex_feature_view_id=tf_outputs.get("vertex_feature_view_id", ""),
+        vertex_feature_online_store_endpoint=tf_outputs.get(
+            "vertex_feature_online_store_endpoint", ""
+        ),
     )
     cm_yaml = render_configmap_yaml(data, with_header=False)
 

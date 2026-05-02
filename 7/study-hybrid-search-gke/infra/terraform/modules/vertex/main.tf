@@ -285,6 +285,14 @@ resource "google_vertex_ai_feature_online_store" "property_features" {
       enable_private_service_connect = false
     }
   }
+
+  lifecycle {
+    ignore_changes = [
+      optimized,
+      dedicated_serving_endpoint,
+      labels,
+    ]
+  }
 }
 
 resource "google_vertex_ai_feature_online_store_featureview" "property_features" {
