@@ -1,7 +1,7 @@
 """Structural tests for the Phase 1 real-estate BigQuery tables.
 
 These catch drift between the Terraform module and the documented contract in
-``docs/02_移行ロードマップ.md §5``:
+``docs/tasks/02_移行ロードマップ.md §5``:
 
 * each new table exists in ``infra/terraform/modules/data/main.tf``,
 * partitioning / clustering follow the roadmap (high-cardinality → cluster),

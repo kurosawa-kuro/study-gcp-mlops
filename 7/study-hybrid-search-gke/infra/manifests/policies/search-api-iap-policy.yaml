@@ -11,7 +11,7 @@
 #   `Invalid: oauth2ClientSecret cannot be found` 状態になり、Gateway が
 #   `GatewayHealthy=False` warning を出し続けた。
 #
-# Production / staging への切り替え手順は docs/05_運用.md の「IAP 有効化」章を参照。
+# Production / staging への切り替え手順は docs/runbook/05_運用.md の「IAP 有効化」章を参照。
 apiVersion: networking.gke.io/v1
 kind: GCPBackendPolicy
 metadata:

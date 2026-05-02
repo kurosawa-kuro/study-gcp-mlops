@@ -17,7 +17,7 @@ logger = logging.getLogger("app.kserve_prediction")
 
 # Expected embedding dim for multilingual-e5-base. The Phase 7 BQ
 # VECTOR_SEARCH index is created with this exact dim (see
-# docs/05_運用.md STEP 16); a mismatch here means BQ semantic search will
+# docs/runbook/05_運用.md STEP 16); a mismatch here means BQ semantic search will
 # fail later in the /search pipeline with an opaque "vector dimension mismatch"
 # error. Guard at encoder.embed time so the root cause is visible.
 EXPECTED_EMBEDDING_DIM = 768

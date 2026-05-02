@@ -5,7 +5,7 @@ Both adapters are exercised without importing
 ``index_factory`` injection, ``InMemoryVectorSearchWriter`` is pure
 Python.
 
-Phase 7 ``docs/02_移行ロードマップ.md`` §3.3 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.3 受け入れ条件 (ローカル):
 - mock で `MatchingEngineIndex.upsert_datapoints` を stub した unit test PASS
 - ローカルで pipeline を fake adapter (BQ writer + VVS writer 両方 fake) で完走
 """

@@ -1,6 +1,6 @@
 """``SemanticSearchPort`` adapter — Vertex AI Vector Search match endpoint.
 
-Phase 5+ production serving index (PR-1 of `docs/02_移行ロードマップ.md` Wave 1).
+Phase 5+ production serving index (PR-1 of `docs/tasks/02_移行ロードマップ.md` Wave 1).
 The canonical embedding generation history / metadata stays in BigQuery
 ``feature_mart.property_embeddings``; this adapter only queries the deployed
 serving index for ANN top-K and returns ``SemanticResult`` named-tuples.

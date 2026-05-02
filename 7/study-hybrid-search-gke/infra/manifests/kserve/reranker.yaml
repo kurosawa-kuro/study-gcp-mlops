@@ -14,7 +14,7 @@ metadata:
 spec:
   predictor:
     serviceAccountName: reranker
-    # 学習リポ最小スペック方針 (docs/02_移行ロードマップ.md §7)。
+    # 学習リポ最小スペック方針 (docs/tasks/02_移行ロードマップ.md §7)。
     # LightGBM lambdarank model.txt は 5〜10 KB で、MLServer プロセス自体が
     # 200〜400 MB 常駐するだけ。250m/512Mi requests で十分余裕がある。
     # Production 化時は User 判断で 500m/1Gi + maxReplicas=5 に戻す。

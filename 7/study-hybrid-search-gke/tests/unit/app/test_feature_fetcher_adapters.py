@@ -7,7 +7,7 @@ Both adapters are exercised without touching their underlying SDK:
 - ``FeatureOnlineStoreFetcher``: ``client_factory`` injection seam is
   used so ``google.cloud.aiplatform_v1beta1`` is never imported.
 
-Phase 7 ``docs/02_移行ロードマップ.md`` §3.2 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.2 受け入れ条件 (ローカル):
 - mock で SDK call を stub した unit test PASS
 - in-memory fake fetcher 経由で ranking が動作 (in_memory_feature_fetcher も別テストで使用)
 """

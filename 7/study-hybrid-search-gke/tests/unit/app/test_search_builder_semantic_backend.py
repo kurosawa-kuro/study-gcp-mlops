@@ -5,7 +5,7 @@ and ``SearchBuilder._resolve_semantic_search`` so silent regressions
 (default flipping unintentionally, fallback path being removed, etc.)
 fail at unit-test time rather than at /search runtime.
 
-Phase 7 ``docs/02_移行ロードマップ.md`` §3.1 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.1 受け入れ条件 (ローカル):
 - composition root のレイヤ境界を `make check-layers` が PASS
 - in-memory fake 経由で /search が 200 を返す
 """

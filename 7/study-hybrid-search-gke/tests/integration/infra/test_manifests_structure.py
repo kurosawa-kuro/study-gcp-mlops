@@ -242,7 +242,7 @@ def test_kserve_inferenceservice_has_correct_shape(name: str) -> None:
     # Minimum replicas must be >= 1 to avoid KServe cold-start latency (docs).
     assert predictor.get("minReplicas", 0) >= 1, (
         f"{name}: minReplicas must be >= 1 to avoid KServe cold-start latency. "
-        "docs/02_移行ロードマップ.md §3.5 forbids minReplicas=0 for learning-repo cost."
+        "docs/tasks/02_移行ロードマップ.md §3.5 forbids minReplicas=0 for learning-repo cost."
     )
 
 

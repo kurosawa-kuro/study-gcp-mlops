@@ -146,7 +146,7 @@ resource "google_monitoring_alert_policy" "api_p95_latency" {
 # Phase 10c removed: ``california_housing_skew_check`` transfer config.
 # Operators on an existing project must delete the old transfer via
 # ``bq rm --transfer_config <name>`` *before* the next ``terraform apply``,
-# otherwise the destroy leaves the config orphaned. See ``docs/05_運用.md
+# otherwise the destroy leaves the config orphaned. See ``docs/runbook/05_運用.md
 # §3.9`` for the full migration checklist.
 # =========================================================================
 

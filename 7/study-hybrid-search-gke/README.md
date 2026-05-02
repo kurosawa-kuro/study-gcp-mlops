@@ -45,11 +45,11 @@ raw.properties (upstream ETL)
 | `.github/workflows/` | `ci.yml` (ruff/fmt/mypy/pytest) + `terraform.yml` + `deploy-api.yml` (kubectl set image) + `deploy-encoder-image.yml` / `deploy-trainer-image.yml` / `deploy-reranker-image.yml` / `deploy-pipeline.yml` / `deploy-dataform.yml` |
 | `docs/` | 仕様と設計・移行ロードマップ (本体 + Port-Adapter-DI + 切り替え基盤)・実装カタログ・運用・`教育資料/` (スライド / ナレーション台本 / デモシナリオ / 図解) |
 
-ファイル単位の一言コメントは [`docs/03_実装カタログ.md §2`](docs/03_実装カタログ.md)。
+ファイル単位の一言コメントは [`docs/architecture/03_実装カタログ.md §2`](docs/architecture/03_実装カタログ.md)。
 
 ## 設計ハイライト
 
-詳細は [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) と [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md)。
+詳細は [`docs/tasks/02_移行ロードマップ.md`](docs/tasks/02_移行ロードマップ.md) と [`docs/architecture/01_仕様と設計.md`](docs/architecture/01_仕様と設計.md)。
 
 - **Phase 5 からの差分**: serving 層のみ GKE + KServe に移行。Pipelines / **Vertex AI Feature Store (Feature Group / Feature View / Feature Online Store)** (Phase 5 必須を継承) / Model Registry / **Vertex Vector Search** (Phase 5 で BQ `VECTOR_SEARCH` から置換、本 Phase でも継承) / Meilisearch は **差分ゼロで維持**。Phase 7 固有として KServe から Feature Online Store を opt-in 参照する経路を追加
 - **Port / Adapter 設計**: `app.services.protocols` の `EncoderClient` / `RerankerClient` 実装を `VertexEndpointEncoder/Reranker` → `KServeEncoder/Reranker` に差し替えただけ (core / services / ports は無変更)
@@ -76,23 +76,23 @@ raw.properties (upstream ETL)
 
 ## ドキュメント
 
-初めてこのリポジトリに触る人は、まず [`docs/05_運用.md §1 PDCA メインフロー`](docs/05_運用.md) を上から叩く (`make deploy-all` → `make run-all` → `make destroy-all`)。
+初めてこのリポジトリに触る人は、まず [`docs/runbook/05_運用.md §1 PDCA メインフロー`](docs/runbook/05_運用.md) を上から叩く (`make deploy-all` → `make run-all` → `make destroy-all`)。
 
 local で hybrid 検索まで動かす標準手順は `make api-dev-hybrid`。このターゲットは `scripts/setup/local_hybrid.py` を呼び、非秘密値は `env/config/setting.yaml`、秘密値は `env/secret/credential.yaml` または Secret Manager から解決して、local encoder / reranker / app をまとめて起動する。
 
 | ドキュメント | 目的 | 主な読者 |
 |---|---|---|
 | [`docs/README.md`](docs/README.md) | ドキュメント運用ルール (役割 / 権威順位 / 更新規約 / 書き方) | 文書を触る人全員 |
-| [`docs/01_仕様と設計.md`](docs/01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計 | LLM / 設計レビュー |
-| [`docs/02_移行ロードマップ.md`](docs/02_移行ロードマップ.md) | **本リポジトリの決定的仕様** の母艦。現状はサブドキュメントに分割中 (下 2 つ) | LLM / 開発者 |
+| [`docs/architecture/01_仕様と設計.md`](docs/architecture/01_仕様と設計.md) | 機能仕様 + アーキテクチャ設計 | LLM / 設計レビュー |
+| [`docs/tasks/02_移行ロードマップ.md`](docs/tasks/02_移行ロードマップ.md) | **本リポジトリの決定的仕様** の母艦。現状はサブドキュメントに分割中 (下 2 つ) | LLM / 開発者 |
 | [`docs/02_移行ロードマップ-Port-Adapter-DI.md`](docs/02_移行ロードマップ-Port-Adapter-DI.md) | Phase 7 の Port / Adapter / DI 整備履歴と層境界ルール | LLM / 開発者 |
 | [`docs/02_移行ロードマップ切り替え基盤.md`](docs/02_移行ロードマップ切り替え基盤.md) | Vertex Endpoint → KServe 切り替えの差分仕様 | LLM / 開発者 |
-| [`docs/03_実装カタログ.md`](docs/03_実装カタログ.md) | 実装カタログ (ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform) | 新規参加者 / LLM |
-| [`docs/05_運用.md`](docs/05_運用.md) | 環境構築 + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 運用担当 |
+| [`docs/architecture/03_実装カタログ.md`](docs/architecture/03_実装カタログ.md) | 実装カタログ (ディレクトリ / ファイル / DB テーブル / API / GCP / Terraform) | 新規参加者 / LLM |
+| [`docs/runbook/05_運用.md`](docs/runbook/05_運用.md) | 環境構築 + 定常運用 + インシデント対応 + ロールバック | 新規参加者 / 運用担当 |
 | [`docs/教育資料/`](docs/教育資料/) | スライド / ナレーション台本 / デモシナリオ / 図解 (`assets/*.svg`) | 学習・デモ担当 |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code 向け作業ガイド (非負制約 / 参照リポジトリ / feature-parity invariant) | Claude Code |
 
-ドキュメントが互いに矛盾したときの勝者は `docs/02_移行ロードマップ.md` (詳細は `docs/README.md §2` 権威順位)。
+ドキュメントが互いに矛盾したときの勝者は `docs/tasks/02_移行ロードマップ.md` (詳細は `docs/README.md §2` 権威順位)。
 
 ## 品質ステータス
 

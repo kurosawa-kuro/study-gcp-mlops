@@ -47,12 +47,12 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 
 ## 3. 教育フェーズ設計の補助図
 
-> 本 README は **教育フェーズ設計** (どの Phase で何を学ぶか / 引き算戦略 / 学習順) の正本。**ハイブリッド検索の実装詳細図** (アプリ構成 / シーケンス / モデル関係 / ストレージ関係) は Phase 7 [`docs/01_仕様と設計.md` §2](7/study-hybrid-search-gke/docs/01_仕様と設計.md) が canonical なので、本ファイルでは Phase 段差と技術出現の 2 枚のみを置く。
+> 本 README は **教育フェーズ設計** (どの Phase で何を学ぶか / 引き算戦略 / 学習順) の正本。**ハイブリッド検索の実装詳細図** (アプリ構成 / シーケンス / モデル関係 / ストレージ関係) は Phase 7 [`docs/architecture/01_仕様と設計.md` §2](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md) が canonical なので、本ファイルでは Phase 段差と技術出現の 2 枚のみを置く。
 >
 > | 知りたいこと | 参照先 |
 > |---|---|
-> | アプリ構成 (Port/Adapter 6 軸) / `/search` シーケンス / モデル関係 / ストレージ関係 | [Phase 7 docs/01 §2](7/study-hybrid-search-gke/docs/01_仕様と設計.md) |
-> | Composer × Vertex Pipelines 上下関係 / DAG 段差 / カニバリ NG | [Phase 7 docs/01 §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md) |
+> | アプリ構成 (Port/Adapter 6 軸) / `/search` シーケンス / モデル関係 / ストレージ関係 | [Phase 7 docs/01 §2](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md) |
+> | Composer × Vertex Pipelines 上下関係 / DAG 段差 / カニバリ NG | [Phase 7 docs/01 §3](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md) |
 > | Phase 段差 / Phase 別技術出現 (本ファイル) | 下記 図1 / 図2 |
 
 ### 図1. Phase 段差図 (Local ↔ GCP の関係、adapter 差し替え軸)
@@ -104,7 +104,7 @@ flowchart LR
 
 ### 図2. Phase 別 技術出現図 (どの Phase で何が初登場するか)
 
-教育設計の俯瞰用。**どの Phase で何が初めて入るか** を見るための図 (実装的な依存関係 / 配線詳細は Phase 7 [`docs/01_仕様と設計.md` §2.5](7/study-hybrid-search-gke/docs/01_仕様と設計.md) を参照)。
+教育設計の俯瞰用。**どの Phase で何が初めて入るか** を見るための図 (実装的な依存関係 / 配線詳細は Phase 7 [`docs/architecture/01_仕様と設計.md` §2.5](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md) を参照)。
 
 ```mermaid
 flowchart LR
@@ -145,7 +145,7 @@ flowchart LR
     class P7 gke
 ```
 
-各技術の役割 / 上下関係 (Composer × Vertex Pipelines) / 配線は Phase 7 [`docs/01_仕様と設計.md` §2 / §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md) が canonical。
+各技術の役割 / 上下関係 (Composer × Vertex Pipelines) / 配線は Phase 7 [`docs/architecture/01_仕様と設計.md` §2 / §3](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md) が canonical。
 
 ---
 
@@ -186,7 +186,7 @@ Phase 1 (= Phase 2 から App/Pipeline/Port-Adapter を引いたもの)
 
 ### Cloud Composer の位置づけ (Phase 6 で導入、Phase 7 で継承)
 
-**要点** (canonical な詳細仕様は **Phase 7 [`docs/01_仕様と設計.md` §3](7/study-hybrid-search-gke/docs/01_仕様と設計.md)** を参照):
+**要点** (canonical な詳細仕様は **Phase 7 [`docs/architecture/01_仕様と設計.md` §3](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md)** を参照):
 
 - **Phase 6 で本線昇格、Phase 7 で継承** (Phase 5 までは Cloud Scheduler + Eventarc + Cloud Function の軽量経路)。**Phase 5 → 6 が引き算境界**
 - **Composer (上位 orchestrator) × Vertex Pipelines (下位 ML executor) の上下関係** で運用 — 同責務を両層に持たせない
@@ -252,7 +252,7 @@ study-gcp-mlops/
 
 ## 6. 学習運用 (Phase 別 成果物の置き場 — 教育設計レベルの段差表)
 
-Phase ごとに成果物・評価結果・実行履歴の置き場を **段階移行** させる。具体的なコマンド / SA bind / IAM 設定など実装詳細は phase 配下 `docs/04_運用.md` (Phase 7 は `docs/05_運用.md`) が正本。本表は「どの Phase で何が登場するか」の俯瞰のみ。
+Phase ごとに成果物・評価結果・実行履歴の置き場を **段階移行** させる。具体的なコマンド / SA bind / IAM 設定など実装詳細は phase 配下 `docs/runbook/04_運用.md` (Phase 7 は `docs/runbook/05_運用.md`) が正本。本表は「どの Phase で何が登場するか」の俯瞰のみ。
 
 ### 全 Phase 共通ツール
 
@@ -276,7 +276,7 @@ Phase 表には各 Phase で**新規に登場する**技術を載せる。下記
 | 6 (PMLE + Composer 本線) | Phase 5 継承 | Phase 5 継承 | Phase 5 継承 + **Composer-managed BQ monitoring query** + SLO + burn-rate | Phase 5 継承 | Phase 5 継承 |
 | 7 (GKE + KServe) | Phase 6 継承 | Phase 6 継承 | Phase 6 継承 + **GMP (PodMonitoring)** | Phase 6 継承 | + **External Secrets Operator** (Secret Manager → K8s Secret 自動同期) |
 
-Phase 5+ で必須となる **Vertex AI Feature Store** (Feature Group / Feature View / Feature Online Store、training-serving skew 防止) と **Vertex Vector Search** (ME5 ベクトルの本番 serving index、BQ は embedding 履歴正本) は §2 Phase 一覧と Phase 7 [`docs/01_仕様と設計.md`](7/study-hybrid-search-gke/docs/01_仕様と設計.md) §2 を参照。
+Phase 5+ で必須となる **Vertex AI Feature Store** (Feature Group / Feature View / Feature Online Store、training-serving skew 防止) と **Vertex Vector Search** (ME5 ベクトルの本番 serving index、BQ は embedding 履歴正本) は §2 Phase 一覧と Phase 7 [`docs/architecture/01_仕様と設計.md`](7/study-hybrid-search-gke/docs/architecture/01_仕様と設計.md) §2 を参照。
 
 ### 運用ルール (共通)
 
@@ -312,9 +312,9 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 ### 全体横断ハブ
 
 - `docs/README.md` — ルート docs の入口と参照優先順位
-- `docs/01_仕様と設計.md` — Phase 1〜7 の仕様設計ハブ
-- `docs/03_実装カタログ.md` — Phase 1〜7 の実装カタログハブ
-- `docs/04_運用.md` — Phase 1〜7 の運用ハブ
+- `docs/architecture/01_仕様と設計.md` — Phase 1〜7 の仕様設計ハブ
+- `docs/architecture/03_実装カタログ.md` — Phase 1〜7 の実装カタログハブ
+- `docs/runbook/04_運用.md` — Phase 1〜7 の運用ハブ
 - `docs/conventions/` — 規約・配置・命名の正本セット (`命名規約.md` / `フォルダ-ファイル.md` / `スクリプト規約.md` / `Makefile規約.md` / `Docker配置規約.md` + 索引 README)
 - `docs/phases/README.md` — Phase 別 docs 入口
 
@@ -324,7 +324,7 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 - `6/study-hybrid-search-pmle/README.md`(PMLE 技術を Phase 5 実コードに実統合、2026-04-24 完了)
 - `6/study-hybrid-search-pmle/docs/01_仕様と設計.md`(統合トピック詳細 + ファイル配置図)
 - `6/study-hybrid-search-pmle/docs/02_移行ロードマップ.md`(決定的仕様)
-- `7/study-hybrid-search-gke/docs/02_移行ロードマップ.md`(到達ゴール: GKE + KServe。**§4 Wave 2 = クラウド側 (GCP インフラ) の修正作業計画の母艦** — Terraform / IAM / Manifest / backfill / Composer 継承 / default flip の実施順序 W2-1〜W2-9)
+- `7/study-hybrid-search-gke/docs/tasks/02_移行ロードマップ.md`(到達ゴール: GKE + KServe。**§4 Wave 2 = クラウド側 (GCP インフラ) の修正作業計画の母艦** — Terraform / IAM / Manifest / backfill / Composer 継承 / default flip の実施順序 W2-1〜W2-9)
 
 ### 過去の設計判断ログ(archive)
 
@@ -362,6 +362,6 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 - **学習目的では Meilisearch で十分** — BM25 全文検索 + 構造化フィルタ(`city` / `price_lte` / `walk_min` 等)という本リポの要件を素直にカバーできる
 - **セットアップコストが低い** — 単一バイナリ・軽量 Docker image・チューニング項目が少ないため、**学習関心事(Port/Adapter、semantic 統合、RRF、rerank)に集中できる**
 - **adapter 差し替えで Elasticsearch へ切り替え可能** — Phase 3 で lexical 層を Port/Adapter の背後に隠しているため、**本番想定では `MeilisearchAdapter` を `ElasticsearchAdapter` に差し替えるだけ** で切り替え可能(= 本リポジトリの軸「設計思想は一貫、adapter だけ差し替え」の具体例)
-- **実案件 reference architecture** は Phase 5 の [`docs/01_仕様と設計.md` の §「実案件想定の reference architecture」](5/study-hybrid-search-vertex/docs/01_仕様と設計.md) を参照(Elasticsearch + Redis 同義語辞書 + ME5 + Vertex Vector Search + LightGBM の構成。本リポでは Meilisearch + Redis cache がその学習用 substitute)
+- **実案件 reference architecture** は Phase 5 の [`docs/architecture/01_仕様と設計.md` の §「実案件想定の reference architecture」](5/study-hybrid-search-vertex/docs/01_仕様と設計.md) を参照(Elasticsearch + Redis 同義語辞書 + ME5 + Vertex Vector Search + LightGBM の構成。本リポでは Meilisearch + Redis cache がその学習用 substitute)
 
 他の選定(LightGBM / multilingual-e5 / Redis / Vertex Vector Search (Phase 5+) / BigQuery `VECTOR_SEARCH` (Phase 4) 等)は各 Phase の CLAUDE.md / README に理由を記載。

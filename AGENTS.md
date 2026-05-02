@@ -55,9 +55,9 @@ Validation expectations:
 Canonical references:
 - [README.md](README.md)
 - [CLAUDE.md](CLAUDE.md)
-- [docs/01_仕様と設計.md](docs/01_仕様と設計.md)
-- [docs/03_実装カタログ.md](docs/03_実装カタログ.md)
-- [docs/04_運用.md](docs/04_運用.md)
+- [docs/01_仕様と設計.md](docs/architecture/01_仕様と設計.md)
+- [docs/03_実装カタログ.md](docs/architecture/03_実装カタログ.md)
+- [docs/04_運用.md](docs/runbook/04_運用.md)
 - [docs/conventions/Docker配置規約.md](docs/conventions/Docker配置規約.md)
 - [docs/conventions/README.md](docs/conventions/README.md) — 規約・配置・命名 5 ファイルの索引
 
