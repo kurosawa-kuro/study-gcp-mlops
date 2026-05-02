@@ -34,7 +34,6 @@ def test_composer_module_uses_gen3_image_with_enable_flag_gate() -> None:
         "composer environment must be count-gated by var.enable_composer"
     )
     for required_env in (
-        "PROJECT_ID",
         "REGION",
         "VERTEX_LOCATION",
         "PIPELINE_ROOT_BUCKET",
@@ -43,6 +42,45 @@ def test_composer_module_uses_gen3_image_with_enable_flag_gate() -> None:
         "VERTEX_FEATURE_VIEW_ID",
     ):
         assert required_env in main_tf
+
+
+def test_composer_env_variables_avoid_reserved_names() -> None:
+    """**Composer 予約変数禁止 契約** (2026-05-03 追加): `env_variables` に
+    Composer Gen 3 の予約 environment variable を含めると HTTP 400
+    `Environment variables [X] may not be overridden` で create が拒否される。
+
+    過去事故: `PROJECT_ID = var.project_id` を入れた状態で deploy-all 実行
+    → step 6 stage1 apply の Composer 作成で 400 → step 6 完走に 30 min ロス
+    + state 半分作成の片付けコスト。Composer 自動設定の `GCP_PROJECT` を DAG
+    側で参照する設計 (`pipeline/dags/_common.py::project_id`)。
+    """
+    main_tf = _read("infra/terraform/modules/composer/main.tf")
+    common_py = _read("pipeline/dags/_common.py")
+
+    reserved = (
+        "PROJECT_ID",
+        "GCP_PROJECT",
+        "AIRFLOW_HOME",
+        "PYTHONPATH",
+        "PYTHONUNBUFFERED",
+        "PATH",
+        "DAGS_FOLDER",
+        "GCS_BUCKET",
+    )
+    env_block_match = re.search(r"env_variables\s*=\s*\{[^}]*\}", main_tf, flags=re.DOTALL)
+    assert env_block_match is not None, "composer main.tf must declare an env_variables block"
+    env_block = env_block_match.group(0)
+    for reserved_name in reserved:
+        key_pattern = re.compile(
+            rf"^\s*{re.escape(reserved_name)}\s*=", flags=re.MULTILINE
+        )
+        assert key_pattern.search(env_block) is None, (
+            f"composer env_variables must NOT include reserved name {reserved_name!r} "
+            "(Composer Gen 3 returns HTTP 400 'may not be overridden')"
+        )
+    assert 'env("GCP_PROJECT")' in common_py, (
+        "DAG helper must read project ID via auto-set GCP_PROJECT, not user-set PROJECT_ID"
+    )
 
 
 def test_composer_image_version_is_known_supported_form() -> None:

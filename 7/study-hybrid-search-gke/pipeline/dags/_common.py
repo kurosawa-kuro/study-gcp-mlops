@@ -24,9 +24,21 @@ def env(name: str, default: str = "") -> str:
 
 
 def project_id() -> str:
-    pid = env("PROJECT_ID")
+    """Composer 環境の GCP project ID を返す。
+
+    Composer Gen 3 は `GCP_PROJECT` を **予約変数として自動設定** する
+    (env_variables にユーザーが `PROJECT_ID` を入れると HTTP 400 で create
+    が拒否される — 2026-05-03 incident、`composer/main.tf` 参照)。本 DAG
+    helper は `GCP_PROJECT` を一次参照、`PROJECT_ID` を fallback に残し
+    (= Composer 外で `python -m pipeline.dags.X` するローカル smoke 時の
+    互換性を保つ)。両方空なら明示 fail。
+    """
+    pid = env("GCP_PROJECT") or env("PROJECT_ID")
     if not pid:
-        raise RuntimeError("PROJECT_ID env is empty (set via Composer env_variables)")
+        raise RuntimeError(
+            "GCP_PROJECT / PROJECT_ID env is empty — Composer must auto-set "
+            "GCP_PROJECT, local smoke can fall back via PROJECT_ID"
+        )
     return pid
 
 

@@ -38,8 +38,14 @@ resource "google_composer_environment" "this" {
       # Variable.get(...) を使うと Airflow metadata DB に依存し、PDCA
       # destroy → re-create で値が消えるが、env_variables なら terraform
       # output からの再注入で済む。
+      #
+      # 予約変数禁止 (2026-05-03 incident): Composer Gen 3 は `PROJECT_ID` /
+      # `GCP_PROJECT` / `AIRFLOW_*` / `PATH` / `PYTHONPATH` 等を予約しており、
+      # ユーザー側で env_variables に含めると HTTP 400 `Environment variables
+      # may not be overridden` で create が拒否される。`PROJECT_ID` は
+      # Composer が自動で `GCP_PROJECT` に値を入れるため、DAG は
+      # `os.environ["GCP_PROJECT"]` で参照する。
       env_variables = {
-        PROJECT_ID                               = var.project_id
         REGION                                   = var.region
         VERTEX_LOCATION                          = var.vertex_location
         PIPELINE_ROOT_BUCKET                     = var.pipeline_root_bucket_name

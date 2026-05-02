@@ -35,9 +35,9 @@ def _gate_auto_promote() -> bool:
 SUBMIT_TRAIN_PIPELINE_CMD = (
     "uv run python -m pipeline.workflow.compile "
     "--target train --output-dir dist/pipelines --submit "
-    '--project-id "$PROJECT_ID" --location "$VERTEX_LOCATION" '
+    '--project-id "$GCP_PROJECT" --location "$VERTEX_LOCATION" '
     '--pipeline-root "gs://$PIPELINE_ROOT_BUCKET/runs" '
-    '--service-account "sa-pipeline@$PROJECT_ID.iam.gserviceaccount.com"'
+    '--service-account "sa-pipeline@$GCP_PROJECT.iam.gserviceaccount.com"'
 )
 
 
