@@ -1,5 +1,0 @@
-"""HTTP middleware used by the API package."""
-
-from .request_logging import RequestLoggingMiddleware
-
-__all__ = ["RequestLoggingMiddleware"]
