@@ -86,6 +86,10 @@ Phase 4 / 5 / 6 / 7 はローカル CI 同等チェックとして `make check` 
 
 これらは本リポ外なので、パスが実在するかは必要時に確認する。
 
+## current sprint の正本 (`docs/TASKS.md`)
+
+各 phase の `docs/TASKS.md` を **current sprint の正本** とする。「現在の目的 / 今回の作業対象 / 今回はやらない / 完了条件 / 実装済 / 未実装」を 1 ファイルに集約。長期 backlog/index は従来通り `docs/02_移行ロードマップ.md`、過去判断履歴は `docs/decisions/` (Phase 1/2/6/7)。権威順位は `02 > TASKS > 01 > README > CLAUDE`。
+
 ## エージェント
 
 `.github/agents/gcp-mlops-theme-research.agent.md` — 検索/ランキングアーキテクチャの比較と日本語マークダウン提案専用エージェント。コード変更やシェル実行は行わず、markdown の設計メモを書くための user-invocable agent。

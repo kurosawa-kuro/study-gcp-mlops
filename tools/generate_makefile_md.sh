@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-OUT_FILE="$ROOT_DIR/docs/Makefile.md"
+OUT_FILE="$ROOT_DIR/docs/conventions/Makefile規約.md"
 
 PHASE_DIRS=(
   "1/study-ml-foundations"
@@ -60,7 +60,7 @@ is_na_target() {
   echo '- `Make target` is the user-facing public API.'
   echo '- `scripts/*` is the internal implementation behind those targets.'
   echo "- Keep target names stable; migrate implementation paths underneath them."
-  echo "- For naming and migration policy, see [docs/scripts.md](scripts.md)."
+  echo "- For naming and migration policy, see [スクリプト規約.md](スクリプト規約.md) (same dir under docs/conventions/)."
   echo ""
   echo "## Canonical Vocabulary"
   echo ""

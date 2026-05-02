@@ -315,7 +315,7 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 - `docs/01_仕様と設計.md` — Phase 1〜7 の仕様設計ハブ
 - `docs/03_実装カタログ.md` — Phase 1〜7 の実装カタログハブ
 - `docs/04_運用.md` — Phase 1〜7 の運用ハブ
-- `docs/05_Docker配置規約.md` — Dockerfile 配置・命名ルール(Phase を跨いで一貫)
+- `docs/conventions/` — 規約・配置・命名の正本セット (`命名規約.md` / `フォルダ-ファイル.md` / `スクリプト規約.md` / `Makefile規約.md` / `Docker配置規約.md` + 索引 README)
 - `docs/phases/README.md` — Phase 別 docs 入口
 
 ### Phase 個別入口

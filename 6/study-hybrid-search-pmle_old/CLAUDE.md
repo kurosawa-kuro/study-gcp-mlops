@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> **ARCHIVED.** 現行の Phase 6 は [`../study-hybrid-search-pmle/CLAUDE.md`](../study-hybrid-search-pmle/CLAUDE.md)。本ディレクトリは親 [`CLAUDE.md`](../../CLAUDE.md) §「フェーズ横断の原則」で archive と明示されている。**参照のみ可、修正は user 明示指示のみ。**
+
 Phase 6 (`study-hybrid-search-pmle`) で作業するときのガイド。正本は [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md)。
 
 ## 最初に読むもの

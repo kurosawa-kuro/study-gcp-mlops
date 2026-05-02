@@ -35,7 +35,7 @@ Phase-local guides:
 
 - Start in the target phase directory before running `make`.
 - Use `make help` first in each phase.
-- Command vocabulary and phase support matrix: [docs/Makefile.md](docs/Makefile.md).
+- Command vocabulary and phase support matrix: [docs/conventions/Makefile規約.md](docs/conventions/Makefile規約.md).
 
 Validation expectations:
 - Phase 1-2: usually `make test`.
@@ -58,7 +58,8 @@ Canonical references:
 - [docs/01_仕様と設計.md](docs/01_仕様と設計.md)
 - [docs/03_実装カタログ.md](docs/03_実装カタログ.md)
 - [docs/04_運用.md](docs/04_運用.md)
-- [docs/05_Docker配置規約.md](docs/05_Docker配置規約.md)
+- [docs/conventions/Docker配置規約.md](docs/conventions/Docker配置規約.md)
+- [docs/conventions/README.md](docs/conventions/README.md) — 規約・配置・命名 5 ファイルの索引
 
 ## Cross-Phase Architecture Snapshot
 

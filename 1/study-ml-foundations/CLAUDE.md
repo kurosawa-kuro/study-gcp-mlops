@@ -1,12 +1,17 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Phase 1 (`study-ml-foundations`) で作業する Claude Code 向けガイド。MLOps 教育用のカリフォルニア住宅価格予測 ML パイプライン (**Phase 1: ML 基礎**)。LightGBM + Docker Compose でローカル完結。
+
+## 最初に読むもの
+
+1. [docs/TASKS.md](docs/TASKS.md) — current sprint
+2. [docs/02_移行ロードマップ.md](docs/02_移行ロードマップ.md) — 決定的仕様 (権威 1 位)
+3. [docs/01_仕様と設計.md](docs/01_仕様と設計.md) — 機能仕様 + 設計
+4. [docs/04_運用.md](docs/04_運用.md) — 運用 / Scripts / Docker / Configuration / Testing 詳細
 
 ## Project Overview
 
-MLOps 教育用のカリフォルニア住宅価格予測 ML パイプライン（**Phase 1: ML 基礎**）。LightGBM + Docker Compose でローカル完結する構成。
-
-Phase 1 は **ML コア（データ取得 → 前処理 → 特徴量エンジニアリング → 学習 → 評価 → 保存）** に集中する。API や設計パターンは扱わない。
+Phase 1 は **ML コア (データ取得 → 前処理 → 特徴量エンジニアリング → 学習 → 評価 → 保存)** に集中する。API や設計パターンは扱わない。
 
 ## Architecture
 
@@ -21,20 +26,21 @@ PostgreSQL (docker-compose: postgres サービス / volume: postgres_data)
 ```
 
 **Key design decisions:**
+
 - **Docker 前提** — seed / train は `docker compose` 経由で実行。DB も同じ network 上の `postgres` サービスを使用
-- **パッケージ間の責務分離**: pipeline(データ取得+オーケストレーション) / ml/training(学習) / ml/evaluation(評価+metrics.json) / ml/data(前処理+特徴量) / ml/common(共通)
+- **パッケージ間の責務分離**: pipeline (データ取得+オーケストレーション) / ml/training (学習) / ml/evaluation (評価+metrics.json) / ml/data (前処理+特徴量) / ml/common (共通)
 - **Repository pattern** — `PostgresRepository` (SQLAlchemy + psycopg)、`DATA_SOURCE` env var で切り替え
 - **No scikit-learn for metrics** — RMSE, R² は numpy で自前実装 (`ml/evaluation/metrics/regression.py`)
 - **メトリクス管理** — RMSE / R² を `ml/registry/artifacts/{run_id}/metrics.json` に保存
 - **Run ID** — `YYYYMMDD_HHMMSS_{6桁UUID}` でモデルにバージョン付与。`ml/registry/artifacts/latest` シンボリックリンクで最新を参照
 - **構造化ロギング** — `ml/common/logging/logger.py` の `get_logger()` で統一。全モジュール `logger.info()` を使用
-- **エラーハンドリング** — pipeline/training_job/main.py でデータ取得・学習の各ステップを try-except で保護
+- **エラーハンドリング** — `pipeline/training_job/main.py` でデータ取得・学習の各ステップを try-except で保護
 - **Makefile → scripts/ に委譲** — `scripts/core.py` に共通設定を集約
 
 ## Source Layout
 
 ```
-pipeline/             ジョブ entrypoint（データ取得 + 学習 + 評価）
+pipeline/             ジョブ entrypoint (データ取得 + 学習 + 評価)
 ├── data_job/main.py        sklearn → PostgreSQL 投入
 ├── training_job/main.py    LightGBM 学習
 └── evaluation_job/main.py  評価単発
@@ -51,7 +57,9 @@ tests/
 infra/run/jobs/trainer/Dockerfile   seed / trainer イメージ
 ```
 
-## Commands
+## Commands (要点)
+
+詳細は [docs/04_運用.md](docs/04_運用.md) (Scripts / Docker サービス / Configuration / Dependencies / Testing)。
 
 ```bash
 make build          # Docker イメージビルド
@@ -61,82 +69,18 @@ make test           # pytest 全テスト実行 (ローカル)
 make run-all        # build → seed → train → test (monitor 付き)
 make down           # Docker Compose 停止
 make clean          # Docker 停止 + 生成ファイル削除
-
-# 単体テスト指定
-python scripts/local/ops/test.py -k test_train
 ```
 
 推論 API / `serve` は Phase 2 (`2/study-ml-app-pipeline/`) に移管済み。
 
-## Scripts
+## 不変ルール
 
-```
-scripts/
-├── core.py          共通設定 (credential 読み込み, compose 実行, step関数)
-└── local/
-    ├── setup/
-    │   ├── seed.py     docker compose run --rm seed
-    │   └── train.py    docker compose run --rm trainer
-    └── ops/
-        ├── test.py     pytest (ローカル)
-        └── clean.py    Docker down + ファイル削除
-```
+- 題材は California Housing 回帰
+- 学習器は LightGBM 回帰
+- 評価は RMSE / R²
+- 成果物は `run_id` / `model.lgb` / `metrics.json` を残す
+- API や設計パターンは持ち込まない (Phase 2 以降)
 
-## Docker
+## 権威順位
 
-| サービス | Image / Dockerfile | ポート | 用途 |
-|---|---|---|---|
-| postgres | postgres:16 | 5432 | データ永続化 (volume: `postgres_data`) |
-| seed | `infra/run/jobs/trainer/Dockerfile` | — | PostgreSQL データ投入 (run して終了) |
-| trainer | `infra/run/jobs/trainer/Dockerfile` | — | 学習 (seed 完了後に実行) |
-
-## Configuration
-
-設定は用途別に 2 ファイルへ分離（どちらも YAML で統一）:
-
-| ファイル | 内容 | git 管理 |
-|---|---|---|
-| `env/config/setting.yaml` | 非クレデンシャル（DB ホスト・ポート・DB 名・モデルパス等） | track |
-| `env/secret/credential.yaml` | クレデンシャル（postgres_password） | **gitignore** (`env/secret/` ごと) |
-
-`ml/common/config/base.py::BaseAppSettings` が pydantic-settings の YamlConfigSettingsSource を 2 本積んで両方をロード。優先度: **環境変数 > credential.yaml > setting.yaml > コード既定値**。
-
-**docker-compose 連携**: postgres コンテナ（公式イメージ）は env var で `POSTGRES_PASSWORD` を要求するため、`scripts/core.py::load_credentials` が起動前に credential.yaml を読み取り `POSTGRES_PASSWORD` を process env に設定し、compose の `${POSTGRES_PASSWORD}` 補間で注入する。Python 側のコンテナは `./env/secret` を read-only volume でマウントし、BaseAppSettings が直接 YAML を読む。
-
-### setting.yaml の主なキー
-
-| キー | 用途 | 既定値 |
-|---|---|---|
-| `data_source` | データソース種別 | `postgres` |
-| `postgres_host` | PostgreSQL ホスト | `postgres` (compose サービス名) |
-| `postgres_port` | PostgreSQL ポート | `5432` |
-| `postgres_db` | DB 名 | `mlpipeline` |
-| `postgres_user` | DB ユーザー | `admin` |
-| `model_dir` | モデル出力先 | `ml/registry/artifacts` |
-
-### credential.yaml の主なキー
-
-| キー | 用途 |
-|---|---|
-| `postgres_password` | PostgreSQL パスワード |
-
-## Dependencies
-
-lightgbm, pandas, numpy, scikit-learn (データ取得のみ), pydantic-settings, sqlalchemy, psycopg[binary]
-
-テスト用 (ローカル pytest): `testcontainers[postgres]` (一時 PostgreSQL をテスト中に起動)。未インストール時は DB 依存テストが skip される。
-
-## Testing
-
-pytest + `pyproject.toml` で設定。`pythonpath = ["."]`, `testpaths = ["tests"]`。
-
-```
-tests/
-├── conftest.py              共通フィクスチャ (sample_df, postgres_url, sample_db)
-├── unit/ml/
-│   ├── test_evaluation.py   RMSE, R², save_metrics
-│   ├── test_trainer.py      LightGBM 学習 + run ID + symlink
-│   └── test_preprocess.py   前処理
-└── integration/
-    └── test_pipeline.py     Settings, PostgresRepository (testcontainers)
-```
+`docs/02_移行ロードマップ.md > docs/TASKS.md > docs/01_仕様と設計.md > README.md > CLAUDE.md`

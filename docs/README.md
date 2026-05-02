@@ -6,15 +6,15 @@
 
 ## まず読むファイル
 
-- `conventions.md`
-  - フォルダ名・ファイル名・役割の共通規約
-- `フォルダ-ファイル.md`
-  - Phase 1-7 を 1 枚で見る構造索引
-- `05_Docker配置規約.md`  
-  - Dockerfile / compose 関連の共通ルール
-- `05_問題点.md`  
+- [`conventions/`](conventions/README.md) — 規約・配置・命名の正本セット (5 ファイル + 索引 README)
+  - `conventions/命名規約.md` — フォルダ名・ファイル名・役割の共通規約
+  - `conventions/フォルダ-ファイル.md` — Phase 1-7 を 1 枚で見る構造索引
+  - `conventions/スクリプト規約.md` — scripts 命名標準
+  - `conventions/Makefile規約.md` — Make Command Matrix (auto-generated)
+  - `conventions/Docker配置規約.md` — Dockerfile / compose 関連の共通ルール
+- `05_問題点.md`
   - 全体課題メモ
-- `archive/README.md`  
+- `archive/README.md`
   - 過去ログの退避方針
 - `phases/README.md`
   - Phase 1〜5 の docs 入口（phase サブフォルダ）
@@ -28,5 +28,5 @@
 
 ## 補助資料
 
-- `フォルダ-ファイル.md` — Phase 1-7 構造索引 + 各要素の役割と実装形態 (旧 `パイプラインとジョブ.md` を統合)
-- `archive/パイプラインとジョブ.md` — 旧版 (2026-04-26 archived、`フォルダ-ファイル.md` の前身)
+- [`conventions/フォルダ-ファイル.md`](conventions/フォルダ-ファイル.md) — Phase 1-7 構造索引 + 各要素の役割と実装形態 (旧 `パイプラインとジョブ.md` を統合)
+- `archive/パイプラインとジョブ.md` — 旧版 (2026-04-26 archived、`conventions/フォルダ-ファイル.md` の前身)

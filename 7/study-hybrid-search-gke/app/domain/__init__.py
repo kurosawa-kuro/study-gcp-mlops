@@ -6,7 +6,7 @@ schemas (`app/schemas/`) so the service layer can be exercised without HTTP
 detail. ``app/services/protocols/`` Ports reference these domain types in
 their signatures.
 
-Per [`docs/フォルダ-ファイル.md`](../../../docs/フォルダ-ファイル.md): keep
+Per [`docs/conventions/フォルダ-ファイル.md`](../../../docs/conventions/フォルダ-ファイル.md): keep
 domain models inside ``app/domain/`` rather than co-locating them with Ports
 or schemas. Phase 7 design priority is **DI > Port-Adapter > Clean > Domain**
 so we deliberately keep this lean — no Value Objects (Rent/Area/Address),
