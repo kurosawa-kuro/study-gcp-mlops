@@ -128,6 +128,40 @@ Composer DAG smoke の現状:
 - [ ] KFP 2.16 互換 issue の根本対処
 - [ ] `tests/integration/parity/*` の live 実行
 
+### 4.9 VVS 永続化アーキテクチャ — MVP 完了 / 拡張は別 sprint (W2-10)
+
+**背景**: Vertex Vector Search の課金構造は非対称。Index 自体と空の Index Endpoint は **無料** (公式: "Models that are not deployed or have failed to deploy are not charged.")、課金されるのは `deployed_index` (replica 起動状態) のみ。Index build に 5-15 min、Endpoint 作成 + DNS propagation に数分かかるため、PDCA cycle ごとに作り直すと deploy-all 全体の短縮効果が消える。
+
+#### MVP (実装済 ✅、2026-05-03)
+
+シナリオ A の MVP として、現単一 stack 内で同等の動作を実現:
+
+- [`infra/terraform/modules/vector_search/main.tf`](../../infra/terraform/modules/vector_search/main.tf): `google_vertex_ai_index` と `google_vertex_ai_index_endpoint` に `lifecycle { prevent_destroy = true }`。`google_vertex_ai_index_endpoint_deployed_index` (= 課金 resource) は永続化対象外
+- [`scripts/setup/destroy_all.py`](../../scripts/setup/destroy_all.py): `PERSISTENT_VVS_RESOURCES` 定数 + step [6/6] で `state_list` 全 addr から persistent prefix を除外して `-target` 指定で destroy
+- [`tests/integration/workflow/test_destroy_all_contract.py::test_destroy_all_persists_vvs_index_and_endpoint`](../../tests/integration/workflow/test_destroy_all_contract.py): 永続化契約を offline で pin
+- [`docs/runbook/05_運用.md §1.4`](../runbook/05_運用.md): 「残るもの」に Index / Endpoint を追加、deploy-all 短縮効果 (27 min → 10-15 min) を明記
+
+期待効果:
+
+| シナリオ | 従来 | 新 |
+|---|---|---|
+| 初回 deploy-all | 27-30 min | 27-30 min (Index build 込み) |
+| 2 回目以降 deploy-all | 27-30 min | **10-15 min** (deployed_index attach のみ) |
+| 維持コスト (放置時) | replica 課金 ¥1,460/日 | **¥0/月** (Index/Endpoint は無料) |
+
+#### 残タスク (Wave 2 / Wave 3 跨ぎ)
+
+- [ ] **Stage 3.7 = live verify** (今 sprint の最終ゲート、§4.0 と重複): `make destroy-all` 実行で、(1) Index / Endpoint が state にも GCP にも残る (2) deployed_index は destroy される (3) 次回 deploy-all で deployed_index のみ create されて時間短縮
+- [ ] **Stack 分離 (別 sprint、PR 1-3 相当)**: `infra/terraform/stacks/{persistent,vector_search,core}/` に分離し、`terraform_remote_state` で接続。core stack の destroy で deployed_index のみ消える設計が完成。MVP との違いは「stack 単位で operation 境界が明示」「persistent / vector_search の prevent_destroy が Terraform 側にも構造化される」点
+- [ ] **Cloud Scheduler 自動 undeploy (別 sprint、PR 4 相当)**: deployed_index 残置による課金事故防止。4h timeout で強制 undeploy する Cloud Scheduler job
+- [ ] **Billing Budget Alert (別 sprint、PR 5 相当)**: 日次 ¥3,000 閾値で notification、加えて監視ダッシュボード
+
+破綻条件 (注意):
+- Embedding model のバージョン変更 (次元 / 分布変更) → Index 再 build 必要 (27 min の出戻り)
+- Vector Search の major upgrade → 構造変更で移行作業発生
+- 数ヶ月放置時の Google 側 GC (公式に未明記、念の為 monthly health check 推奨)
+- **deployed_index 残置が最大リスク** (1 replica = ¥1,460/日 = ¥44,000/月) → Cloud Scheduler 自動 undeploy が後続 sprint で必須
+
 ---
 
 ## 5. Wave 3 — docs / reference architecture との整合 (確認のみ)

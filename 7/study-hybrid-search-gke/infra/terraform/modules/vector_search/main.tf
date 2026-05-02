@@ -54,7 +54,7 @@ resource "google_vertex_ai_index" "property_embeddings" {
 
   labels = var.labels
 
-  # 永続化契約 (2026-05-03 追加、`docs/tasks/Vertex Vector Search時間短縮.md`):
+  # 永続化契約 (2026-05-03 追加、`docs/tasks/TASKS_ROADMAP.md §4.9`):
   # **Index 自体は undeployed なら課金されない** (公式: "Models that are not
   # deployed or have failed to deploy are not charged.")。一方 build に
   # 5-15 min かかるため、PDCA 1 cycle ごとに作り直すと deploy-all 全体が

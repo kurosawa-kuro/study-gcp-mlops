@@ -125,7 +125,7 @@ def test_recover_wif_handles_soft_delete_undelete() -> None:
 
 
 def test_destroy_all_persists_vvs_index_and_endpoint() -> None:
-    """**VVS 永続化契約** (2026-05-03 追加、`docs/tasks/Vertex Vector Search時間短縮.md`):
+    """**VVS 永続化契約** (2026-05-03 追加、`docs/tasks/TASKS_ROADMAP.md §4.9`):
     Vertex Vector Search の Index と Index Endpoint は **無料で残せる** (replica 0
     の Endpoint と未 deploy の Index は課金されない)。Index build に 5-15 min、
     Endpoint 作成に数分 + DNS propagation がかかるため、PDCA cycle ごとに作り

@@ -92,7 +92,7 @@ PROTECTED_TARGETS = [
 # `helm_release.<name>` / `kubernetes_*` を追加した時の取りこぼしを防ぐ。
 KSERVE_MODULE_TARGET = "module.kserve"
 
-# 永続化対象 (`docs/tasks/Vertex Vector Search時間短縮.md` 採用、2026-05-03)。
+# 永続化対象 (`docs/tasks/TASKS_ROADMAP.md §4.9` 採用、2026-05-03)。
 #
 # Vertex Vector Search の課金構造は非対称: **Index 自体 / 空の Index Endpoint
 # は無料**、deployed_index (replica 起動状態) のみ課金。Index build には
