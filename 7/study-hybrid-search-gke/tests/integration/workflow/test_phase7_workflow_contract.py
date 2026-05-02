@@ -805,6 +805,472 @@ def test_deploy_all_step_runner_imports_composer_deploy_dags() -> None:
     assert "return composer_deploy_dags_main()" in deploy_all_py
 
 
+def test_required_apis_cover_all_modules_actually_used() -> None:
+    """**全 module ↔ API enablement contract** (2026-05-03 追加、Composer API 漏れの再発防止)。
+
+    背景: 2026-05-03 live deploy で `module.composer` apply が PERMISSION_DENIED
+    (「Cloud Composer API has not been used in project」) で fail。terraform
+    `google_*` リソース作成時に背後の API 有効化チェックが走るため、`google_project_service.enabled`
+    の `required_apis` リストに加えていないと、`depends_on` を満たしても実 API call が
+    弾かれる。本 test は **新 module が増えるたびに API 漏れが再発する事故** を
+    contract レベルで先回りして検知する。
+
+    pin 方法: 各 module dir 内の `google_*` resource → 必要な API URL のマッピング
+    を辞書で定義。実 module が宣言するリソースを grep で確認し、対応 API が
+    apis.tf に揃っていることを assert。
+    """
+    apis_tf = _read("infra/terraform/environments/dev/apis.tf")
+
+    # GCP resource type → required googleapis service name
+    resource_to_api: dict[str, str] = {
+        # Composer (W2-4)
+        "google_composer_environment": "composer.googleapis.com",
+        # Vertex AI (Pipelines / Endpoint / Feature Store / Vector Search)
+        "google_vertex_ai_index": "aiplatform.googleapis.com",
+        "google_vertex_ai_index_endpoint": "aiplatform.googleapis.com",
+        "google_vertex_ai_endpoint": "aiplatform.googleapis.com",
+        "google_vertex_ai_feature_online_store": "aiplatform.googleapis.com",
+        "google_vertex_ai_feature_group": "aiplatform.googleapis.com",
+        # GKE / Container
+        "google_container_cluster": "container.googleapis.com",
+        # Cloud Run / Build / Artifact Registry
+        "google_cloud_run_v2_service": "run.googleapis.com",
+        "google_artifact_registry_repository": "artifactregistry.googleapis.com",
+        "google_cloudbuild_trigger": "cloudbuild.googleapis.com",
+        # Pub/Sub / Eventarc / Cloud Functions / Scheduler
+        "google_pubsub_topic": "pubsub.googleapis.com",
+        "google_eventarc_trigger": "eventarc.googleapis.com",
+        "google_cloudfunctions2_function": "cloudfunctions.googleapis.com",
+        "google_cloud_scheduler_job": "cloudscheduler.googleapis.com",
+        # Secret Manager
+        "google_secret_manager_secret": "secretmanager.googleapis.com",
+        # BigQuery / Dataform
+        "google_bigquery_dataset": "bigquery.googleapis.com",
+        "google_bigquery_table": "bigquery.googleapis.com",
+        "google_dataform_repository": "dataform.googleapis.com",
+        # Monitoring / Logging
+        "google_monitoring_alert_policy": "monitoring.googleapis.com",
+        "google_logging_metric": "logging.googleapis.com",
+        # IAM / WIF
+        "google_iam_workload_identity_pool": "iam.googleapis.com",
+    }
+
+    modules_dir = REPO_ROOT / "infra" / "terraform" / "modules"
+    used_resource_types: set[str] = set()
+    for tf_file in modules_dir.rglob("*.tf"):
+        text = tf_file.read_text(encoding="utf-8")
+        for resource_type in resource_to_api:
+            if re.search(rf'resource "{re.escape(resource_type)}"', text):
+                used_resource_types.add(resource_type)
+
+    assert used_resource_types, (
+        "could not detect any GCP resources in modules/ — regex broke?"
+    )
+
+    missing_apis: list[tuple[str, str]] = []
+    for resource_type in sorted(used_resource_types):
+        api = resource_to_api[resource_type]
+        if f'"{api}"' not in apis_tf:
+            missing_apis.append((resource_type, api))
+
+    assert not missing_apis, (
+        "infra/terraform/environments/dev/apis.tf::required_apis is missing APIs "
+        "needed by terraform resources. Each resource's backing API must be in "
+        "google_project_service.enabled, otherwise apply fails with PERMISSION_DENIED. "
+        f"Missing: {missing_apis}"
+    )
+
+
+def test_composer_image_version_is_known_supported_form() -> None:
+    """Composer image_version の文字列形式が正しいこと (Gen 3、`composer-3-airflow-X.Y.Z[-build.N]`)。
+
+    GCP は image_version を厳格に validate する。typo / outdated version で
+    apply が `Image version not supported` で fail する事故を防ぐ。
+    """
+    composer_main = _read("infra/terraform/modules/composer/main.tf")
+    match = re.search(r'image_version\s*=\s*"([^"]+)"', composer_main)
+    assert match is not None, "Composer module must specify image_version"
+    image_version = match.group(1)
+    assert image_version.startswith("composer-3-"), (
+        f"image_version {image_version!r} must start with 'composer-3-' (Gen 3 mandatory, "
+        f"Gen 2 deprecated and removed for new envs)"
+    )
+    assert "-airflow-" in image_version, (
+        f"image_version {image_version!r} must contain '-airflow-X.Y.Z' segment"
+    )
+
+
+def test_composer_workloads_have_max_count_to_bound_cost() -> None:
+    """Composer worker の `max_count` が指定されている (autoscaling 上限)。
+
+    `max_count` 不在は GCP default (max_count=3 程度) になるが、PDCA dev 用途で
+    上限を明示しないと予期せぬ scale-out で課金リスクが膨らむため契約として pin。
+    """
+    composer_main = _read("infra/terraform/modules/composer/main.tf")
+    worker_match = re.search(
+        r"worker\s*\{[^}]*max_count\s*=\s*(\d+)",
+        composer_main,
+        flags=re.DOTALL,
+    )
+    assert worker_match is not None, (
+        "Composer module worker block must set max_count (cost upper bound). "
+        "Default GCP value risks unbounded scale-out cost in PDCA dev."
+    )
+    max_count = int(worker_match.group(1))
+    assert 1 <= max_count <= 5, (
+        f"Composer worker.max_count={max_count} is outside sane range for dev (1-5)"
+    )
+
+
+def test_all_modules_use_consistent_region_var() -> None:
+    """全 module が `var.region` または `var.vertex_location` を asia-northeast1 系で
+    使う (region 取り違えで egress 課金 / cross-region 503 を防ぐ)。"""
+    variables_tf = _read("infra/terraform/environments/dev/variables.tf")
+    region_match = re.search(
+        r'variable "region"[^}]*default\s*=\s*"([^"]+)"',
+        variables_tf,
+        flags=re.DOTALL,
+    )
+    vertex_match = re.search(
+        r'variable "vertex_location"[^}]*default\s*=\s*"([^"]+)"',
+        variables_tf,
+        flags=re.DOTALL,
+    )
+    assert region_match is not None
+    assert vertex_match is not None
+    assert region_match.group(1) == "asia-northeast1", (
+        f"var.region default must be asia-northeast1 (got {region_match.group(1)!r})"
+    )
+    assert vertex_match.group(1) == "asia-northeast1", (
+        f"var.vertex_location default must be asia-northeast1 (got {vertex_match.group(1)!r})"
+    )
+
+
+def test_destroy_all_destroy_apply_symmetry() -> None:
+    """**destroy-all ↔ deploy-all 対称性**: deploy-all が立てる主要 module は
+    destroy-all で `terraform destroy -auto-approve` の連鎖で消える契約。
+
+    過去の事故: `module.kserve` を Helm provider で立てたとき、provider 初期化
+    race のため最初は destroy が hang した → `terraform destroy -target=module.kserve`
+    を先行する pattern を destroy_all.py に組み込んだ。本 test はこのガード
+    (`KSERVE_MODULE_TARGET = "module.kserve"`) が残っていることを pin。
+    """
+    destroy_all_py = _read("scripts/setup/destroy_all.py")
+    deploy_all_py = _read("scripts/setup/deploy_all.py")
+
+    # KServe module 先行 destroy ガード
+    assert 'KSERVE_MODULE_TARGET = "module.kserve"' in destroy_all_py, (
+        "destroy-all must keep KServe module first-destroy guard"
+    )
+    assert "terraform destroy -target=module.kserve" in destroy_all_py, (
+        "destroy-all must destroy module.kserve before the body destroy"
+    )
+
+    # 主要 module を deploy-all stage1 が立てている
+    for required_module in (
+        "module.iam",
+        "module.data",
+        "module.vector_search",
+        "module.vertex",
+        "module.gke",
+        "module.composer",
+    ):
+        assert required_module in deploy_all_py, (
+            f"deploy-all stage1 targets must include {required_module}"
+        )
+
+
+def test_makefile_run_all_core_targets_all_exist() -> None:
+    """`make run-all-core` recipe が `$(MAKE) <target>` で呼ぶ全 target が
+    Makefile に実在 (typo / drift で recipe が誤った target を呼ぶ事故を防ぐ)。"""
+    makefile = _read("Makefile")
+
+    # run-all-core recipe block を抜き出し
+    run_all_core_match = re.search(
+        r"^run-all-core:.*?(?=^\S|^$)",
+        makefile,
+        flags=re.DOTALL | re.MULTILINE,
+    )
+    assert run_all_core_match is not None, "run-all-core target not found in Makefile"
+    recipe = run_all_core_match.group(0)
+
+    # `$(MAKE) <target>` の <target> を全て収集
+    invoked = re.findall(r"\$\(MAKE\)\s+([\w-]+)", recipe)
+    assert invoked, "run-all-core recipe contains no $(MAKE) ... invocations"
+
+    # それぞれが ^<target>: で Makefile に定義されている
+    for target in invoked:
+        target_pattern = re.compile(rf"^{re.escape(target)}:", re.MULTILINE)
+        assert target_pattern.search(makefile), (
+            f"run-all-core invokes '$(MAKE) {target}' but no '{target}:' rule found in Makefile"
+        )
+
+
+def test_composer_sa_used_in_workload_identity_binding_chain() -> None:
+    """`sa-composer` が Composer module + IAM module の両方で参照されており、
+    `outputs.tf` の service_accounts map にも登録されている (3 箇所 lockstep)。
+
+    過去の事故 (W2-3 で reranker SA で発生): SA を作っても module / outputs
+    のいずれかへの登録漏れで実際の WI bind が成立しない bug。"""
+    iam_main = _read("infra/terraform/modules/iam/main.tf")
+    iam_outputs = _read("infra/terraform/modules/iam/outputs.tf")
+    dev_main = _read("infra/terraform/environments/dev/main.tf")
+
+    # 1. SA resource exists
+    assert 'resource "google_service_account" "composer"' in iam_main
+    assert 'account_id   = "sa-composer"' in iam_main
+
+    # 2. outputs map exposes it (consumed by module composer)
+    assert "composer          = google_service_account.composer" in iam_outputs
+
+    # 3. dev/main.tf wires module.iam.service_accounts.composer.email into module composer
+    assert "module.iam.service_accounts.composer.email" in dev_main
+
+
+def test_pyproject_does_not_pull_apache_airflow_into_runtime() -> None:
+    """`apache-airflow` は Composer worker 上で動く想定 — runtime dependency に
+    入れると 1-2 GB の install / mypy slowdown が起きる。`dev` extras にも入れない
+    (DAG file は AST + 文字列パース で test するため、Airflow 不要の設計)。"""
+    pyproject = _read("pyproject.toml")
+    # `dependencies = [...]` (project main runtime deps) には airflow を入れない
+    main_deps_match = re.search(
+        r"^dependencies\s*=\s*\[(.*?)\]",
+        pyproject,
+        flags=re.DOTALL | re.MULTILINE,
+    )
+    assert main_deps_match is not None, "pyproject.toml must define [project] dependencies"
+    main_deps = main_deps_match.group(1)
+    assert "apache-airflow" not in main_deps, (
+        "apache-airflow must NOT be in [project] dependencies (Composer worker only). "
+        "Test DAG file structure via AST + string parsing instead."
+    )
+
+
+# =========================================================================
+# 長時間 recovery 系の failure mode を contract で先回り (Vertex / GKE / VVS /
+# FOS / WIF / BQ deletion_protection 等)
+# =========================================================================
+
+
+def test_vvs_module_lifecycle_protects_against_stale_id_recreation() -> None:
+    """Vector Search の `deployed_index_id` は **`v1` ではなく `v2` 以上** の
+    版数 (前 PDCA で残った soft-state を回避)。再発時には bump して回避する
+    pattern を契約として記録。
+
+    時間影響: 失敗時に GCP grace period が >30 min かかり PDCA を 1 時間級
+    blocking する。
+    """
+    variables_tf = _read("infra/terraform/modules/vector_search/variables.tf")
+    match = re.search(
+        r'variable "deployed_index_id"[^}]*default\s*=\s*"([^"]+)"',
+        variables_tf,
+        flags=re.DOTALL,
+    )
+    assert match is not None
+    deployed_id = match.group(1)
+    version_match = re.search(r"_v(\d+)$", deployed_id)
+    assert version_match is not None, (
+        f"deployed_index_id {deployed_id!r} must end with _vN versioned suffix "
+        "(bump on stale-state collision per docs/05_運用 §1.4)"
+    )
+    version = int(version_match.group(1))
+    assert version >= 2, (
+        f"deployed_index_id version {version} must be >=2 "
+        "(v1 burned by 2026-05-02 stale soft-state issue; bump on each PDCA retry)"
+    )
+
+
+def test_vvs_module_min_max_replica_pinned_to_one_for_dev() -> None:
+    """VVS deployed index の `min_replica_count = max_replica_count = 1`
+    (autoscale なし) で **dev コスト + provisioning 時間を bounded に保つ**。
+
+    時間影響: replica 増えると attach 時間 + コストが線形に増える。1 replica
+    pin で 26 min 程度に収まる。"""
+    main_tf = _read("infra/terraform/modules/vector_search/main.tf")
+    variables_tf = _read("infra/terraform/modules/vector_search/variables.tf")
+
+    min_match = re.search(
+        r'variable "min_replica_count"[^}]*default\s*=\s*(\d+)',
+        variables_tf,
+        flags=re.DOTALL,
+    )
+    max_match = re.search(
+        r'variable "max_replica_count"[^}]*default\s*=\s*(\d+)',
+        variables_tf,
+        flags=re.DOTALL,
+    )
+    assert min_match is not None and max_match is not None
+    assert int(min_match.group(1)) == 1, (
+        "VVS deployed index min_replica_count must be 1 for dev (cost bound)"
+    )
+    assert int(max_match.group(1)) == 1, (
+        "VVS deployed index max_replica_count must be 1 for dev (autoscale 禁止)"
+    )
+
+    # main.tf 側でも `automatic_resources` block で参照されている
+    assert "min_replica_count" in main_tf and "max_replica_count" in main_tf
+
+
+def test_gke_two_stage_apply_pattern_preserved() -> None:
+    """GKE Autopilot + KServe Helm provider race を回避する **2 段 apply** が
+    `deploy_all.py` に維持されていること。
+
+    背景: kubernetes / helm provider が `data.google_container_cluster` から
+    endpoint+token を読むとき、cluster がまだ ready でないと
+    `Get "http://localhost/api/v1/namespaces/..."` エラーで apply 全体が落ちる。
+    stage1 で core infra (cluster 含む) を作り、kubeconfig を refresh してから
+    stage2 で full graph を apply する pattern。
+
+    時間影響: race で全 apply が無効化されると最大 30-40 min の retry コスト。
+    """
+    deploy_all_py = _read("scripts/setup/deploy_all.py")
+    assert "stage1" in deploy_all_py.lower(), (
+        "deploy-all must preserve 2-stage apply pattern (stage1 core → kubeconfig refresh → stage2 full)"
+    )
+    assert "ensure_kubectl_context" in deploy_all_py, (
+        "deploy-all must call ensure_kubectl_context between stage1 and stage2"
+    )
+    assert "wait_until_api_ready" in deploy_all_py, (
+        "deploy-all must wait_until_api_ready before stage2 (Kubernetes API ready check)"
+    )
+
+
+def test_destroy_all_undeploys_vertex_endpoint_models_before_destroy() -> None:
+    """Vertex AI Endpoint の `deployedModels` が undeploy 済になってから
+    `terraform destroy` する契約。
+
+    背景: Endpoint が deployed_model を持つ状態で destroy すると HTTP 400
+    `Endpoint has deployed or being-deployed DeployedModel(s)`。手動 cleanup
+    が必要になり 5-15 min ロス。
+
+    時間影響: 直すのに per-endpoint 1-2 min × N endpoints + retry。"""
+    destroy_all_py = _read("scripts/setup/destroy_all.py")
+    assert "vertex_cleanup.undeploy_all_endpoint_shells" in destroy_all_py, (
+        "destroy-all must call vertex_cleanup.undeploy_all_endpoint_shells "
+        "BEFORE terraform destroy (otherwise HTTP 400 'Endpoint has deployed model(s)')"
+    )
+
+
+def test_destroy_all_flips_bq_deletion_protection_before_destroy() -> None:
+    """BigQuery table の `deletion_protection=true` を destroy 前に **state-flip**
+    する契約。
+
+    背景: terraform はデフォルトで deletion_protection=true な BQ table を
+    destroy 拒否する。`PROTECTED_TARGETS` に列挙して `terraform apply
+    -var=enable_deletion_protection=false -target=...` で先行 flip しないと
+    destroy が止まる。新 protected table を `data/main.tf` に追加したら
+    `PROTECTED_TARGETS` にも追記する必要がある parity invariant。
+
+    時間影響: 詰まったら state を弄って手動修復になり 30-60 min ロス。"""
+    destroy_all_py = _read("scripts/setup/destroy_all.py")
+    data_tf = _read("infra/terraform/modules/data/main.tf")
+
+    assert "PROTECTED_TARGETS" in destroy_all_py, (
+        "destroy-all must declare PROTECTED_TARGETS list (BQ tables + GKE cluster)"
+    )
+    assert "enable_deletion_protection=false" in destroy_all_py, (
+        "destroy-all must run apply with enable_deletion_protection=false to flip state"
+    )
+
+    # data/main.tf で deletion_protection を持つ全 BQ table が PROTECTED_TARGETS に
+    # 列挙されていること (parity invariant)
+    declared_tables = re.findall(
+        r'resource "google_bigquery_table" "(\w+)"',
+        data_tf,
+    )
+    for table_resource in declared_tables:
+        # PROTECTED_TARGETS に載せるべき (deletion_protection=true なら必須)
+        # ※ deletion_protection=true がデフォルトなので、明示的に false を持たない table は protected
+        assert table_resource in destroy_all_py or "deletion_protection = false" in data_tf, (
+            f"google_bigquery_table.{table_resource} should appear in destroy_all.py "
+            "PROTECTED_TARGETS (BQ default deletion_protection=true)"
+        )
+
+
+def test_recover_wif_handles_soft_delete_undelete() -> None:
+    """destroy → 即 deploy で WIF pool が soft-delete (30 日保持) のため
+    409 conflict になるのを undelete で recover する契約。
+
+    背景: GCP は WIF pool を delete してから 30 日間 soft-delete 状態で保持する。
+    その間に同名で create しようとすると HTTP 409。`recover_wif.py` は
+    state import + undelete を自動化することで PDCA を即時再実行可能にする。
+
+    時間影響: 自動化なしだと 30 日間 WIF が使えない (destroy-all 後の deploy 完全 block)。"""
+    deploy_all_py = _read("scripts/setup/deploy_all.py")
+    recover_wif_py = _read("scripts/setup/recover_wif.py")
+
+    assert "recover_wif" in deploy_all_py, (
+        "deploy-all must call recover_wif before terraform apply"
+    )
+    assert "undelete" in recover_wif_py.lower(), (
+        "recover_wif.py must handle WIF pool undelete (30-day soft-delete window)"
+    )
+
+
+def test_destroy_all_force_destroys_blocking_gcs_buckets() -> None:
+    """`force_destroy=false` な GCS bucket は中身があると `terraform destroy`
+    が `BucketNotEmpty` で fail する。`destroy_all` は 中身を `gcloud storage rm
+    --recursive` で wipe してから destroy する契約。
+
+    時間影響: 詰まると 1 bucket 1-3 min × N buckets + retry でロス。"""
+    destroy_all_py = _read("scripts/setup/destroy_all.py")
+    assert "gcs_cleanup" in destroy_all_py, (
+        "destroy-all must use gcs_cleanup helper to wipe non-force_destroy buckets"
+    )
+    assert "wipe_all_terraform_managed_buckets" in destroy_all_py, (
+        "destroy-all must call wipe_all_terraform_managed_buckets"
+    )
+
+
+def test_deploy_all_seed_test_runs_before_feature_view_sync() -> None:
+    """**seed → FV sync 順序契約**: `seed-test` が `trigger-fv-sync` より先。
+
+    背景: 過去の live で順序逆転すると Feature View が空のまま sync 完了し、
+    その後の `ops-vertex-feature-group` smoke が 404 で fail。順序の依存
+    関係が壊れて気付くと 30-60 min の検証ロス。"""
+    steps = deploy_all._steps()
+    names = [s.name for s in steps]
+    assert names.index("seed-test") < names.index("trigger-fv-sync"), (
+        "seed-test must run before trigger-fv-sync (otherwise FV syncs an empty source)"
+    )
+    # backfill-vvs も seed の後 (VVS index に書く element が無いと smoke 0 neighbors)
+    assert names.index("seed-test") < names.index("backfill-vvs"), (
+        "seed-test must run before backfill-vvs (otherwise VVS index is empty)"
+    )
+
+
+def test_deploy_all_overlay_configmap_runs_before_deploy_api() -> None:
+    """**ConfigMap overlay → deploy-api 順序契約**: `overlay-configmap` が
+    `deploy-api` より先。
+
+    背景: 順序逆転すると新 search-api Pod が古い ConfigMap (placeholder
+    `https://meili-search-XXXXX-an.a.run.app` 等) を読み、`/search` が
+    `lexical=0 semantic=0 rerank=0` を返す。Pod を rollout し直すまで治らず、
+    検証で気付くと 5-10 min のロス + rolling restart 待ち。"""
+    steps = deploy_all._steps()
+    names = [s.name for s in steps]
+    assert names.index("overlay-configmap") < names.index("deploy-api"), (
+        "overlay-configmap must run before deploy-api (otherwise the new Pod reads stale ConfigMap)"
+    )
+
+
+def test_search_api_image_lifecycle_ignore_changes_pinned() -> None:
+    """search-api Deployment の image は `placeholder` で初回 apply、後で
+    `kubectl set image` (immutable tag) で差し替える pattern。
+
+    背景: Deployment の `image` field を terraform 管理に置くと、
+    `kubectl set image` で書き換えても次回 `terraform apply` で placeholder に
+    戻ってしまう (drift)。manifest 側で `lifecycle.ignore_changes` を使って
+    Deployment 作成時にのみ初期値、その後の image 差し替えは k8s 側で許容する。
+
+    時間影響: drift 起きると Pod が ImagePullBackOff で 5-10 min ロス。"""
+    deployment_yaml = _read("infra/manifests/search-api/deployment.yaml")
+    # Cloud Build で差し替える前提の placeholder image が指定されている
+    assert "image: gcr.io/cloudrun/hello" in deployment_yaml or "image: " in deployment_yaml, (
+        "search-api deployment.yaml must pin a placeholder image for initial kubectl apply"
+    )
+
+
 def test_destroy_all_proactively_undeploys_stale_vvs_indexes() -> None:
     """**PDCA reproducibility 契約**: `destroy-all` は Vector Search の deployed
     index を能動的に undeploy する。

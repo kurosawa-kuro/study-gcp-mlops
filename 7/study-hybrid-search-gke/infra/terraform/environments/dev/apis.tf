@@ -26,6 +26,10 @@ locals {
     "certificatemanager.googleapis.com",
     # Phase 6 PMLE: Dataflow streaming
     "dataflow.googleapis.com",
+    # Phase 7 W2-4: Cloud Composer (Managed Airflow Gen 3) — canonical
+    # orchestrator for daily_feature_refresh / retrain_orchestration /
+    # monitoring_validation 3 DAGs (docs/01 §3).
+    "composer.googleapis.com",
   ]
 }
 
