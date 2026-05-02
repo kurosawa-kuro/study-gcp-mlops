@@ -17,6 +17,14 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from app.composition_root import ContainerBuilder
+from app.services.noop_adapters import (
+    NoopDataCatalogReader,
+    NoopFeedbackRecorder,
+    NoopRankingLogPublisher,
+    NoopRetrainQueries,
+)
+from app.settings import ApiSettings
 from scripts.deploy import configmap_overlay
 from scripts.setup import deploy_all, destroy_all
 
@@ -105,6 +113,33 @@ def test_configmap_overlay_injects_live_vertex_outputs(monkeypatch) -> None:
     run_mock.assert_called_once()
 
 
+def test_local_boot_contract_does_not_require_adc_when_search_disabled(monkeypatch) -> None:
+    settings = ApiSettings(
+        project_id="mlops-test",
+        enable_search=False,
+        enable_rerank=False,
+    )
+
+    def _forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("local boot contract must not touch external GCP clients")
+
+    monkeypatch.setattr(ContainerBuilder, "_bigquery", _forbidden)
+    monkeypatch.setattr("app.container.infra.PubSubPublisher", _forbidden)
+    monkeypatch.setattr("app.container.infra.PubSubRankingLogPublisher", _forbidden)
+    monkeypatch.setattr("app.container.infra.PubSubFeedbackRecorder", _forbidden)
+
+    container = ContainerBuilder(settings).build()
+
+    assert container.candidate_retriever is None
+    assert container.encoder_client is None
+    assert container.feature_fetcher is None
+    assert container.retrain_trigger_publisher is None
+    assert isinstance(container.retrain_queries, NoopRetrainQueries)
+    assert isinstance(container.data_catalog_service._reader, NoopDataCatalogReader)
+    assert isinstance(container.ranking_log_publisher, NoopRankingLogPublisher)
+    assert isinstance(container.feedback_recorder, NoopFeedbackRecorder)
+
+
 def test_run_all_core_recipe_pins_canonical_validation_path() -> None:
     makefile = _read("Makefile")
     expected_lines = [
@@ -164,6 +199,7 @@ def test_canonical_docs_describe_workflow_contract_goals() -> None:
         "## 8. Workflow Contract が守るべきゴール",
         "G-W1. PDCA は `deploy-all -> run-all -> destroy-all` の 1 本線で完結する",
         "G-W4. canonical serving path を検証本線に含める",
+        "FastAPI boot / import / `/livez` 200 は ADC なし local でも成立する",
     ):
         assert required in spec, f"spec lost workflow contract requirement: {required}"
 

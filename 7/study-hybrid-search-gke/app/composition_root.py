@@ -144,7 +144,9 @@ class ContainerBuilder:
         # ``resolve_feature_fetcher`` returns None when the backend selection
         # or FOS endpoint config is missing; SearchService treats None as
         # "no fresh-feature augmentation" and uses BQ-enriched values verbatim.
-        feature_fetcher = search_builder.resolve_feature_fetcher()
+        feature_fetcher = (
+            search_builder.resolve_feature_fetcher() if settings.enable_search else None
+        )
 
         # Phase D-1 — service composition. Services are stateless wrappers
         # around the Ports above; constructed once at startup so handlers

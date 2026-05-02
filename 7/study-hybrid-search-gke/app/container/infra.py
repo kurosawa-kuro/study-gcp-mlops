@@ -16,7 +16,12 @@ from app.services.adapters import (
     PubSubPublisher,
     PubSubRankingLogPublisher,
 )
-from app.services.noop_adapters import NoopFeedbackRecorder, NoopRankingLogPublisher
+from app.services.noop_adapters import (
+    NoopDataCatalogReader,
+    NoopFeedbackRecorder,
+    NoopRankingLogPublisher,
+    NoopRetrainQueries,
+)
 from app.services.protocols import (
     DataCatalogReader,
     FeedbackRecorder,
@@ -56,6 +61,15 @@ class InfraBuilder:
         training_runs_table = (
             f"{settings.project_id}.{settings.bq_dataset_mlops}.{settings.bq_table_training_runs}"
         )
+        if not settings.enable_search:
+            return InfraComponents(
+                retrain_trigger_publisher=None,
+                retrain_queries=NoopRetrainQueries(),
+                data_catalog_reader=NoopDataCatalogReader(),
+                ranking_log_publisher=NoopRankingLogPublisher(),
+                feedback_recorder=NoopFeedbackRecorder(),
+                training_runs_table=training_runs_table,
+            )
         properties_table = (
             f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
             f"{settings.bq_table_properties_cleaned}"
@@ -90,6 +104,8 @@ class InfraBuilder:
 
     def build_retrain_publisher(self) -> PredictionPublisher | None:
         settings = self._settings
+        if not settings.enable_search:
+            return None
         messaging = settings.messaging
         if not messaging.retrain_topic:
             return None
@@ -97,6 +113,8 @@ class InfraBuilder:
 
     def build_ranking_log_publisher(self) -> RankingLogPublisher:
         settings = self._settings
+        if not settings.enable_search:
+            return NoopRankingLogPublisher()
         messaging = settings.messaging
         if not messaging.ranking_log_topic:
             return NoopRankingLogPublisher()
@@ -107,6 +125,8 @@ class InfraBuilder:
 
     def build_feedback_recorder(self) -> FeedbackRecorder:
         settings = self._settings
+        if not settings.enable_search:
+            return NoopFeedbackRecorder()
         messaging = settings.messaging
         if not messaging.feedback_topic:
             return NoopFeedbackRecorder()

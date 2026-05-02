@@ -16,12 +16,16 @@ longer accidentally import a Noop while believing they have a production
 adapter; the composition root selects each explicitly.
 """
 
+from .noop_data_catalog_reader import NoopDataCatalogReader
 from .noop_feedback_recorder import NoopFeedbackRecorder
 from .noop_lexical_search import NoopLexicalSearch
 from .noop_ranking_log_publisher import NoopRankingLogPublisher
+from .noop_retrain_queries import NoopRetrainQueries
 
 __all__ = [
+    "NoopDataCatalogReader",
     "NoopFeedbackRecorder",
     "NoopLexicalSearch",
     "NoopRankingLogPublisher",
+    "NoopRetrainQueries",
 ]
