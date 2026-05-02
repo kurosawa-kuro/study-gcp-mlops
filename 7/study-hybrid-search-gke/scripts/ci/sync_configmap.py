@@ -12,6 +12,12 @@ Why a generator instead of hand-editing:
 
 Pair with ``tests/integration/infra/test_configmap_drift.py`` which fails
 CI if the generator output drifts from the committed file.
+
+The actual ConfigMap schema (key list / defaults / YAML rendering) lives in
+``scripts/lib/config.py`` so that ``scripts/setup/deploy_all.py`` runtime
+overlay shares the same source. Phase 7 W2-5 saw a drift between this
+generator and the deploy_all overlay; consolidating into ``scripts/lib/``
+makes that class of bug structurally impossible.
 """
 
 from __future__ import annotations
@@ -19,6 +25,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts._common import DEFAULTS
+from scripts.lib.config import generate_configmap_data, render_configmap_yaml
 
 OUTPUT = (
     Path(__file__).resolve().parent.parent.parent
@@ -39,34 +46,12 @@ def render() -> str:
     if not project_id:
         raise SystemExit("env/config/setting.yaml is missing required key: project_id")
     models_bucket = f"{project_id}-models"
-    return (
-        "# AUTO-GENERATED from env/config/setting.yaml — do NOT edit by hand.\n"
-        "# Run `make sync-configmap` to regenerate after changing setting.yaml.\n"
-        "# `meili_base_url` is environment-specific (Cloud Run URL) — overlay\n"
-        "# the real value before `make apply-manifests`.\n"
-        "#\n"
-        "# Phase 7 Wave 2 W2-5: Vertex Vector Search / Feature Online Store の\n"
-        '# env vehicle を追加。default は空文字 / "bq" で暫定配線を維持し、\n'
-        "# live apply / smoke 後に canonical 1 経路へ収束させる。\n"
-        "apiVersion: v1\n"
-        "kind: ConfigMap\n"
-        "metadata:\n"
-        "  name: search-api-config\n"
-        "  namespace: search\n"
-        "data:\n"
-        f"  project_id: {project_id!r}\n".replace("'", '"')
-        + f"  models_bucket: {models_bucket!r}\n".replace("'", '"')
-        + f"  meili_base_url: {MEILI_BASE_URL_PLACEHOLDER!r}\n".replace("'", '"')
-        + "\n"
-        + '  semantic_backend: "bq"\n'
-        + '  vertex_vector_search_index_endpoint_id: ""\n'
-        + '  vertex_vector_search_deployed_index_id: ""\n'
-        + "\n"
-        + '  feature_fetcher_backend: "bq"\n'
-        + '  vertex_feature_online_store_id: ""\n'
-        + '  vertex_feature_view_id: ""\n'
-        + '  vertex_feature_online_store_endpoint: ""\n'
+    data = generate_configmap_data(
+        project_id=project_id,
+        models_bucket=models_bucket,
+        meili_base_url=MEILI_BASE_URL_PLACEHOLDER,
     )
+    return render_configmap_yaml(data, with_header=True)
 
 
 def main() -> int:

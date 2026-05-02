@@ -27,6 +27,7 @@ import time
 from pathlib import Path
 
 from scripts._common import env, gcloud, run, secret
+from scripts.lib.gcp_resources import MEILI_SERVICE_NAME_DEFAULT
 
 
 def _log(msg: str) -> None:
@@ -43,7 +44,7 @@ def _resolve_meili_base_url() -> str:
     explicit = env("MEILI_BASE_URL")
     if explicit:
         return explicit.rstrip("/")
-    service = env("MEILI_SERVICE", "meili-search")
+    service = env("MEILI_SERVICE", MEILI_SERVICE_NAME_DEFAULT)
     return _require(
         "MEILI_BASE_URL",
         gcloud(

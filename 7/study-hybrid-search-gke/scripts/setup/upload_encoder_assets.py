@@ -24,7 +24,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scripts._common import env
+from scripts._common import env, gcs_bucket_name
 
 MODEL_NAME: str = "intfloat/multilingual-e5-base"
 DEFAULT_ASSET_VERSION: str = "v1"
@@ -33,7 +33,7 @@ DEFAULT_ASSET_VERSION: str = "v1"
 def build_upload_spec() -> dict[str, Any]:
     """Resolve the spec (model name + bucket + prefix) without SDK calls."""
     project_id = env("PROJECT_ID")
-    bucket = env("GCS_MODELS_BUCKET", f"{project_id}-models" if project_id else "")
+    bucket = env("GCS_MODELS_BUCKET", gcs_bucket_name("models") if project_id else "")
     version = env("ENCODER_ASSET_VERSION", DEFAULT_ASSET_VERSION)
     prefix = f"encoders/multilingual-e5-base/{version}/"
     return {

@@ -17,6 +17,7 @@ Exit codes:
 from __future__ import annotations
 
 from scripts._common import env, fail
+from scripts.lib.gcp_resources import VERTEX_MODEL_NAMES
 
 
 def main() -> int:
@@ -30,7 +31,7 @@ def main() -> int:
     aiplatform.init(project=project_id, location=region)
 
     overall_ok = True
-    for display_name in ("property-encoder", "property-reranker"):
+    for display_name in VERTEX_MODEL_NAMES:
         try:
             models = aiplatform.Model.list(filter=f'display_name="{display_name}"')
         except Exception as exc:

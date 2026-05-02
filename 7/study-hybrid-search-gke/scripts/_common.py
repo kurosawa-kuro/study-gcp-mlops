@@ -118,6 +118,26 @@ def secret(name: str, default: str | None = None) -> str:
     return os.environ.get(name, fallback)
 
 
+def terraform_var_args(*var_names: str) -> list[str]:
+    """Build ``-var=KEY=VALUE`` args via env() lookup.
+
+    deploy_all / destroy_all で同じ ``-var=github_repo=...`` リストを独立に
+    組み立てており drift 源だった。本 helper に集約することで、新 var
+    追加時の更新箇所を 1 つに固定する。``var_names`` は env 名 (大文字)
+    で渡し、terraform 側には小文字 ``-var=...`` で出力される。
+    """
+    return [f"-var={name.lower()}={env(name)}" for name in var_names]
+
+
+def gcs_bucket_name(suffix: str) -> str:
+    """Compose ``<project_id>-<suffix>`` bucket name from PROJECT_ID env.
+
+    seed_lgbm_model.py / upload_encoder_assets.py / destroy_all.py が独自に
+    ``f"{project_id}-models"`` 等を組み立てていた重複の集約先。
+    """
+    return f"{env('PROJECT_ID')}-{suffix}"
+
+
 def run(
     cmd: list[str], *, capture: bool = False, check: bool = True, timeout: int | None = None
 ) -> subprocess.CompletedProcess[str]:

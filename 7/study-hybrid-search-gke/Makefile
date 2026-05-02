@@ -277,6 +277,9 @@ ops-skew-run: ## Ad-hoc execution of infra/sql/monitoring/validate_feature_skew.
 ops-bq-scan-top: ## Top 20 BQ scans in the last 7 days (cost audit)
 	bq query --use_legacy_sql=false --project_id=$(PROJECT_ID) < scripts/sql/bq_scan_top.sql
 
+ops-recover-wif: ## Manually reconcile WIF pool/provider with Terraform state (PDCA loop safety)
+	uv run python -m scripts.setup.recover_wif
+
 ops-train-now: ## Submit train pipeline to Vertex AI
 	uv run python -m pipeline.workflow.compile --target train --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com
 

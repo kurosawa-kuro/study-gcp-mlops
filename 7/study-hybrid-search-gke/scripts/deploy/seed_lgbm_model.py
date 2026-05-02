@@ -34,9 +34,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-from scripts._common import env, gcloud, run
+from scripts._common import env, gcloud, gcs_bucket_name, run
 
-DEFAULT_BUCKET_TEMPLATE = "{project_id}-models"
+DEFAULT_BUCKET_SUFFIX = (
+    "models"  # `<project>-models`; see scripts.lib.gcp_resources.BUCKET_SUFFIXES
+)
 DEFAULT_PREFIX = "lgbm/latest"
 MODEL_FILENAME = "model.bst"
 
@@ -53,10 +55,9 @@ def _resolve_bucket() -> str:
     explicit = env("MODELS_BUCKET")
     if explicit:
         return explicit
-    project_id = env("PROJECT_ID")
-    if not project_id:
+    if not env("PROJECT_ID"):
         raise SystemExit("[error] PROJECT_ID is empty and MODELS_BUCKET is not set")
-    return DEFAULT_BUCKET_TEMPLATE.format(project_id=project_id)
+    return gcs_bucket_name(DEFAULT_BUCKET_SUFFIX)
 
 
 def _existing_object_size(gs_uri: str) -> int:
