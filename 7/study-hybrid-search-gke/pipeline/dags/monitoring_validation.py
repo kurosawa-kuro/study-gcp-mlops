@@ -8,6 +8,13 @@
 schedule: `30 19 * * *` UTC = 04:30 JST (`retrain_orchestration` の 30 分後)。
 
 詳細: docs/architecture/01_仕様と設計.md §3 / §3.5 (Phase 6 6B PMLE 増設)。
+
+SQL ファイル参照 (2026-05-03 incident 対策): Composer 上では DAG file は
+``/home/airflow/gcs/dags/monitoring_validation.py`` に置かれ、repo の
+``infra/sql/`` は存在しない。本 DAG は **Composer data folder** (= GCS
+``data/`` サブパス、Composer pod の ``/home/airflow/gcs/data/`` に mount)
+を一次参照、ローカル repo (`scripts/deploy/composer_deploy_dags.py` から
+の DAG smoke / pytest) を fallback として開く構造に分離する。
 """
 
 from __future__ import annotations
@@ -20,9 +27,20 @@ from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobO
 
 from pipeline.dags._common import DEFAULT_DAG_ARGS, fixed_start_date
 
+COMPOSER_DATA_ROOT = Path("/home/airflow/gcs/data")
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SKEW_SQL_PATH = REPO_ROOT / "infra" / "sql" / "monitoring" / "validate_feature_skew.sql"
-DRIFT_SQL_PATH = REPO_ROOT / "infra" / "sql" / "monitoring" / "validate_model_output_drift.sql"
+
+
+def _resolve_sql_path(relative: str) -> Path:
+    """Resolve SQL path against Composer ``data/`` first, repo fallback second."""
+    composer_path = COMPOSER_DATA_ROOT / relative
+    if composer_path.exists():
+        return composer_path
+    return REPO_ROOT / relative
+
+
+SKEW_SQL_PATH = _resolve_sql_path("infra/sql/monitoring/validate_feature_skew.sql")
+DRIFT_SQL_PATH = _resolve_sql_path("infra/sql/monitoring/validate_model_output_drift.sql")
 
 
 with DAG(

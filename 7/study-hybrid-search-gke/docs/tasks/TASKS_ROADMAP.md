@@ -10,31 +10,15 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 進捗サマリ (2026-05-03 時点)
+## 現在地 (2026-05-03)
 
-| Wave | フェーズ | 状態 | 要点 |
-|---|---|---|---|
-| Wave 1 | ローカル完結 (検索アプリ層) | ✅ 完了 | PR-1〜PR-4 merge、関連 mypy / pytest 63 passed |
-| Wave 2 | GCP インフラ層 | 🟢 進行中 | W2-8 完了、Composer Stage 1-2 / default flip / live `make deploy-all` 完走 (2026-05-03、Composer 環境 + 3 DAG GCS upload 含む全 15 step PASS、total 1744s)。残: DAG import error 修正 → DAG smoke → run-all-core → 最後の `destroy-all` |
-| Wave 3 | docs / reference architecture 整合 | 🟡 一部進行中 | `03_実装カタログ.md` / `04_検証.md` / `05_運用.md` は更新済。残: `01_仕様と設計.md` の最終同期 |
+停止点:
+- Composer DAG smoke の import error 修正待ち
+- その後に `run-all-core` / `destroy-all` の最終 re-verify
 
-## 現在地サマリ (2026-05-03)
-
-現在の停止点: live `make deploy-all` 完走済 (2026-05-03、retry #7 で 1744s で全 15 step PASS)。Composer 環境 + 3 DAG GCS upload 完了。**DAG smoke で `pipeline` パッケージ import error 発見** (`/home/airflow/gcs/dags/*.py` から `from pipeline.dags._common import ...` が NoMod 失敗)。次の作業は `composer_deploy_dags.py` の upload layout を `pipeline/dags/` 階層保持に修正 → DAG smoke 再実行。
-完了済み実装の正本は [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を参照。
-
-### 完了済 (2026-05-03)
-
-- **Stage 3.4-fix シリーズ**:
-  - **fix.A**: cost wording test を user authoritative `¥870-1,200/3h` 等に追従
-  - **fix.B**: `destroy-all` に PDCA reproducibility 用 `undeploy_all_vvs_deployed_indexes` 追加
-  - **fix.C**: stale VVS guard の contract test 追加 (PDCA 反復で deployed_index が残るリスクを offline で弾く)
-  - **fix.D**: 全 contract test PASS / `make check` PASS gate 確立 (live deploy 直前必須 gate)
-  - **fix.E**: `wait_for_deployed_index_absent` を **idempotent 化** (`absent` OR `ready` の両方で early-exit、resume scenario 対応)
-  - **fix.F**: `deployed_index_id` を **v2 → v3** に bump (v1 + v2 ともに GCP soft-state grace period >30min で焼かれた)
-  - **fix.G**: Composer `env_variables` から **`PROJECT_ID` 削除** (Composer Gen 3 予約変数で HTTP 400 'may not be overridden')。DAG 側 `_common.py::project_id` を auto-set `GCP_PROJECT` 参照に変更。**reserved env 禁止 contract test** 新設 (`PROJECT_ID` / `GCP_PROJECT` / `AIRFLOW_*` / `PATH` / `PYTHONPATH` 等を block)
-- **Stage 3.4-retry #7**: `make deploy-all` step 6→15 全成功 (total 1744s ≒ 29 min 経過 / step 6 stage1 = 28m53s VVS v3 + 20m18s Composer)
-- 全 test gate: 643 PASS (workflow contract 64 + unit + integration + e2e skipped)
+完了済み実装・検証の正本:
+- [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md)
+- [`docs/05_運用.md`](../runbook/05_運用.md)
 
 ### 残り作業
 
@@ -44,14 +28,9 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 - 最後の `make destroy-all` (新 stale VVS guard + reserved env contract が live で動作することの検証も兼ねる)
 - `tests/integration/parity/*` の `live_gcp` 本実行 (別 session 妥当)
 
-### 補足
-
-- `deploy-all` の主な長待機は VVS deployed index attach (2026-05-03 実測 v3 = 28m53s) + Composer 環境作成 (2026-05-03 実測 20m18s)。step 6 の依存関係は `module.composer.depends_on = [module.vector_search, ...]` で **VVS → Composer の順次実行** (改善余地: `index_resource_name` 参照のみのため `deployed_index` 完了まで待つ必要なし。次回 PR 候補)
-- 初回 deploy-all は 50-65 min が想定範囲 (実測 = 1744s ≒ 29 min は state 大半が前回 retry で作成済の resume シナリオ。fresh は VVS + Composer のフル所要時間が乗る)
-- `SEARCH_RETRIES` は safety net として残置
+補足:
 - 完了条件は `destroy-all -> deploy-all -> composer-deploy-dags -> run-all-core -> destroy-all`
-
-実測・恒久対処の詳細は [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md) と [`docs/05_運用.md`](../runbook/05_運用.md) を正本とし、この roadmap には再掲しない。
+- 実測・恒久対処の詳細は `03_実装カタログ.md` と `05_運用.md` を正本とし、この roadmap には再掲しない
 
 ---
 
@@ -67,20 +46,15 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 1. 現状コードと仕様のギャップ
+## 1. 現状ギャップ
 
-✅ = Wave 1 で解消済 / ⏳ = Wave 2 / 3 で対応予定。
+詳細な完了差分は [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を正本とする。
 
-| 状態 | 観点 | 現状コード (Wave 1 前) | 最新仕様 (target) | 対応 |
-|---|---|---|---|---|
-| ✅ | Semantic 検索 adapter | [`bigquery_semantic_search.py`](../app/services/adapters/bigquery_semantic_search.py) のみ (BQ `VECTOR_SEARCH`) | Vertex AI Vector Search を本番 serving index にする (Phase 5+ 仕様) | **PR-1 完了**: [`vertex_vector_search_semantic_search.py`](../app/services/adapters/vertex_vector_search_semantic_search.py) 新規追加、BQ adapter 据え置き |
-| ✅ | `SemanticSearch` 切替 | composition_root に backend 切替なし、常に BQ | Vertex Vector Search を canonical とし、暫定切替を撤去する | **PR-1 完了**: [`SearchBuilder._resolve_semantic_search`](../app/container/search.py) で暫定分岐を導入。**Wave 2 で削除対象** |
-| ✅ | Feature 取得 (rerank 入力) | `BigQueryCandidateRetriever._enrich_from_bq` 内 SQL JOIN で direct fetch | Phase 5 で Feature Online Store 経由可能に (training-serving skew 防止) | **PR-2 完了**: [`FeatureFetcher`](../app/services/protocols/feature_fetcher.py) Port + 2 adapters + fake、PR-4 で Container 配線 |
-| ✅ | Feature Online Store 統合 | 未実装 | Feature View 経由で fresh feature を取得する | **PR-4 完了**: `Container.feature_fetcher` + `SearchService` + `run_search` の `_augment_with_fresh_features` で merge。**Wave 2 で旧 BQ 経路削除対象** |
-| ✅ | Embed pipeline の出力先 | `feature_mart.property_embeddings` (BQ) のみ | BQ + Vertex Vector Search index 双方に書く (BQ は正本、VVS は serving index) | **PR-3 完了**: [`upsert_vector_search`](../pipeline/data_job/components/upsert_vector_search.py) component + [`VectorSearchWriter`](../pipeline/data_job/ports/vector_search_writer.py) Port + 2 adapters。runner 側 gate (`vector_search_index_resource_name=""` で no-op) |
-| ✅ | Vector Search Terraform モジュール | [`infra/terraform/modules/vector_search/`](../../infra/terraform/modules/vector_search/) ディレクトリは存在するが空 | `google_vertex_ai_index` + `google_vertex_ai_index_endpoint` + deployed index | **W2-1 完了**: module 実装 + `environments/dev/main.tf` で `module "vector_search"` 呼出し。live で `find_neighbors` PASS (deployed index attach 26m21s) |
-| ✅ | Feature Online Store Terraform | 既に [`modules/vertex/main.tf:273`](../../infra/terraform/modules/vertex/main.tf) に資源定義あり、`enable_feature_online_store` default = `false` | Phase 5 必須要素なので default `true` 化、ただし `mlops-dev-a` の PDCA 都合で env 切替可能 | **W2-2 + #11 完了**: `enable_feature_online_store` / `enable_vector_search` の default を `true` に flip。`make destroy-all` 運用でコスト管理。FOS Optimized lifecycle.ignore_changes 追加で plan 安定 |
-| ⏳ | docs reference architecture (Elasticsearch / Redis 同義語辞書) | コードに無い (✓ 期待通り) | 実装しない (docs only) | **Wave 3** で lint 化 — 2026-05-02 終端の grep では `Elasticsearch` / `synonym` / `query expansion` の固有名混入は無し。docs/01 / docs/03 の最終整合は W2-8 削除と同期 |
+残ギャップ:
+- Composer DAG import layout 修正
+- `tests/integration/parity/*` の live 実行
+- KFP 2.16 互換 issue の根本対処
+- [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md) の最終同期
 
 ---
 
@@ -90,48 +64,10 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 Wave 1 ではローカル完結のために一時的な backend 切替と fallback を導入したが、**教育コードの完成条件はそれらを削除すること**。`BigQuerySemanticSearch` / `BigQueryFeatureFetcher` / backend 切替 env / legacy alias は Wave 2 の live 検証後に撤去し、Phase 7 の canonical 実装を 1 本に収束させる。
 
-### 2.2 PR 分割粒度 (1 PR = 1 Port 原則)
+### 2.2 補足
 
-| PR | スコープ | 受け入れ条件 |
-|---|---|---|
-| PR-1 | `SemanticSearch` Port + Vertex Vector Search adapter (app 層) + fake / unit test | `SEMANTIC_BACKEND=vertex_vector_search` で `/search` が in-memory fake 経由で 200 を返す |
-| PR-2 | `FeatureFetcher` Port + Feature Online Store adapter (app 層) + fake | `FEATURE_FETCHER_BACKEND=online_store` で ranking が fake 経由で動作 |
-| PR-3 | `VectorSearchWriter` Port + adapter (pipeline 層) + embed pipeline 二重書き | `pipeline/data_job/main.py` がローカルで BQ + fake VVS の両方に書く |
-| PR-4 | Feature Online Store 統合 (Phase 7 固有) | Feature View 経由の fresh feature 取得が動作する |
-| Wave 2 → | Terraform / IAM / deploy | 別 roadmap section §4 参照 |
-
-### 2.3 互換レイヤ撤去の段取り
-
-```
-Step A: Wave 1 で live 以外の wiring を先に完成
-Step B: Wave 2 で GCP apply / smoke / parity を完了
-Step C: BigQuery fallback / backend 切替 env / legacy alias / 旧 shell resource を削除
-Step D: docs/01, docs/03, docs/05 を canonical 実装 1 本に更新
-```
-
-### 2.4 ローカル完結スコープ (まず取りかかる範囲)
-
-> **Wave 1 のコード変更はすべてローカル完結で書ける**。実 GCP 通信を伴う検証は Wave 2 で provision された後にまとめて行う。Wave 1 の受け入れ条件 (`make check` / `make check-layers` / unit test / in-memory fake 経由の `/search`) はすべて GCP 認証無しで成立する。
-
-| PR | コード作業 | ローカル検証 | GCP 必要な部分 (Wave 2 で実施) |
-|---|---|---|---|
-| PR-1 SemanticSearch | adapter / settings / composition / fake / unit test の追加 — 全てローカル可 | `SEMANTIC_BACKEND=vertex_vector_search` + in-memory fake で `/search` 200 / mock で `find_neighbors` を呼ぶ unit test | live `aiplatform.MatchingEngineIndexEndpoint.find_neighbors` smoke (Wave 2 で `VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID` 投入後) |
-| PR-2 FeatureFetcher | Port / 2 adapter / fake / `ranking.py` 改修 — 全てローカル可 | `FEATURE_FETCHER_BACKEND=online_store` + fake fetcher で ranking 動作 | live `FeatureOnlineStoreServiceClient.fetch_feature_values` smoke |
-| PR-3 VectorSearchWriter | Port / 2 adapter / pipeline component 改修 — 全てローカル可 | `pipeline/data_job/main.py` を fake adapter (BQ も fake) で完走 | live `MatchingEngineIndex.upsert_datapoints` smoke + 初回 backfill |
-| PR-4 Feature Store integration | adapter / settings / manifest env 追加 — 全てローカル可 (manifest apply は Wave 2) | unit test で fresh feature merge を確認 | live search-api 経路での Feature View 参照 smoke |
-
-**ローカル開発前提**:
-
-- Python 3.12 + `uv sync` で全依存解決済 (`google-cloud-aiplatform` は `pyproject.toml` に既存)
-- `gcloud auth application-default login` は **不要** (mock / fake で完結)
-- Docker 不要 (Meilisearch / Vertex SDK 通信は fake で stub)
-- `make check` (ruff / format / mypy / pytest) は WSL ローカルで完走する前提
-
-**ローカル完結の境界線**:
-
-- `app/services/adapters/vertex_vector_search_semantic_search.py` の中身で Vertex SDK を import するのは OK。**実通信せず**、unit test で SDK call を mock して PASS させる
-- `tests/integration/parity/` 配下の "live GCP 比較" テストは Wave 2 まで `pytest -m 'not live_gcp'` でスキップ可能なよう marker を付与する
-- Wave 1 で導入した切替 env は **最終的に削除する**。教育コードでは「default off のまま残す」は許容しない
+- 互換レイヤ撤去は完了済み
+- 実装方針や移行履歴の詳細は `03_実装カタログ.md` を正本とする
 
 ---
 

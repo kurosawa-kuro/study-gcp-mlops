@@ -83,6 +83,25 @@ def _list_pipeline_pkg_files() -> list[tuple[Path, str]]:
     ]
 
 
+def _list_data_files() -> list[tuple[Path, str]]:
+    """Return (local_path, data_relative_path) for non-DAG asset uploads.
+
+    Composer は DAG bucket と並列に ``data/`` GCS subpath を持ち、Composer
+    pod 上では ``/home/airflow/gcs/data/`` に mount される (``gcsDataPrefix``)。
+    DAG が parse 時に ``read_text()`` で開く SQL ファイル等はここに upload
+    する (DAG bucket に置くと Airflow が DAG として scan しに行く)。
+
+    2026-05-03 incident: ``monitoring_validation.py`` が repo path
+    ``infra/sql/monitoring/*.sql`` を直接 ``read_text()`` していて
+    ``FileNotFoundError`` で DagBag に登録されなかった。
+    """
+    sql_dir = REPO_ROOT / "infra" / "sql" / "monitoring"
+    return [
+        (sql_path, f"infra/sql/monitoring/{sql_path.name}")
+        for sql_path in sorted(sql_dir.glob("*.sql"))
+    ]
+
+
 def main(argv: list[str] | None = None) -> int:
     del argv  # CLI args 未使用 (terraform output のみで完結)
 
@@ -119,7 +138,26 @@ def main(argv: list[str] | None = None) -> int:
         if proc.returncode != 0:
             raise SystemExit(f"[error] gsutil cp {gcs_relative} failed (rc={proc.returncode})")
 
-    print(f"[info] composer-deploy-dags complete ({len(dag_files)} DAG files + pipeline shim)")
+    # Composer data folder ( gs://<env>/data/ ) — DAG が read_text() で開く
+    # 非 DAG アセット (SQL 等) を ここに置く (DAG bucket に置くと Airflow が
+    # DAG として scan しに行くため分離が必要)。
+    data_bucket_root = pkg_bucket_root.rsplit("/dags", 1)[0] + "/data"
+    data_files = _list_data_files()
+    if data_files:
+        print(f"[info] uploading {len(data_files)} data file(s) → {data_bucket_root}")
+        for local_path, data_relative in data_files:
+            target = f"{data_bucket_root}/{data_relative}"
+            print(f"  + {data_relative}")
+            proc = run(["gsutil", "cp", str(local_path), target], capture=False, check=False)
+            if proc.returncode != 0:
+                raise SystemExit(
+                    f"[error] gsutil cp data {data_relative} failed (rc={proc.returncode})"
+                )
+
+    print(
+        f"[info] composer-deploy-dags complete ({len(dag_files)} DAG files + "
+        f"pipeline shim + {len(data_files)} data files)"
+    )
     return 0
 
 
