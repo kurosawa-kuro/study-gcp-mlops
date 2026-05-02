@@ -100,7 +100,7 @@ def test_configmap_overlay_injects_live_vertex_outputs(monkeypatch) -> None:
             "_terraform_output_map",
             return_value={
                 "vector_search_index_endpoint_id": "projects/x/locations/r/indexEndpoints/123",
-                "vector_search_deployed_index_id": "property_embeddings_v1",
+                "vector_search_deployed_index_id": "property_embeddings_v2",
                 "vertex_feature_online_store_id": "store-a",
                 "vertex_feature_view_id": "view-a",
                 "vertex_feature_online_store_endpoint": "store.example.com",
@@ -121,7 +121,7 @@ def test_configmap_overlay_injects_live_vertex_outputs(monkeypatch) -> None:
         "models_bucket": "mlops-test-models",
         "meili_base_url": "https://meili.example.run.app",
         "vertex_vector_search_index_endpoint_id": "projects/x/locations/r/indexEndpoints/123",
-        "vertex_vector_search_deployed_index_id": "property_embeddings_v1",
+        "vertex_vector_search_deployed_index_id": "property_embeddings_v2",
         "vertex_feature_online_store_id": "store-a",
         "vertex_feature_view_id": "view-a",
         "vertex_feature_online_store_endpoint": "store.example.com",

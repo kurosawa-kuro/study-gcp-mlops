@@ -11,7 +11,7 @@ Usage (after ``make deploy-all`` and ``make ops-vertex-vector-search-smoke``)::
     PROJECT_ID=mlops-dev-a \\
     VERTEX_LOCATION=asia-northeast1 \\
     VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID=projects/.../indexEndpoints/123 \\
-    VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID=property_embeddings_v1 \\
+    VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID=property_embeddings_v2 \\
     python -m scripts.ops.vertex.vector_search
 
 Exit codes:

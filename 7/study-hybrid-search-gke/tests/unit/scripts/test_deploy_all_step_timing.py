@@ -154,7 +154,7 @@ def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
                 "PROJECT_ID": "mlops-test",
                 "REGION": "asia-northeast1",
                 "GKE_CLUSTER_NAME": "hybrid-search",
-                "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID": "property_embeddings_v1",
+                "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID": "property_embeddings_v2",
             },
             clear=False,
         ),
@@ -165,7 +165,7 @@ def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
     ):
         assert dall._run_tf_apply() == 0
 
-    wait_vvs.assert_called_once_with("mlops-test", "asia-northeast1", "property_embeddings_v1")
+    wait_vvs.assert_called_once_with("mlops-test", "asia-northeast1", "property_embeddings_v2")
     ensure_ctx.assert_called_once_with()
     wait_k8s.assert_called_once_with()
     assert len(calls) == 2

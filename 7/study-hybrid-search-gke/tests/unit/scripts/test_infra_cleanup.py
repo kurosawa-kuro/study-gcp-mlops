@@ -144,12 +144,12 @@ def test_undeploy_endpoint_models_iterates_deployed_models() -> None:
 def test_deployed_index_exists_reads_index_endpoint_payload() -> None:
     payload = json.dumps(
         [
-            {"name": "ep-a", "deployedIndexes": [{"id": "property_embeddings_v1"}]},
+            {"name": "ep-a", "deployedIndexes": [{"id": "property_embeddings_v2"}]},
             {"name": "ep-b", "deployedIndexes": [{"id": "other"}]},
         ]
     )
     with patch.object(subprocess, "run", return_value=_completed(stdout=payload)):
-        assert vertex_cleanup.deployed_index_exists("p", "r", "property_embeddings_v1") is True
+        assert vertex_cleanup.deployed_index_exists("p", "r", "property_embeddings_v2") is True
         assert vertex_cleanup.deployed_index_exists("p", "r", "missing") is False
 
 
@@ -167,7 +167,7 @@ def test_wait_for_deployed_index_absent_polls_until_stale_index_disappears() -> 
             side_effect=[0.0, 1.0, 2.0, 3.0],
         ),
     ):
-        vertex_cleanup.wait_for_deployed_index_absent("p", "r", "property_embeddings_v1")
+        vertex_cleanup.wait_for_deployed_index_absent("p", "r", "property_embeddings_v2")
 
     assert exists_mock.call_count == 3
     assert sleep_mock.call_count == 2

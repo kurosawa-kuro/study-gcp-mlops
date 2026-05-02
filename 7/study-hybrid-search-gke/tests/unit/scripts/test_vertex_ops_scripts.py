@@ -313,14 +313,14 @@ def test_vector_search_resolves_ids_from_terraform_outputs(monkeypatch) -> None:
         "_terraform_output_map",
         return_value={
             "vector_search_index_endpoint_id": "4579342784384729088",
-            "vector_search_deployed_index_id": "property_embeddings_v1",
+            "vector_search_deployed_index_id": "property_embeddings_v2",
         },
     ):
         assert vector_search.main() == 0
 
     assert ("init", ("mlops-test", "asia-northeast1")) in calls
     assert ("endpoint_init", "4579342784384729088") in calls
-    assert ("find_neighbors", "property_embeddings_v1") in calls
+    assert ("find_neighbors", "property_embeddings_v2") in calls
 
 
 def test_pipeline_wait_passes_when_latest_run_succeeds(monkeypatch) -> None:

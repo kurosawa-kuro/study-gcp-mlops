@@ -27,9 +27,9 @@ variable "index_endpoint_display_name" {
 }
 
 variable "deployed_index_id" {
-  description = "Deployed index ID exposed by the index endpoint. Must be unique within the endpoint and stable across applies (consumed via `VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID` env)."
+  description = "Deployed index ID exposed by the index endpoint. Must be unique within the endpoint and stable across applies (consumed via `VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID` env). Bumped v1→v2 on 2026-05-02: GCP API holds the previous deployed_index_id in 'being undeployed / failed' soft-state for an extended grace period (>30 min observed) after `gcloud ai index-endpoints undeploy-index`, blocking re-creation with HTTP 400. Bumping the version sidesteps the grace period; destroy-all's new `undeploy_all_vvs_deployed_indexes` guard prevents stale state for future PDCA cycles."
   type        = string
-  default     = "property_embeddings_v1"
+  default     = "property_embeddings_v2"
 }
 
 variable "dimensions" {
