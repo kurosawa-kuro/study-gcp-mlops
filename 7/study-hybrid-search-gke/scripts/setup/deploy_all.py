@@ -68,6 +68,7 @@ from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
 from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
+from scripts.infra.vertex_import import import_persistent_vvs_resources
 from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT, MEILI_SERVICE_NAME_DEFAULT
 from scripts.ops.sync_meili import run as sync_meili_run
 from scripts.setup.backfill_vector_search_index import main as backfill_vector_search_main
@@ -157,6 +158,22 @@ def _run_tf_apply() -> int:
     region = env("REGION", "asia-northeast1")
     cluster_name = env("GKE_CLUSTER_NAME", GKE_CLUSTER_NAME_DEFAULT)
     deployed_index_id = env("VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID", "property_embeddings_v3")
+
+    # 永続化アーキテクチャ (`docs/tasks/TASKS_ROADMAP.md §4.9`、2026-05-03):
+    # 前回 destroy-all で `module.vector_search` の Index / Endpoint を **state rm
+    # + GCP 残置** している場合がある。tf-apply 前に既存 GCP resource を state へ
+    # import することで、terraform plan は「Index/Endpoint = no-op、deployed_index
+    # のみ create」となり、Index build 5-15 min + Endpoint create + DNS propagation
+    # を省略して deploy-all 27 min → 10-15 min に短縮できる。
+    print(f"==> tf-apply pre-step: VVS Index/Endpoint state import check (region={region})")
+    imported = import_persistent_vvs_resources(
+        INFRA,
+        project_id,
+        region,
+        terraform_var_args=list(terraform_var_args("GITHUB_REPO", "ONCALL_EMAIL")),
+    )
+    if imported:
+        print(f"==> {imported} addr imported into state — terraform plan で no-op 扱いになる")
 
     wait_for_deployed_index_absent(project_id, region, deployed_index_id)
 

@@ -143,6 +143,25 @@ def main() -> int:
     # しないので、destroy 側でも能動的に undeploy しておく。
     vertex_cleanup.undeploy_all_vvs_deployed_indexes(project_id, region)
 
+    # 永続化 VVS resource を **state rm で外す** (= GCP には残置)。
+    # `lifecycle.prevent_destroy = true` だけでは依存閉包で touch されて
+    # `Instance cannot be destroyed` で全 destroy が止まる事故を 2026-05-03
+    # に観測したため、state rm pattern に変更。`module.vector_search` 内の
+    # `deployed_index` は GCP 上は [2/6+] で undeploy 済なので、state rm
+    # するだけで OK (terraform は state にないので touch しない)。次回
+    # `deploy-all` は `terraform import` で復元する設計 (`scripts/setup/deploy_all.py`)。
+    persistent_state_addrs = [
+        "module.vector_search.google_vertex_ai_index_endpoint_deployed_index.property_embeddings[0]",
+        *(f"{p}[0]" for p in PERSISTENT_VVS_RESOURCES),
+    ]
+    rm_count = 0
+    for addr in persistent_state_addrs:
+        if state_rm(INFRA, addr):
+            print(f"    state rm: {addr}")
+            rm_count += 1
+    if rm_count:
+        print(f"==> [2/6++] state rm 永続化 VVS {rm_count} addr (GCP 残置、次回 deploy-all で import)")
+
     print("==> [3/6] wipe GCS buckets (force_destroy=false blockers)")
     gcs_cleanup.wipe_all_terraform_managed_buckets(project_id)
 

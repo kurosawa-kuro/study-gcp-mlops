@@ -125,53 +125,40 @@ def test_recover_wif_handles_soft_delete_undelete() -> None:
 
 
 def test_destroy_all_persists_vvs_index_and_endpoint() -> None:
-    """**VVS 永続化契約** (2026-05-03 追加、`docs/tasks/TASKS_ROADMAP.md §4.9`):
+    """**VVS 永続化契約** (2026-05-03、`docs/tasks/TASKS_ROADMAP.md §4.9`):
     Vertex Vector Search の Index と Index Endpoint は **無料で残せる** (replica 0
     の Endpoint と未 deploy の Index は課金されない)。Index build に 5-15 min、
     Endpoint 作成に数分 + DNS propagation がかかるため、PDCA cycle ごとに作り
     直すと deploy-all 27 min → 10-15 min の短縮効果が出ない。
 
+    実装パターン: `lifecycle.prevent_destroy = true` は依存閉包で touch される
+    resource (e.g. deployed_index → Endpoint) を block できず、`Instance cannot
+    be destroyed` で全 destroy が止まる事故を 2026-05-03 に観測したため不採用。
+    代わりに **state rm + GCP 残置** + 次回 deploy-all で `terraform import` で
+    state 復元する pattern に変更。
+
     本契約は以下を pin する:
-    1. `module.vector_search` の Index と Endpoint が `lifecycle { prevent_destroy = true }`
-    2. `destroy_all.py` の `PERSISTENT_VVS_RESOURCES` に Index / Endpoint アドレス
-    3. `destroy_all.py` が state_list 全件から永続化アドレスを除いた集合を `-target` 指定して destroy
+    1. `module.vector_search` の Index / Endpoint に `prevent_destroy` を入れない
+       (誤った設計判断の再導入を block)
+    2. `destroy_all.py` で `PERSISTENT_VVS_RESOURCES` を state rm する
+    3. `deploy_all.py` で `import_persistent_vvs_resources` を呼ぶ
     """
     main_tf = _read("infra/terraform/modules/vector_search/main.tf")
     destroy_all_py = _read("scripts/setup/destroy_all.py")
+    deploy_all_py = _read("scripts/setup/deploy_all.py")
+    vertex_import_py = _read("scripts/infra/vertex_import.py")
 
-    # main.tf — Index / Endpoint に prevent_destroy
+    # main.tf — Index / Endpoint には prevent_destroy を入れない (state rm pattern)
+    # コメント内の説明文の `prevent_destroy = true` は誤検知させない (lifecycle block のみ確認)
     import re as _re
 
-    index_block = _re.search(
-        r'resource "google_vertex_ai_index" "property_embeddings" \{.*?\n\}',
-        main_tf,
-        flags=_re.DOTALL,
-    )
-    endpoint_block = _re.search(
-        r'resource "google_vertex_ai_index_endpoint" "property_embeddings" \{.*?\n\}',
-        main_tf,
-        flags=_re.DOTALL,
-    )
-    deployed_block = _re.search(
-        r'resource "google_vertex_ai_index_endpoint_deployed_index" "property_embeddings" \{.*?\n\}',
-        main_tf,
-        flags=_re.DOTALL,
-    )
-    assert index_block is not None and endpoint_block is not None
-    assert "prevent_destroy = true" in index_block.group(0), (
-        "google_vertex_ai_index.property_embeddings must declare lifecycle.prevent_destroy=true"
-    )
-    assert "prevent_destroy = true" in endpoint_block.group(0), (
-        "google_vertex_ai_index_endpoint.property_embeddings must declare lifecycle.prevent_destroy=true"
-    )
-    # deployed_index は永続化対象外 (これが課金 resource、PDCA 毎に destroy する)
-    if deployed_block is not None:
-        assert "prevent_destroy = true" not in deployed_block.group(0), (
-            "google_vertex_ai_index_endpoint_deployed_index must NOT have prevent_destroy "
-            "(this is the billed replica resource, must be destroyed each PDCA cycle)"
+    for lifecycle_block in _re.findall(r"lifecycle\s*\{[^}]*\}", main_tf, flags=_re.DOTALL):
+        assert "prevent_destroy = true" not in lifecycle_block, (
+            "vector_search/main.tf lifecycle block must NOT use prevent_destroy = true "
+            "(2026-05-03 incident: 依存閉包の destroy で block されて全 destroy が止まる)"
         )
 
-    # destroy_all.py の persistent list
+    # destroy_all.py の persistent list + state rm 呼出し
     assert "PERSISTENT_VVS_RESOURCES" in destroy_all_py
     assert (
         '"module.vector_search.google_vertex_ai_index.property_embeddings"'
@@ -181,9 +168,20 @@ def test_destroy_all_persists_vvs_index_and_endpoint() -> None:
         '"module.vector_search.google_vertex_ai_index_endpoint.property_embeddings"'
         in destroy_all_py
     )
-    # destroy 時に state_list で全 addr を取得 → persistent を除外して -target 指定
-    assert "state_list(INFRA)" in destroy_all_py
-    assert "persistent_prefixes" in destroy_all_py
+    assert "state rm 永続化 VVS" in destroy_all_py, (
+        "destroy_all must `state rm` PERSISTENT_VVS_RESOURCES (= GCP 残置 / state 外し)"
+    )
+    assert "state_rm(INFRA, addr)" in destroy_all_py
+
+    # deploy_all.py の import 呼出し
+    assert "import_persistent_vvs_resources" in deploy_all_py, (
+        "deploy_all must invoke import_persistent_vvs_resources before tf-apply"
+    )
+
+    # vertex_import.py が gcloud で existing resource を確認 + terraform import を発行
+    assert "def import_persistent_vvs_resources(" in vertex_import_py
+    assert '"terraform"' in vertex_import_py and '"import"' in vertex_import_py
+    assert "gcloud" in vertex_import_py and "ai" in vertex_import_py
 
 
 def test_no_vertex_pipeline_job_schedule_resource_in_terraform() -> None:

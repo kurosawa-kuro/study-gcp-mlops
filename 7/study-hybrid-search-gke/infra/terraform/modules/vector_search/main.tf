@@ -54,16 +54,13 @@ resource "google_vertex_ai_index" "property_embeddings" {
 
   labels = var.labels
 
-  # 永続化契約 (2026-05-03 追加、`docs/tasks/TASKS_ROADMAP.md §4.9`):
-  # **Index 自体は undeployed なら課金されない** (公式: "Models that are not
-  # deployed or have failed to deploy are not charged.")。一方 build に
-  # 5-15 min かかるため、PDCA 1 cycle ごとに作り直すと deploy-all 全体が
-  # 27 min → 10-15 min に短縮できない。Index は永続化、`destroy-all` でも
-  # 削除しない (`scripts/setup/destroy_all.py::PROTECTED_TARGETS` で除外)。
-  # 完全 reset したい場合は手動で `terraform destroy -target=...` する。
-  lifecycle {
-    prevent_destroy = true
-  }
+  # 永続化契約 (2026-05-03、`docs/tasks/TASKS_ROADMAP.md §4.9`): Index は
+  # `destroy-all` で **state rm + GCP 残置** する (Terraform 依存閉包で
+  # `lifecycle.prevent_destroy = true` だけでは依存元 resource の destroy が
+  # 連鎖して `Instance cannot be destroyed` で全体 destroy が止まる事故を
+  # 2026-05-03 に観測したため、prevent_destroy は採用しない)。永続化は
+  # `scripts/setup/destroy_all.py::PERSISTENT_VVS_RESOURCES` の state rm
+  # と、次回 `deploy-all` の `terraform import` で復元する設計。
 }
 
 resource "google_vertex_ai_index_endpoint" "property_embeddings" {
@@ -78,13 +75,9 @@ resource "google_vertex_ai_index_endpoint" "property_embeddings" {
 
   labels = var.labels
 
-  # 永続化契約 (2026-05-03 追加): **空の Index Endpoint も課金されない**
-  # (deployed_index が無いと replica = 0)。endpoint 自体の create / DNS
-  # propagation には数分かかるため、Index と同様に永続化する。課金対象は
-  # 別 resource ``google_vertex_ai_index_endpoint_deployed_index`` のみ。
-  lifecycle {
-    prevent_destroy = true
-  }
+  # 永続化契約 (2026-05-03): Index Endpoint も Index と同じく `destroy-all`
+  # で **state rm + GCP 残置** する。`prevent_destroy` は依存閉包で全 destroy
+  # を止めるリスクがあるため不採用。詳細は `google_vertex_ai_index` 側コメント。
 }
 
 resource "google_vertex_ai_index_endpoint_deployed_index" "property_embeddings" {
