@@ -1,4 +1,15 @@
-"""``POST /jobs/check-retrain`` — evaluate retrain conditions, publish trigger."""
+"""``POST /jobs/check-retrain`` — evaluate retrain conditions, publish trigger.
+
+Phase 7 W2-4 Stage 3 (2026-05-02) で **本線スケジューラから格下げ**。本線
+retrain schedule は Cloud Composer `retrain_orchestration` DAG (canonical = docs/
+architecture/01_仕様と設計.md §3 / §3.6)。本 endpoint は:
+
+- Composer DAG `retrain_orchestration::check_retrain` task が呼ぶ smoke 経路
+- Cloud Scheduler `check-retrain-daily` が月 1 回叩く軽量代替 smoke (比較教材)
+- 手動 manual trigger / debugging
+
+として残置。本線スケジューラとして使用 (定期 cron) はしないこと (= §3.6 カニバリ NG)。
+"""
 
 from __future__ import annotations
 

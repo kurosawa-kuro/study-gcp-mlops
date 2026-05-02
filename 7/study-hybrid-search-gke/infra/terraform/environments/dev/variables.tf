@@ -204,9 +204,9 @@ variable "enable_vector_search" {
 # =========================================================================
 
 variable "enable_composer" {
-  description = "Provision the Cloud Composer (Gen 3) environment. Default false during Stage 1 (skeleton-only), flipped to true in Stage 3 once 3 DAG / IAM / deploy_all step / live verify are in place."
+  description = "Provision the Cloud Composer (Gen 3) environment. Default true (Stage 3 flip 2026-05-02): Phase 7 = canonical 起点として `make deploy-all` で Composer 環境を立ち上げる本線運用。当日 destroy 前提なら 1 cycle ~¥400-500 (詳細 docs/runbook/05_運用.md §1.4-bis)。`enable_composer=false` で provisioning skip も可 (Composer 不要な作業時)。"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "composer_environment_name" {

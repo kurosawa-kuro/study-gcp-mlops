@@ -607,6 +607,17 @@ Wave 1 で導入した backend 切替 env / BQ fallback / legacy alias を撤去
 
 **Stage 3 (live verify)** (Stage 2 完了後):
 
+**コスト見積もり (asia-northeast1、当日 destroy 前提)** — 詳細は [docs/runbook/05_運用.md §1.4-bis](../runbook/05_運用.md):
+
+| シナリオ | コスト |
+|---|---|
+| Phase 7 full Stage 3 1 cycle (~85-105 min 稼働、即 destroy) | **~¥400-500/cycle** |
+| PDCA 3 cycle / 日 | ~¥1,200-1,500 |
+| 月 10 cycle (週 2-3 回 verify) | ~¥4,000-5,000/月 |
+| destroy 漏れ 24h 放置 | ~¥4,000-6,000 (Composer + GKE + VVS deployed index 等の合算) |
+
+→ **当日 destroy 前提なら判断材料はコストではなく時間** (1 cycle ~1.5h)。Billing Budget Alert 日次 ¥3,000 推奨。
+
 - [ ] `enable_composer=true` default flip
 - [ ] 軽量 trigger 格下げ:
   - Cloud Scheduler `check-retrain-daily`: schedule `0 4 * * *` → `0 4 1 * *` (月 1 回 smoke)、description 更新
