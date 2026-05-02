@@ -93,7 +93,7 @@ Phase 6 から継承。特徴量を追加 / 変更するとき、以下 6 つを
 | target | 用途 |
 |---|---|
 | `make sync` / `make check` / `make check-layers` | uv workspace 同期 / CI 同等 (ruff + fmt + mypy + pytest) / Port-Adapter 境界 AST 検査 |
-| `make deploy-all` / `make destroy-all` | Phase 7 の E2E デプロイ (7 step 約 12-15 分) / Terraform 管理下の全破棄 (PDCA loop) |
+| `make deploy-all` / `make destroy-all` | Phase 7 の E2E デプロイ (14 step、初回は VVS attach 次第で 30-40 分) / Terraform 管理下の全破棄 (PDCA loop) |
 | `make run-all` / `make run-all-core` / `make verify-all` | デプロイ後の E2E 検証 (`run-all-core` = check-layers → seed-test → ops-train-now → ops-livez/search/...) |
 | `make tf-bootstrap` / `make tf-init` / `make tf-plan` / `make tf-validate` | Terraform 各 stage |
 | `make api-dev` / `make train-smoke` / `make seed-test` | ローカル uvicorn / 合成データ学習 / PDCA smoke 用 5 件投入 |

@@ -75,4 +75,4 @@
 
 - `02_移行ロードマップ.md` の「本リポジトリの決定的仕様」という位置付けは絶対。ここを weaken する表現 (「暫定」「TBD」) を入れるなら必ず User に確認
 - `03_実装カタログ.md` は放置すると実態と乖離する。コード変更時に Phase 表と「未着手」節を更新すること
-- `05_運用.md §1` (PDCA メインフロー) は **`make deploy-all` 一発で完走することが品質基準**。`scripts/setup/deploy_all.py` の 7 step / `scripts/setup/destroy_all.py` の流れを変えたら、実 GCP で `make deploy-all` → `make ops-livez` → `make destroy-all` を実測して確認する。`§2` (個別 STEP 詳細) は STEP を上から順に叩いて完走できる状態を保つ
+- `05_運用.md §1` (PDCA メインフロー) は **`make deploy-all` 一発で完走することが品質基準**。`scripts/setup/deploy_all.py` の 14 step / `scripts/setup/destroy_all.py` の流れを変えたら、実 GCP で `make deploy-all` → `make ops-livez` → `make destroy-all` を実測して確認する。`§2` (個別 STEP 詳細) は STEP を上から順に叩いて完走できる状態を保つ

@@ -17,21 +17,25 @@
    model. No model found in gs://...`` で CrashLoopBackOff に陥る)。
 8. `seed-test` — `feature_mart.property_features_daily` など smoke に必要な
    最小 row を seed。Feature View manual sync の source row をここで作る。
-9. `backfill-vvs` — `feature_mart.property_embeddings` から Vertex Vector Search
+9. `sync-meili` — `feature_mart.properties_cleaned` を Meilisearch `properties`
+   index へ upsert する。lexical lane が空だと `ops-search-components` が
+   `lexical=0` で fail するため、canonical lexical path の一部として
+   本線に組み込む。
+10. `backfill-vvs` — `feature_mart.property_embeddings` から Vertex Vector Search
    index へ初回 datapoint を upsert する。endpoint / deployed index だけを作っても
    中身が空だと `ops-vertex-vector-search-smoke` が 0 neighbors で fail するため、
    Phase 7 canonical path の一部として本線に組み込む。
-10. `trigger-fv-sync` — Feature Online Store / Feature View live path 向けに
+11. `trigger-fv-sync` — Feature Online Store / Feature View live path 向けに
    regional REST API で manual sync を起動し、完了まで poll する。
-11. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
+12. `apply-manifests` — `kubectl apply -k infra/manifests/` (Phase 7 Run 2:
    旧運用は手で `make apply-manifests` を叩く前提だったが、PDCA loop で
    毎回手作業を要求すると `destroy-all → deploy-all` が成立しない)。
-12. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
+13. `overlay-configmap` — search-api ConfigMap の `meili_base_url`
    placeholder を実 URL で上書き。実装は `scripts/deploy/configmap_overlay.py`
    で、ConfigMap schema は `scripts/lib/config.py` に集約 (Phase 7 W2-5 で
    `_run_overlay_configmap` と `sync_configmap.py` が独立にキー列を手書き
    していて drift した教訓 — 構造的に防止)。
-13. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
+14. `deploy/api_gke` — Cloud Build + kubectl rollout search-api。
 
 Idempotent — re-running on an already-provisioned project applies a zero-diff
 plan and rolls a fresh search-api image revision. Costs accrue from the
@@ -48,12 +52,13 @@ moment infra is created. See CLAUDE.md non-negotiables.
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts._common import env, run, terraform_var_args
+from scripts._common import cloud_run_url, env, run, terraform_var_args
 from scripts.ci.sync_dataform import main as sync_dataform_main
 from scripts.deploy.api_gke import main as deploy_api_main
 from scripts.deploy.configmap_overlay import main as overlay_configmap_main
@@ -62,7 +67,8 @@ from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
 from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
-from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT
+from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT, MEILI_SERVICE_NAME_DEFAULT
+from scripts.ops.sync_meili import run as sync_meili_run
 from scripts.setup.backfill_vector_search_index import main as backfill_vector_search_main
 from scripts.setup.recover_wif import main as recover_wif_main
 from scripts.setup.seed_minimal import main as seed_minimal_main
@@ -190,6 +196,45 @@ def _run_seed_test() -> int:
     return seed_minimal_main()
 
 
+def _run_sync_meili() -> int:
+    project_id = env("PROJECT_ID")
+    meili_service = env("MEILI_SERVICE", MEILI_SERVICE_NAME_DEFAULT)
+    meili_base_url = cloud_run_url(meili_service)
+    identity_token = run(["gcloud", "auth", "print-identity-token"], capture=True).stdout or ""
+    api_key = (
+        run(
+            [
+                "gcloud",
+                "secrets",
+                "versions",
+                "access",
+                "latest",
+                "--secret=meili-master-key",
+                f"--project={project_id}",
+            ],
+            capture=True,
+        ).stdout
+        or ""
+    )
+    previous_token = os.environ.get("MEILI_PRESIGNED_ID_TOKEN")
+    os.environ["MEILI_PRESIGNED_ID_TOKEN"] = identity_token.strip()
+    try:
+        synced = sync_meili_run(
+            [
+                f"--project-id={project_id}",
+                f"--meili-base-url={meili_base_url}",
+                "--require-identity-token",
+                f"--api-key={api_key.strip()}",
+            ]
+        )
+    finally:
+        if previous_token is None:
+            os.environ.pop("MEILI_PRESIGNED_ID_TOKEN", None)
+        else:
+            os.environ["MEILI_PRESIGNED_ID_TOKEN"] = previous_token
+    return 0 if synced >= 0 else 1
+
+
 def _run_trigger_feature_view_sync() -> int:
     return feature_view_sync_main()
 
@@ -258,30 +303,36 @@ def _steps() -> list[DeployStep]:
         ),
         DeployStep(
             9,
+            "sync-meili",
+            "sync Meilisearch from feature_mart.properties_cleaned (canonical lexical path)",
+            _run_sync_meili,
+        ),
+        DeployStep(
+            10,
             "backfill-vvs",
             "backfill VVS from feature_mart.property_embeddings (canonical semantic path)",
             _run_backfill_vvs,
         ),
         DeployStep(
-            10,
+            11,
             "trigger-fv-sync",
             "trigger Feature View sync and wait for completion (FOS live path)",
             _run_trigger_feature_view_sync,
         ),
         DeployStep(
-            11,
+            12,
             "apply-manifests",
             "kubectl apply -k infra/manifests/ (Gateway / Deployment / ISVC / policies)",
             _run_apply_manifests,
         ),
         DeployStep(
-            12,
+            13,
             "overlay-configmap",
             "overlay search-api-config (resolve real meili_base_url + VVS/FOS outputs)",
             _run_overlay_configmap,
         ),
         DeployStep(
-            13,
+            14,
             "deploy-api",
             "deploy-api (Cloud Build + kubectl rollout search-api)",
             _run_deploy_api,
@@ -300,8 +351,8 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--to-step",
-        default="12",
-        help="Stop after this step number or name (e.g. 9, trigger-fv-sync, deploy-api).",
+        default="14",
+        help="Stop after this step number or name (e.g. 9, sync-meili, deploy-api).",
     )
     return parser.parse_args()
 

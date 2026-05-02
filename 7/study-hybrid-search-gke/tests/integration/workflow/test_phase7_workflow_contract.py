@@ -6,6 +6,7 @@ These tests do not prove that GCP resources are healthy. They prove that the
 1. ``deploy-all`` remains a one-shot PDCA path.
 2. seed data is written before Feature View sync.
 3. runtime ConfigMap overlay receives live Terraform outputs for VVS/FOS.
+4. canonical lexical / semantic / feature lanes are all established by deploy-all.
 
 Without these checks the repo tends to regress into "manual recovery steps
 after deploy-all", which is exactly the failure mode Wave 2 exposed.
@@ -48,15 +49,17 @@ def test_deploy_all_step_sequence_pins_one_shot_pdca_contract() -> None:
         "tf-apply",
         "seed-lgbm-model",
         "seed-test",
+        "sync-meili",
         "backfill-vvs",
         "trigger-fv-sync",
         "apply-manifests",
         "overlay-configmap",
         "deploy-api",
     ], "deploy-all drifted from the Phase 7 one-shot PDCA path"
-    assert [step.number for step in steps] == list(range(1, 14))
+    assert [step.number for step in steps] == list(range(1, 15))
+    assert names.index("seed-test") < names.index("sync-meili")
     assert names.index("seed-test") < names.index("trigger-fv-sync")
-    assert names.index("seed-test") < names.index("backfill-vvs")
+    assert names.index("sync-meili") < names.index("backfill-vvs")
     assert names.index("backfill-vvs") < names.index("trigger-fv-sync")
     assert names.index("trigger-fv-sync") < names.index("apply-manifests")
     assert names.index("overlay-configmap") < names.index("deploy-api")

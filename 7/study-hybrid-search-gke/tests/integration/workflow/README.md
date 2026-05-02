@@ -8,7 +8,7 @@ Phase 7 の **workflow contract** を pin する pytest 群。
 対象例:
 
 - `deploy-all` の step 順序
-- `seed-test -> trigger-fv-sync` の依存順
+- `seed-test -> sync-meili -> backfill-vvs -> trigger-fv-sync` の依存順
 - runtime ConfigMap overlay への Terraform outputs 注入
 - 「手動 patch / 手動 sync が必要」に退化していないこと
 

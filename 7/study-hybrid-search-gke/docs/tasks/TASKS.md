@@ -45,7 +45,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 ## 完了条件
 
 - [ ] `make check` (ruff + format + mypy strict + pytest) 通過
-- [ ] `make deploy-all` 完了 (tf-bootstrap → tf-init → WIF 復元 → sync-dataform-config → tf-plan → tf apply → deploy-api、約 12-15 分)
+- [ ] `make deploy-all` 完了 (tf-bootstrap → tf-init → WIF 復元 → sync-dataform-config → tf-plan → tf apply stage1/stage2 → seed-lgbm-model → seed-test → sync-meili → backfill-vvs → trigger-fv-sync → apply-manifests → overlay-configmap → deploy-api、初回は VVS attach 次第で 30-40 分)
 - [ ] `make run-all-core` 通過 (check-layers → seed-test → sync-meili → ops-train-now → ops-train-wait → ops-livez/search/search-components/VVS/FOS/feedback/ranking/label-seed → ops-daily → ops-accuracy-report)
 - [ ] Composer 3 DAG が retrain schedule の本線として稼働
 - [ ] `/search` semantic 経路が Vertex Vector Search 1 本 (BQ fallback 撤去後)
