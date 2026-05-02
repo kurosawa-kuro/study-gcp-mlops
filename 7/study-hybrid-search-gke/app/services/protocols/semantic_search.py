@@ -1,14 +1,12 @@
 """Port for semantic candidate-search backends.
 
-Phase 6 T3 — extracted from the monolithic ``BigQueryCandidateRetriever``
-so Vertex AI Vector Search (Matching Engine) can be swapped in behind the
-same interface. ``BigQueryCandidateRetriever`` composes one
-``SemanticSearchPort`` implementation at runtime; the default Phase 5
-choice (``BigQuerySemanticSearch``) keeps the existing ``/search``
-behaviour unchanged.
+Phase 6 T3 で `BigQueryCandidateRetriever` から抽出した Port。Phase 7 W2-8
+で互換レイヤを撤去後、本 phase の唯一の実装は
+`VertexVectorSearchSemanticSearch` (Matching Engine 経由)。Port は将来別
+backend (例: Elasticsearch ANN / OpenSearch) を差し替える余地として残す。
 
-Phase B-4 narrowed the return type from ``list[tuple[str, int, float]]``
-to ``list[SemanticResult]`` (NamedTuple).
+Phase B-4 で戻り値型を `list[tuple[str, int, float]]` から
+`list[SemanticResult]` (NamedTuple) に narrow 済。
 """
 
 from __future__ import annotations

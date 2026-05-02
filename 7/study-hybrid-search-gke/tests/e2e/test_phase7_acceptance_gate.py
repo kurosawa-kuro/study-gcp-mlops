@@ -74,8 +74,20 @@ def test_phase7_pdca_acceptance_gate_live() -> None:
         ["kubectl", "get", "configmap", "-n", "search", "search-api-config", "-o", "yaml"],
         timeout=120,
     )
-    assert "semantic_backend: vertex_vector_search" in configmap_yaml
-    assert "feature_fetcher_backend: online_store" in configmap_yaml
+    # W2-8 後 backend 切替 selector は撤去。ConfigMap が canonical Vertex
+    # resource を持っていることを resource ID 直接で立証する (空文字なら
+    # search-api Pod が build 時に RuntimeError で fail-loud する設計)。
+    for key in (
+        "vertex_vector_search_index_endpoint_id",
+        "vertex_vector_search_deployed_index_id",
+        "vertex_feature_online_store_id",
+        "vertex_feature_view_id",
+        "vertex_feature_online_store_endpoint",
+    ):
+        assert f"{key}: " in configmap_yaml, f"ConfigMap missing key {key}"
+        assert f'{key}: ""' not in configmap_yaml, (
+            f"ConfigMap key {key} is empty — configmap_overlay didn't inject Terraform output"
+        )
     _run(["make", "ops-search-components"], timeout=300)
     _run(["uv", "run", "python", "-m", "scripts.ops.vertex.vector_search"], timeout=300)
     _run(["make", "ops-vertex-feature-group"], timeout=300)

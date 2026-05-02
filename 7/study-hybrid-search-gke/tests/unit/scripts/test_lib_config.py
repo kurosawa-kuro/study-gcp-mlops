@@ -1,11 +1,10 @@
 """Pin scripts/lib/config.py — single source for ConfigMap schema.
 
-Phase 7 W2-5 で `_run_overlay_configmap` と `sync_configmap.py` の独立な
-キー手書きが drift して rollout が壊れた。本テストは:
+W2-8 で互換レイヤを撤去後、ConfigMap は Vertex Vector Search / Feature
+Online Store の resource ID + endpoint だけを持つ (8 keys)。本 test は:
 
-1. CONFIGMAP_KEYS が deployment.yaml が要求する 10 キー全てを覆う
-2. generate_configmap_data() の出力が all-string で必須 3 引数を埋め、
-   default キーは strangler 値 ("bq" / "") を維持する
+1. CONFIGMAP_KEYS が deployment.yaml が要求する全キーを覆う
+2. generate_configmap_data() の出力が all-string で必須 3 引数を埋める
 3. render_configmap_yaml(with_header=True) が
    `infra/manifests/search-api/configmap.example.yaml` と byte 一致
 
@@ -22,10 +21,8 @@ EXPECTED_KEYS = (
     "project_id",
     "models_bucket",
     "meili_base_url",
-    "semantic_backend",
     "vertex_vector_search_index_endpoint_id",
     "vertex_vector_search_deployed_index_id",
-    "feature_fetcher_backend",
     "vertex_feature_online_store_id",
     "vertex_feature_view_id",
     "vertex_feature_online_store_endpoint",
@@ -46,10 +43,9 @@ def test_generate_configmap_data_returns_all_keys_strings() -> None:
     assert all(isinstance(v, str) for v in data.values())
 
 
-def test_committed_example_defaults_preserve_safe_pre_live_values() -> None:
+def test_committed_example_defaults_are_empty_for_vertex_resources() -> None:
+    """Pre-live committed example has empty Vertex IDs — overlay fills them."""
     data = generate_configmap_data(project_id="p", models_bucket="b", meili_base_url="u")
-    assert data["semantic_backend"] == "bq"
-    assert data["feature_fetcher_backend"] == "bq"
     for k in (
         "vertex_vector_search_index_endpoint_id",
         "vertex_vector_search_deployed_index_id",
@@ -60,7 +56,7 @@ def test_committed_example_defaults_preserve_safe_pre_live_values() -> None:
         assert data[k] == ""
 
 
-def test_generate_configmap_data_accepts_live_vertex_outputs() -> None:
+def test_generate_configmap_data_passes_through_live_vertex_outputs() -> None:
     data = generate_configmap_data(
         project_id="p",
         models_bucket="b",
@@ -76,23 +72,6 @@ def test_generate_configmap_data_accepts_live_vertex_outputs() -> None:
     assert data["vertex_feature_online_store_id"] == "store-1"
     assert data["vertex_feature_view_id"] == "view-1"
     assert data["vertex_feature_online_store_endpoint"] == "store.example.com"
-    assert data["semantic_backend"] == "vertex_vector_search"
-    assert data["feature_fetcher_backend"] == "online_store"
-
-
-def test_generate_configmap_data_keeps_bq_until_required_live_values_exist() -> None:
-    data = generate_configmap_data(
-        project_id="p",
-        models_bucket="b",
-        meili_base_url="u",
-        vertex_vector_search_index_endpoint_id="idx-endpoint",
-        vertex_vector_search_deployed_index_id="",
-        vertex_feature_online_store_id="store-1",
-        vertex_feature_view_id="view-1",
-        vertex_feature_online_store_endpoint="",
-    )
-    assert data["semantic_backend"] == "bq"
-    assert data["feature_fetcher_backend"] == "bq"
 
 
 def test_render_committed_form_matches_example_yaml() -> None:

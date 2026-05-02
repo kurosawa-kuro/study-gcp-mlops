@@ -3,9 +3,9 @@
 # `meili_base_url` is environment-specific (Cloud Run URL) — overlay
 # the real value before `make apply-manifests`.
 #
-# Phase 7 Wave 2 W2-5: Vertex Vector Search / Feature Online Store の
-# env vehicle を追加。default は空文字 / "bq" で暫定配線を維持し、
-# live apply / smoke 後に canonical 1 経路へ収束させる。
+# Phase 7 W2-8 完了後 ConfigMap は Vertex Vector Search / Feature
+# Online Store の resource ID / endpoint だけを持つ。`semantic_backend`
+# / `feature_fetcher_backend` のような backend 切替 selector は撤去済。
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,11 +16,9 @@ data:
   models_bucket: "mlops-dev-a-models"
   meili_base_url: "https://meili-search-XXXXX-an.a.run.app"
 
-  semantic_backend: "bq"
   vertex_vector_search_index_endpoint_id: ""
   vertex_vector_search_deployed_index_id: ""
 
-  feature_fetcher_backend: "bq"
   vertex_feature_online_store_id: ""
   vertex_feature_view_id: ""
   vertex_feature_online_store_endpoint: ""

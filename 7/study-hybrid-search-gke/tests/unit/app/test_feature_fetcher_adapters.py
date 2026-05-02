@@ -1,15 +1,9 @@
-"""Unit tests for ``FeatureFetcher`` adapters (Phase 7 PR-2).
+"""Unit tests for the canonical Feature Online Store adapter (Phase 7 W2-8 後).
 
-Both adapters are exercised without touching their underlying SDK:
-
-- ``BigQueryFeatureFetcher``: ``bigquery.Client`` is replaced with a
-  ``MagicMock`` whose ``.query().result()`` yields stub row dicts.
-- ``FeatureOnlineStoreFetcher``: ``client_factory`` injection seam is
-  used so ``google.cloud.aiplatform_v1beta1`` is never imported.
-
-Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §3.2 受け入れ条件 (ローカル):
-- mock で SDK call を stub した unit test PASS
-- in-memory fake fetcher 経由で ranking が動作 (in_memory_feature_fetcher も別テストで使用)
+W2-8 で BigQueryFeatureFetcher は撤去。本 phase の唯一の FeatureFetcher 実装は
+``FeatureOnlineStoreFetcher`` (Vertex AI Feature View 経由)。SDK 呼び出しは
+``client_factory`` 注入 seam で stub し、``google.cloud.aiplatform_v1beta1``
+は import せずに covers する。
 """
 
 from __future__ import annotations
@@ -19,89 +13,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.services.adapters.bigquery_feature_fetcher import BigQueryFeatureFetcher
 from app.services.adapters.feature_online_store_fetcher import FeatureOnlineStoreFetcher
 from app.services.protocols.feature_fetcher import FeatureRow
-
-# ----------------------------------------------------------------------------
-# BigQueryFeatureFetcher
-# ----------------------------------------------------------------------------
-
-
-def _bq_client_with_rows(rows: list[dict[str, Any]]) -> MagicMock:
-    """Build a ``bigquery.Client`` mock whose ``.query().result()`` yields rows."""
-    job = MagicMock()
-    job.result.return_value = iter(rows)
-    client = MagicMock()
-    client.query.return_value = job
-    return client
-
-
-def test_bigquery_fetcher_returns_one_row_per_known_id() -> None:
-    client = _bq_client_with_rows(
-        [
-            {"property_id": "p001", "ctr": 0.12, "fav_rate": 0.05, "inquiry_rate": 0.02},
-            {"property_id": "p002", "ctr": 0.30, "fav_rate": 0.10, "inquiry_rate": 0.04},
-        ]
-    )
-    fetcher = BigQueryFeatureFetcher(
-        features_table="proj.feature_mart.property_features_daily",
-        client=client,
-    )
-
-    out = fetcher.fetch(["p001", "p002"])
-
-    assert out == {
-        "p001": FeatureRow(property_id="p001", ctr=0.12, fav_rate=0.05, inquiry_rate=0.02),
-        "p002": FeatureRow(property_id="p002", ctr=0.30, fav_rate=0.10, inquiry_rate=0.04),
-    }
-
-
-def test_bigquery_fetcher_returns_all_none_for_unknown_ids() -> None:
-    """Missing properties get an explicit all-None row, not omitted."""
-    client = _bq_client_with_rows(
-        [{"property_id": "p001", "ctr": 0.12, "fav_rate": 0.05, "inquiry_rate": 0.02}]
-    )
-    fetcher = BigQueryFeatureFetcher(
-        features_table="proj.feature_mart.property_features_daily",
-        client=client,
-    )
-
-    out = fetcher.fetch(["p001", "p999"])
-
-    assert out["p001"].ctr == pytest.approx(0.12)
-    assert out["p999"] == FeatureRow(property_id="p999", ctr=None, fav_rate=None, inquiry_rate=None)
-
-
-def test_bigquery_fetcher_skips_query_for_empty_input() -> None:
-    """Optimisation: never round-trip BQ when there are no IDs."""
-    client = _bq_client_with_rows([])
-    fetcher = BigQueryFeatureFetcher(
-        features_table="proj.feature_mart.property_features_daily",
-        client=client,
-    )
-
-    assert fetcher.fetch([]) == {}
-    client.query.assert_not_called()
-
-
-def test_bigquery_fetcher_coerces_none_columns_to_none() -> None:
-    """If the underlying row has NULLs, they pass through as ``None``."""
-    client = _bq_client_with_rows(
-        [{"property_id": "p001", "ctr": None, "fav_rate": 0.05, "inquiry_rate": None}]
-    )
-    fetcher = BigQueryFeatureFetcher(
-        features_table="proj.feature_mart.property_features_daily",
-        client=client,
-    )
-    out = fetcher.fetch(["p001"])
-    assert out["p001"] == FeatureRow(property_id="p001", ctr=None, fav_rate=0.05, inquiry_rate=None)
-
-
-def test_bigquery_fetcher_rejects_empty_features_table() -> None:
-    with pytest.raises(ValueError, match="features_table"):
-        BigQueryFeatureFetcher(features_table="", client=MagicMock())
-
 
 # ----------------------------------------------------------------------------
 # FeatureOnlineStoreFetcher

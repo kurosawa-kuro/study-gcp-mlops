@@ -4,8 +4,7 @@ must cover every key referenced from ``deployment.yaml``.
 
 The committed file is the **canonical artifact** (operators copy +
 overlay it before applying). Drift between the committed file and what
-``render()`` would produce from ``env/config/setting.yaml`` means
-either:
+``render()`` would produce from ``env/config/setting.yaml`` means either:
 
 1. Someone hand-edited the committed YAML without bumping setting.yaml
    (the file says "AUTO-GENERATED — do NOT edit by hand").
@@ -17,11 +16,10 @@ fails fast here so the diff surfaces in the PR.
 
 Also asserts that ``scripts/lib/config.CONFIGMAP_KEYS`` covers every key
 referenced via ``configMapKeyRef`` in ``infra/manifests/search-api/deployment.yaml``.
-Phase 7 W2-5 で、deployment.yaml が ``configMapKeyRef key=semantic_backend``
-を required (Optional: false) 参照するのに、deploy_all overlay が古いキー
-列のままだったため Pod が ``CreateContainerConfigError`` で起動失敗した。
-本テストは「deployment が参照する全キーを generator が出力する」ことを
-構造的に保証する。
+W2-5 で deployment.yaml が新キーを参照するのに deploy_all overlay が古い
+キー列のままだったため Pod が ``CreateContainerConfigError`` で起動失敗した
+事故への構造的対策。「deployment が参照する全キーを generator が出力する」
+ことを保証する。
 """
 
 from __future__ import annotations
@@ -93,10 +91,8 @@ def test_generated_configmap_keeps_deployment_referenced_keys() -> None:
         "project_id:",
         "models_bucket:",
         "meili_base_url:",
-        "semantic_backend:",
         "vertex_vector_search_index_endpoint_id:",
         "vertex_vector_search_deployed_index_id:",
-        "feature_fetcher_backend:",
         "vertex_feature_online_store_id:",
         "vertex_feature_view_id:",
         "vertex_feature_online_store_endpoint:",

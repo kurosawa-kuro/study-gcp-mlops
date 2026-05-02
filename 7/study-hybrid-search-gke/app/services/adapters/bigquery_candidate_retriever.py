@@ -1,8 +1,13 @@
-"""``CandidateRetriever`` adapter — BigQuery hybrid retrieval.
+"""``CandidateRetriever`` adapter — Phase 7 canonical hybrid retrieval.
 
-Lexical (Meilisearch) + semantic (BigQuery VECTOR_SEARCH) → RRF fusion →
+Lexical (Meilisearch) + semantic (Vertex AI Vector Search) → RRF fusion →
 property feature enrichment via BigQuery joins on ``properties_cleaned`` +
 ``property_features_daily``.
+
+Note: BigQuery is the source of truth for property + feature tables but
+**not** for the semantic ANN lane — that runs through Vertex Vector Search
+(see ``app/services/adapters/vertex_vector_search_semantic_search.py``).
+The ``semantic`` Port is therefore required.
 """
 
 from __future__ import annotations
@@ -11,7 +16,6 @@ from google.cloud import bigquery
 
 from app.domain.candidate import Candidate
 from app.domain.search import SearchFilters
-from app.services.adapters.bigquery_semantic_search import BigQuerySemanticSearch
 from app.services.protocols.lexical_search import LexicalSearchPort
 from app.services.protocols.semantic_search import SemanticSearchPort
 from app.services.ranking import RRF_K, rrf_fuse
@@ -23,19 +27,15 @@ class BigQueryCandidateRetriever:
     Args:
         project_id: GCP project.
         lexical: lexical search adapter (Meilisearch).
+        semantic: Vertex Vector Search adapter (canonical Phase 7 path).
         embeddings_table: fully-qualified ``project.dataset.table`` for
-            ``feature_mart.property_embeddings`` (768d vectors). Used to
-            construct the default Phase 5 semantic backend when ``semantic``
-            is not explicitly passed.
+            ``feature_mart.property_embeddings`` — kept as the embedding
+            source of truth (Vertex Vector Search index is rebuilt from it).
         features_table: ``property_features_daily`` fully-qualified name
             (for ctr / fav_rate / inquiry_rate enrichment).
         properties_table: ``feature_mart.properties_cleaned`` for rent /
             walk_min / age_years / area_m2 / pet_ok / layout filter columns.
         client: optional pre-built BQ client (tests / centralized lifecycle).
-        semantic: optional alternative ``SemanticSearchPort``
-            implementation. Defaults to ``BigQuerySemanticSearch`` over
-            ``embeddings_table`` so existing constructor call-sites keep
-            working unchanged.
     """
 
     def __init__(
@@ -43,25 +43,18 @@ class BigQueryCandidateRetriever:
         *,
         project_id: str,
         lexical: LexicalSearchPort,
+        semantic: SemanticSearchPort,
         embeddings_table: str,
         features_table: str,
         properties_table: str,
         client: bigquery.Client | None = None,
-        semantic: SemanticSearchPort | None = None,
     ) -> None:
         self._lexical = lexical
         self._embeddings_table = embeddings_table
         self._features_table = features_table
         self._properties_table = properties_table
         self._client = client or bigquery.Client(project=project_id)
-        if semantic is None:
-            self._semantic: SemanticSearchPort = BigQuerySemanticSearch(
-                embeddings_table=embeddings_table,
-                properties_table=properties_table,
-                client=self._client,
-            )
-        else:
-            self._semantic = semantic
+        self._semantic = semantic
 
     def retrieve(
         self,

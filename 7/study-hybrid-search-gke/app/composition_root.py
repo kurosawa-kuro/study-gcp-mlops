@@ -77,9 +77,11 @@ class Container:
     ranking_log_publisher: RankingLogPublisher
     feedback_recorder: FeedbackRecorder
 
-    # Phase 7 PR-4 — opt-in fresh feature fetch (Vertex AI Feature Online
-    # Store). ``None`` when ``FEATURE_FETCHER_BACKEND`` is unconfigured or
-    # the FOS endpoint is not yet provisioned (Wave 2 待ち).
+    # Phase 7 W2-8 で canonical 化済み: Vertex AI Feature Online Store fetcher。
+    # FOS endpoint が unconfigured なら build 段で RuntimeError を出すため、
+    # ``enable_search=True`` の Container では None になることはない。
+    # ``enable_search=False`` (ENABLE_SEARCH=false での local boot contract)
+    # の場合のみ None。
     feature_fetcher: FeatureFetcher | None
 
     # Services (Phase D-1) — constructed once at startup, depend only on

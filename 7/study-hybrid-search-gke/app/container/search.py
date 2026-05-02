@@ -12,7 +12,6 @@ from typing import Any, Protocol
 
 from app.services.adapters import (
     BigQueryCandidateRetriever,
-    BigQueryFeatureFetcher,
     FeatureOnlineStoreFetcher,
     KServeEncoder,
     KServeReranker,
@@ -112,104 +111,72 @@ class SearchBuilder:
             f"{settings.bq_table_properties_cleaned}"
         )
         lexical = self._resolve_lexical_search(override_lexical=override_lexical)
-        semantic = self._resolve_semantic_search()
+        semantic = self._build_vertex_vector_search()
         return BigQueryCandidateRetriever(
             project_id=settings.project_id,
             lexical=lexical,
+            semantic=semantic,
             embeddings_table=embeddings_table,
             features_table=features_table,
             properties_table=properties_table,
-            semantic=semantic,
             client=self._context._bigquery(),
         )
 
-    def resolve_feature_fetcher(self) -> FeatureFetcher | None:
-        """Build a ``FeatureFetcher`` based on ``settings.feature_fetcher_backend``.
+    def resolve_feature_fetcher(self) -> FeatureFetcher:
+        """Build the canonical Vertex AI Feature Online Store fetcher.
 
-        PR-2 keeps this as a public ``resolve_*`` (no leading underscore) so
-        PR-4 can call it from the reranker wiring without breaking the
-        ``SearchBuilderContext`` Protocol. PR-2 itself does NOT plug the
-        result into ``Container`` — defaults stay observable-equivalent.
-
-        Returns ``None`` when:
-        - ``feature_fetcher_backend == "online_store"`` but the FeatureView
-          / endpoint config is empty (Wave 2 待ち)、または
-        - ``bq`` 選択時で ``features_table`` 解決に必要な settings が空。
-        Callers treat ``None`` as "feature fetch disabled" and fall back to
-        whatever inline mechanism existed previously.
+        Phase 7 W2-8 で互換レイヤを撤去後、本 phase の `/search` 経路は常に
+        Feature View 経由で fresh feature を fetch する 1 本に収束。Resource
+        ID / endpoint がいずれか欠ければ `RuntimeError` で fail-loud し、
+        config の取りこぼしが live で sentinel 化されないようにする。
         """
         settings = self._settings
-        if settings.feature_fetcher_backend == "online_store":
-            store_id = settings.vertex_feature_online_store_id
-            view_id = settings.vertex_feature_view_id
-            endpoint = settings.vertex_feature_online_store_endpoint
-            if not store_id or not view_id or not endpoint:
-                self._logger.warning(
-                    "FEATURE_FETCHER_BACKEND=online_store but "
-                    "VERTEX_FEATURE_ONLINE_STORE_ID=%r / VERTEX_FEATURE_VIEW_ID=%r / "
-                    "VERTEX_FEATURE_ONLINE_STORE_ENDPOINT=%r is empty — disabling "
-                    "Feature Online Store fetcher (Wave 2 で provision 後に再有効化).",
-                    store_id,
-                    view_id,
-                    endpoint,
-                )
-                return None
-            feature_view = (
-                f"projects/{settings.project_id}/locations/{settings.vertex_location}"
-                f"/featureOnlineStores/{store_id}/featureViews/{view_id}"
+        store_id = settings.vertex_feature_online_store_id
+        view_id = settings.vertex_feature_view_id
+        endpoint = settings.vertex_feature_online_store_endpoint
+        if not store_id or not view_id or not endpoint:
+            raise RuntimeError(
+                "Feature Online Store config is incomplete — required "
+                "VERTEX_FEATURE_ONLINE_STORE_ID / VERTEX_FEATURE_VIEW_ID / "
+                "VERTEX_FEATURE_ONLINE_STORE_ENDPOINT all non-empty (got "
+                f"store={store_id!r}, view={view_id!r}, endpoint={endpoint!r}). "
+                "Re-run `make deploy-all` so `configmap_overlay` injects live "
+                "Terraform outputs."
             )
-            self._logger.info(
-                "feature fetcher = online_store feature_view=%s endpoint=%s",
-                feature_view,
-                endpoint,
-            )
-            return FeatureOnlineStoreFetcher(
-                feature_view=feature_view,
-                endpoint_resolver=lambda: endpoint,
-            )
-        # default = bq → BigQueryFeatureFetcher with the BQ client used elsewhere.
-        features_table = (
-            f"{settings.project_id}.{settings.bq_dataset_feature_mart}."
-            f"{settings.bq_table_property_features_daily}"
+        feature_view = (
+            f"projects/{settings.project_id}/locations/{settings.vertex_location}"
+            f"/featureOnlineStores/{store_id}/featureViews/{view_id}"
         )
-        if not features_table.strip("."):
-            return None
-        return BigQueryFeatureFetcher(
-            features_table=features_table,
-            client=self._context._bigquery(),
+        self._logger.info(
+            "feature fetcher = online_store feature_view=%s endpoint=%s",
+            feature_view,
+            endpoint,
+        )
+        return FeatureOnlineStoreFetcher(
+            feature_view=feature_view,
+            endpoint_resolver=lambda: endpoint,
         )
 
-    def _resolve_semantic_search(self) -> SemanticSearchPort | None:
-        """Choose ``SemanticSearchPort`` impl based on ``settings.semantic_backend``.
+    def _build_vertex_vector_search(self) -> SemanticSearchPort:
+        """Build the canonical Vertex Vector Search semantic adapter.
 
-        Default (``bq``): return ``None`` so ``BigQueryCandidateRetriever``
-        constructs its built-in ``BigQuerySemanticSearch`` and existing
-        Phase 4 / Phase 5 default behaviour is preserved unchanged
-        (Strangler 原則 — see Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §2.1).
-
-        ``vertex_vector_search``: build ``VertexVectorSearchSemanticSearch``
-        using the configured Index Endpoint resource. If endpoint /
-        deployed-index ID is not yet provisioned (Wave 2 待ち)、warn loudly
-        and fall back to the BigQuery default so the app stays serviceable.
+        Phase 7 W2-8 で BigQuery semantic search 経路は撤去。`/search` の
+        semantic lane は常に Vertex Vector Search の `find_neighbors`。
+        endpoint / deployed index ID のいずれかが欠ければ `RuntimeError`
+        で fail-loud する (互換レイヤがいた頃のように silent fallback しない)。
         """
         settings = self._settings
-        if settings.semantic_backend != "vertex_vector_search":
-            return None
-
         endpoint_id = settings.vertex_vector_search_index_endpoint_id
         deployed_id = settings.vertex_vector_search_deployed_index_id
         if not endpoint_id or not deployed_id:
-            self._logger.warning(
-                "SEMANTIC_BACKEND=vertex_vector_search but "
-                "VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID=%r / "
-                "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID=%r is empty — "
-                "falling back to BigQuery VECTOR_SEARCH (Phase 4 default). "
-                "Provision Wave 2 Terraform vector_search module to enable.",
-                endpoint_id,
-                deployed_id,
+            raise RuntimeError(
+                "Vertex Vector Search config is incomplete — required "
+                "VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID / "
+                "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID both non-empty (got "
+                f"endpoint={endpoint_id!r}, deployed={deployed_id!r}). "
+                "Re-run `make deploy-all` so `configmap_overlay` injects live "
+                "Terraform outputs."
             )
-            return None
-
         endpoint_name = _resolve_index_endpoint_name(
             project_id=settings.project_id,
             location=settings.vertex_location,

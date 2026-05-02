@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Literal
 
 from pydantic import BaseModel, SecretStr
 
@@ -54,22 +53,19 @@ class ApiSettings(BaseAppSettings):
     # --- Vertex AI location (used by Model Registry / Pipelines) -------------
     vertex_location: str = "asia-northeast1"
 
-    # --- Semantic backend (Phase 7 移行ロードマップ §3.1 PR-1) ---------------
-    # Strangler 切替: default は ``bq`` (Phase 4 同等の BigQuery VECTOR_SEARCH)。
-    # Wave 2 で Vertex AI Vector Search index endpoint が provision された後、
-    # ``vertex_vector_search`` に flip して Phase 5+ 仕様の本番 serving index
-    # 経路に切り替える。``vertex_vector_search`` 選択時に endpoint/deployed
-    # ID が空なら ``SearchBuilder._resolve_semantic_search`` が WARN を出して
-    # default の BigQuerySemanticSearch にフォールバックする。
-    semantic_backend: Literal["bq", "vertex_vector_search"] = "bq"
+    # --- Vertex AI Vector Search (Phase 7 canonical semantic lane) ----------
+    # W2-8 で BQ semantic search backend は撤去。`/search` の semantic lane は
+    # 常に Vertex Vector Search の find_neighbors を使う。Resource ID は
+    # `make deploy-all` の `configmap_overlay` step が Terraform output から
+    # search-api ConfigMap へ注入する。空のまま起動すると Container build 時に
+    # `RuntimeError` で fail-loud (silent fallback はしない)。
     vertex_vector_search_index_endpoint_id: str = ""
     vertex_vector_search_deployed_index_id: str = ""
 
-    # --- Feature fetcher backend (Phase 7 移行ロードマップ §3.2 PR-2) -------
-    # Strangler 切替: default は ``bq``。``online_store`` 選択時に必要な
-    # FeatureView resource が空ならフォールバック (PR-4 で消費される)。
-    # PR-2 merge 段階では Container 配線していないので default 挙動は不変。
-    feature_fetcher_backend: Literal["bq", "online_store"] = "bq"
+    # --- Vertex AI Feature Online Store (Phase 7 canonical feature fetch) ---
+    # W2-8 で BQ feature fetcher は撤去。reranker 入力の fresh feature 取得は
+    # 常に Feature View 経由。空のまま起動すると Container build 時に
+    # `RuntimeError` で fail-loud。
     vertex_feature_online_store_id: str = ""
     vertex_feature_view_id: str = ""
     vertex_feature_online_store_endpoint: str = ""
