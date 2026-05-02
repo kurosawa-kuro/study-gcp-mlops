@@ -805,22 +805,77 @@ def test_deploy_all_step_runner_imports_composer_deploy_dags() -> None:
     assert "return composer_deploy_dags_main()" in deploy_all_py
 
 
+def test_destroy_all_proactively_undeploys_stale_vvs_indexes() -> None:
+    """**PDCA reproducibility 契約**: `destroy-all` は Vector Search の deployed
+    index を能動的に undeploy する。
+
+    背景: 過去の live verify で前 PDCA cycle が deployed index を残したまま
+    終わると、次の `make deploy-all` が step 6 stage1 で 15 min wait timeout
+    で fail する事故が再発した。`deploy-all` 側 `wait_for_deployed_index_absent`
+    は wait しかしないため、`destroy-all` 側でも能動的に undeploy する責任
+    がある。本 contract test がこのガードを pin する。
+    """
+    destroy_all_py = _read("scripts/setup/destroy_all.py")
+    vertex_cleanup_py = _read("scripts/infra/vertex_cleanup.py")
+
+    # vertex_cleanup に proactive undeploy helper が存在
+    assert "def undeploy_all_vvs_deployed_indexes(" in vertex_cleanup_py, (
+        "scripts/infra/vertex_cleanup.py must define undeploy_all_vvs_deployed_indexes "
+        "(proactive undeploy helper, not just wait_for_deployed_index_absent)"
+    )
+    # gcloud ai index-endpoints undeploy-index を実際に呼ぶ
+    assert '"undeploy-index"' in vertex_cleanup_py, (
+        "undeploy_all_vvs_deployed_indexes must invoke 'gcloud ai index-endpoints "
+        "undeploy-index' (not just describe / wait)"
+    )
+    # destroy_all から呼び出されている
+    assert "vertex_cleanup.undeploy_all_vvs_deployed_indexes" in destroy_all_py, (
+        "destroy-all must call vertex_cleanup.undeploy_all_vvs_deployed_indexes "
+        "(otherwise the next deploy-all step 6 timeout-fails on stale deployed index)"
+    )
+
+
 def test_cost_estimate_documented_in_runbook() -> None:
-    """Stage 3 コスト見積もり (DCU-hour ベース) が runbook §1.4-bis に明記
-    されていること — 過去の ¥9,000 padding ミス再発防止の contract。"""
+    """Stage 3 コスト見積もり (3h 学習 1 回想定) が runbook §1.4-bis に明記
+    されていること — 過去の ¥9,000 padding ミス再発防止の contract。
+
+    user authoritative wording (2026-05-02 終端) を pin:
+    - section 存在 + 3h cycle ¥870-1,200 (Composer + GKE + Gateway + VVS + FOS
+      + 従量系合算) + Composer なし時 ¥570-900 / 3h
+    - 課金対象を「常駐系 vs 従量系」に分解 (理解促進)
+    - 当日 destroy 前提を明記 (PDCA 契約)
+    - destroy 漏れリスク (24h / 1 週間 / 月放置) も明記
+    """
     runbook = _read("docs/runbook/05_運用.md")
     assert "### 1.4-bis Composer / Phase 7 フル構成のコスト見積もり" in runbook, (
         "runbook §1.4-bis (cost estimation section) is missing"
     )
-    assert "DCU-hour" in runbook, "runbook must explain DCU-hour pricing model"
-    # 信頼できる数字 (3h 学習 1 回 ~¥800-1,300、当日 destroy 前提) が明記されていること
-    assert "~¥800-1,300" in runbook or "¥800-1,300" in runbook, (
-        "runbook must pin Phase 7 full 3h learning-session cost as ~¥800-1,300"
+    # 3h 学習 1 回の合計値 (user authoritative)
+    assert "¥870-1,200" in runbook, (
+        "runbook must pin Phase 7 full 3h learning-session cost as ~¥870-1,200 "
+        "(user authoritative 2026-05-02)"
     )
-    # 当日 destroy 契約が言及されていること
+    # Composer なし時の代替値
+    assert "¥570-900" in runbook, (
+        "runbook must document the without-Composer alt cost ~¥570-900 / 3h"
+    )
+    # 課金対象を「常駐系 vs 従量系」に分解
+    assert "常駐系" in runbook and "従量系" in runbook, (
+        "runbook must split cost into 常駐系 (always-on while env alive) vs "
+        "従量系 (per-execution) so the reader knows what drives total cost"
+    )
+    # 当日 destroy 契約
     assert "当日 destroy 前提" in runbook, (
         "runbook must explicitly state 'same-day destroy' contract"
     )
+    # destroy 漏れリスク (24h / 1 週間 / 月放置)
+    assert "destroy 漏れリスク" in runbook, (
+        "runbook must document destroy-leak risk (the real failure mode)"
+    )
+    for leak_marker in ("24h 放置", "1 週間放置", "月放置"):
+        assert leak_marker in runbook, (
+            f"runbook must enumerate destroy-leak scenarios including {leak_marker}"
+        )
 
 
 def test_composer_canonical_doc_section_exists() -> None:

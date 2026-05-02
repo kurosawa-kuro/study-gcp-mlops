@@ -108,6 +108,79 @@ def deployed_index_exists(project_id: str, region: str, deployed_index_id: str) 
     return False
 
 
+def undeploy_all_vvs_deployed_indexes(
+    project_id: str | None = None, region: str | None = None
+) -> None:
+    """Proactively undeploy ALL Vertex Vector Search deployed indexes before destroy.
+
+    `deploy-all` の `wait_for_deployed_index_absent` は **wait** しかしないので、
+    前 PDCA cycle で `destroy-all` が deployed index を残したまま終わると、次回
+    `make deploy-all` が step 6 (tf-apply stage1) で 15 分待った末に
+    timeout で fail する事故が起きる。
+
+    本 helper は `destroy-all` 時点で「endpoint に attach されている全
+    deployed index を能動的に undeploy する」ことで PDCA reproducibility を
+    保証する (= 「何度叩いても通る」契約の一部)。
+
+    benign on no-state: index endpoints が存在しない / deployed indexes 0 件
+    のときは何もしない。`gcloud ... undeploy-index --quiet` は long-running
+    operation を同期的に待つ。
+    """
+    pid = project_id or env("PROJECT_ID")
+    rgn = region or env("VERTEX_LOCATION") or env("REGION")
+
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "ai",
+            "index-endpoints",
+            "list",
+            f"--region={rgn}",
+            f"--project={pid}",
+            "--format=json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        print(f"    index-endpoints list failed — assume absent and continue: {detail}")
+        return
+    endpoints = json.loads(proc.stdout) if proc.stdout.strip() else []
+    if not endpoints:
+        print("    no Vector Search index endpoints — skip")
+        return
+
+    for endpoint in endpoints:
+        endpoint_name = endpoint.get("name", "")
+        endpoint_id = endpoint_name.rsplit("/", 1)[-1] if endpoint_name else ""
+        if not endpoint_id:
+            continue
+        deployed = endpoint.get("deployedIndexes") or []
+        if not deployed:
+            print(f"    index-endpoint {endpoint_id} has no deployed indexes — skip")
+            continue
+        for idx in deployed:
+            deployed_id = idx.get("id")
+            if not deployed_id:
+                continue
+            print(f"    undeploy-index endpoint={endpoint_id} deployed_index_id={deployed_id}")
+            run(
+                [
+                    "gcloud",
+                    "ai",
+                    "index-endpoints",
+                    "undeploy-index",
+                    endpoint_id,
+                    f"--deployed-index-id={deployed_id}",
+                    f"--region={rgn}",
+                    f"--project={pid}",
+                    "--quiet",
+                ]
+            )
+
+
 def wait_for_deployed_index_absent(
     project_id: str,
     region: str,

@@ -119,6 +119,13 @@ def main() -> int:
     print(f"==> [2/6] undeploy Vertex endpoint deployed_models (region={region})")
     vertex_cleanup.undeploy_all_endpoint_shells(project_id, region)
 
+    print(f"==> [2/6+] undeploy Vector Search deployed indexes (region={region})")
+    # PDCA reproducibility guard: 前 cycle で deployed index が残ると次の
+    # deploy-all が step 6 stage1 apply で 15 min wait timeout になる事故を
+    # 防ぐ。`deploy-all` 側 `wait_for_deployed_index_absent` は wait しか
+    # しないので、destroy 側でも能動的に undeploy しておく。
+    vertex_cleanup.undeploy_all_vvs_deployed_indexes(project_id, region)
+
     print("==> [3/6] wipe GCS buckets (force_destroy=false blockers)")
     gcs_cleanup.wipe_all_terraform_managed_buckets(project_id)
 

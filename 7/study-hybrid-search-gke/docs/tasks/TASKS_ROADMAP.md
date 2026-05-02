@@ -611,12 +611,12 @@ Wave 1 で導入した backend 切替 env / BQ fallback / legacy alias を撤去
 
 | シナリオ | コスト |
 |---|---|
-| Phase 7 full 学習 1 回 (3h 起動、即 destroy) | **~¥800-1,300/回** |
-| PDCA 3 cycle / 日 | ~¥1,200-1,500 |
-| 月 10 cycle (週 2-3 回 verify) | ~¥4,000-5,000/月 |
+| Phase 7 full 学習 1 回 (3h 起動、即 destroy) | **~¥870-1,200/回** |
+| 同日 2 回まわす | **~¥1,740-2,400/日** |
+| 月 10 回 (週 2-3 回 verify) | **~¥8,700-12,000/月** |
 | destroy 漏れ 24h 放置 | ~¥4,000-6,000 (Composer + GKE + VVS deployed index 等の合算) |
 
-→ **当日 destroy 前提なら、判断材料は「許容時間内に収まるか」と「~¥800-1,300/回を学習投資として許容するか」**。Billing Budget Alert 日次 ¥3,000 推奨。
+→ **当日 destroy 前提なら、判断材料は「許容時間内に収まるか」と「~¥870-1,200/回を学習投資として許容するか」**。Billing Budget Alert 日次 ¥3,000 推奨。
 
 - [ ] `enable_composer=true` default flip
 - [ ] 軽量 trigger 格下げ:
