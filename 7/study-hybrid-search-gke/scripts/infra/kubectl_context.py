@@ -18,6 +18,9 @@ get-credentials を呼んで kubeconfig を上書き**する (gcloud 側で値�
 
 from __future__ import annotations
 
+import subprocess
+import time
+
 from scripts._common import env, run
 from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT
 
@@ -38,4 +41,34 @@ def ensure() -> None:
             f"--region={region}",
             f"--project={project_id}",
         ]
+    )
+
+
+def wait_until_api_ready(*, timeout_seconds: int = 600, poll_seconds: int = 10) -> None:
+    """Poll the Kubernetes API until the freshly-created cluster answers.
+
+    `get-credentials` can succeed before the control plane is fully reachable.
+    `terraform apply` for module.kserve must therefore wait until a trivial
+    `kubectl get namespace kube-system` succeeds; otherwise the first apply
+    after cluster creation races cert-manager / namespace creation and fails
+    with i/o timeout.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        proc = subprocess.run(
+            ["kubectl", "get", "namespace", "kube-system", "-o", "name"],
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if proc.returncode == 0 and "namespace/kube-system" in (proc.stdout or ""):
+            print("==> kubernetes API reachable (namespace/kube-system)")
+            return
+        detail = (proc.stderr or proc.stdout or "").strip()
+        if detail:
+            print(f"==> waiting for kubernetes API: {detail}")
+        time.sleep(poll_seconds)
+    raise RuntimeError(
+        f"kubernetes API did not become reachable within {timeout_seconds}s "
+        "(kubectl get namespace kube-system kept failing)"
     )

@@ -258,6 +258,72 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 | **Wave 2** | **GCP インフラ層 (= クラウド側の主作業計画)** | 🟡 live 検証中 | §4 が母艦。**W2-1 / W2-2 / W2-3 / W2-5 / W2-6 / W2-7 の live wiring は成立**: VVS smoke / FOS fetch / feedback / ranking / accuracy / retrain wait を実測 PASS。**追加で canonical ConfigMap auto-flip と `ops-train-wait` を実装**。未完了は full PDCA 完走、Composer 継承、互換レイヤのコード削除 |
 | Wave 3 | docs / reference architecture 整合 | ⏳ Wave 2 後 | 03_実装カタログ.md / 05_運用.md の「semantic 経路」「feature 取得経路」「Composer DAG 経路」記述を Wave 1/2 に追従 |
 
+### 進捗ログ (2026-05-02)
+
+「何も進んでいないのでは」という不安を避けるため、Wave 2 live 検証で実際に通した項目と、まだ残る項目を分離して記録する。
+
+**この時点で実測 PASS 済み**
+
+- local boot contract:
+  - Docker build 成功
+  - import smoke 成功
+  - `ENABLE_SEARCH=false` で ADC なし `/livez` 200
+- GCP canonical path:
+  - `make ops-livez`
+  - `make ops-search-components` (`lexical=1 semantic=3 rerank=5`)
+  - `make ops-vertex-vector-search-smoke`
+  - `uv run python -m scripts.infra.feature_view_sync`
+  - `make ops-vertex-feature-group`
+  - `make ops-feedback`
+  - `make ops-ranking`
+  - `make ops-accuracy-report` (`ndcg_at_10=1.0`)
+  - `make ops-train-now` + `make ops-train-wait`
+- workflow contract 強化:
+  - ConfigMap overlay が Terraform outputs から VVS/FOS 値を注入
+  - live overlay 時に `semantic_backend=vertex_vector_search` / `feature_fetcher_backend=online_store` へ auto-flip
+  - `run-all-core` に `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` / `ops-train-wait` を組み込み
+  - opt-in live acceptance gate に `feedback / ranking / accuracy / canonical ConfigMap` を追加
+- destroy-all 再現性修正:
+  - `Gateway` / `ServiceNetworkEndpointGroup` finalizer 詰まりを実害として確認し、回避手順を反映
+  - `property_features_online_latest` の `deletion_protection` 漏れを修正
+  - `tests/integration/infra/test_destroy_all_table_parity.py` を更新して再発防止
+- docs 同期:
+  - `TASKS.md`
+  - `03_実装カタログ.md`
+  - `04_検証.md`
+  - `05_運用.md`
+
+**この時点で進行中**
+
+- full PDCA 再検証:
+  - `destroy-all` 完了
+  - clean state から `deploy-all` を再実行中
+  - `step 6 tf-apply` は staged apply 化により、前回の blocker だった
+    `property_features_online_latest` 404 と `module.kserve` / `helm_release`
+    の GKE ready race を回避できる構造へ修正済み
+  - live 再実行では `property_features_online_latest` 作成成功、
+    `module.kserve` に入る前の `stage1` まで到達し、現在は
+    `module.vector_search.google_vertex_ai_index_endpoint_deployed_index`
+    の attach 長時間化 (10 分超の create 待ち) を観測中
+  - 続いて `run-all-core` → 最後の `destroy-all` を通す
+
+**まだ未完了**
+
+- **W2-8 互換レイヤ削除**
+  - `SEMANTIC_BACKEND`
+  - `FEATURE_FETCHER_BACKEND`
+  - `BigQuerySemanticSearch`
+  - `BigQueryFeatureFetcher`
+  - manifest / docs 上の暫定切替 vehicle
+- Composer 継承確認
+- `tests/integration/parity/*` の `live_gcp` 本実行
+
+要点:
+
+- 「主要な live wiring が動くか」は確認済み
+- 「PDCA を clean state から最後まで 1 発で完走できるか」はまだ進行中
+- 「暫定互換レイヤをコードごと消す」はまだ未着手ではなく、次の主作業として残っている
+
 **Wave 1 の位置付け**:
 
 - Wave 1 は **最終形ではなく暫定配線**。ローカル完結で adapter / Terraform / script を先に揃えただけで、教育コードとしての完成条件は **互換レイヤ削除後** とする

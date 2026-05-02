@@ -138,3 +138,42 @@ def test_main_prints_failure_summary_for_nonzero_step(
     out = capsys.readouterr().out
     assert rc == 7
     assert "deploy-all FAILED at step 2 (broken)" in out
+
+
+def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
+    calls: list[list[str]] = []
+
+    def _fake_run(cmd: list[str], **_: object):
+        calls.append(cmd)
+        return None
+
+    with (
+        patch.dict(
+            "os.environ",
+            {
+                "PROJECT_ID": "mlops-test",
+                "REGION": "asia-northeast1",
+                "GKE_CLUSTER_NAME": "hybrid-search",
+                "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID": "property_embeddings_v1",
+            },
+            clear=False,
+        ),
+        patch("scripts.setup.deploy_all.run", side_effect=_fake_run),
+        patch("scripts.setup.deploy_all.wait_for_deployed_index_absent") as wait_vvs,
+        patch("scripts.setup.deploy_all.ensure_kubectl_context") as ensure_ctx,
+        patch("scripts.setup.deploy_all.wait_until_api_ready") as wait_k8s,
+    ):
+        assert dall._run_tf_apply() == 0
+
+    wait_vvs.assert_called_once_with("mlops-test", "asia-northeast1", "property_embeddings_v1")
+    ensure_ctx.assert_called_once_with()
+    wait_k8s.assert_called_once_with()
+    assert len(calls) == 2
+    first, second = calls
+    assert "terraform" in first[0]
+    assert "apply" in first
+    assert "-target=module.gke" in first
+    assert "-target=module.kserve" not in first
+    assert "terraform" in second[0]
+    assert "apply" in second
+    assert all(not arg.startswith("-target=") for arg in second), second

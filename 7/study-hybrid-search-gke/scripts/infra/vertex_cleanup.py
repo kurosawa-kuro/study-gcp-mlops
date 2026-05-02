@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 
 from scripts._common import env, run
 from scripts.lib.gcp_resources import VERTEX_ENDPOINTS
@@ -76,3 +77,60 @@ def undeploy_all_endpoint_shells(project_id: str | None = None, region: str | No
     rgn = region or env("VERTEX_LOCATION") or env("REGION")
     for endpoint in VERTEX_ENDPOINTS:
         undeploy_endpoint_models(pid, rgn, endpoint)
+
+
+def deployed_index_exists(project_id: str, region: str, deployed_index_id: str) -> bool:
+    """Return True when any Vertex Vector Search endpoint still has the ID deployed."""
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "ai",
+            "index-endpoints",
+            "list",
+            f"--region={region}",
+            f"--project={project_id}",
+            "--format=json",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        print(f"    index-endpoints list failed — assume absent and continue: {detail}")
+        return False
+    payload = json.loads(proc.stdout) if proc.stdout.strip() else []
+    for endpoint in payload:
+        deployed = endpoint.get("deployedIndexes") or []
+        for idx in deployed:
+            if idx.get("id") == deployed_index_id:
+                return True
+    return False
+
+
+def wait_for_deployed_index_absent(
+    project_id: str,
+    region: str,
+    deployed_index_id: str,
+    *,
+    timeout_seconds: int = 900,
+    poll_seconds: int = 15,
+) -> None:
+    """Poll until stale Vector Search deployed index ID disappears.
+
+    `destroy-all` can return while Vertex still reports the old deployed index
+    as `being undeployed`. Reusing the same deployed_index_id immediately then
+    causes apply to fail with HTTP 400. `deploy-all` calls this guard before
+    re-applying the Vector Search module.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not deployed_index_exists(project_id, region, deployed_index_id):
+            print(f"==> VVS deployed_index_id {deployed_index_id!r} is absent")
+            return
+        print(f"==> waiting for stale VVS deployed_index_id {deployed_index_id!r} to disappear")
+        time.sleep(poll_seconds)
+    raise RuntimeError(
+        f"Vertex Vector Search deployed_index_id {deployed_index_id!r} still exists after "
+        f"{timeout_seconds}s; previous undeploy/delete likely still in progress"
+    )

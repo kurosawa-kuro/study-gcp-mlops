@@ -9,7 +9,7 @@
    `scripts/setup/recover_wif.py` so the recovery is testable / reusable.
 4. `sync_dataform` — regenerate pipeline/data_job/dataform/workflow_settings.yaml
 5. `tf_plan` — terraform plan -out=tfplan (using setting.yaml defaults)
-6. `terraform apply tfplan -auto-approve` — apply infra
+6. `terraform apply -auto-approve` — apply infra in two stages
 7. `seed-lgbm-model` — `gs://<project>-models/lgbm/latest/model.bst` に
    合成 LightGBM ranker を seed (Phase 7 Run 5: tf-apply 直後の bucket は空で、
    step 10 で apply される `property-reranker` InferenceService の
@@ -49,13 +49,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from scripts._common import run, terraform_var_args
+from scripts._common import env, run, terraform_var_args
 from scripts.ci.sync_dataform import main as sync_dataform_main
 from scripts.deploy.api_gke import main as deploy_api_main
 from scripts.deploy.configmap_overlay import main as overlay_configmap_main
 from scripts.deploy.seed_lgbm_model import main as seed_lgbm_main
 from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
+from scripts.infra.kubectl_context import wait_until_api_ready
+from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
+from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT
 from scripts.setup.recover_wif import main as recover_wif_main
 from scripts.setup.seed_minimal import main as seed_minimal_main
 from scripts.setup.tf_bootstrap import main as tf_bootstrap_main
@@ -64,6 +67,17 @@ from scripts.setup.tf_plan import main as tf_plan_main
 
 INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
 MANIFESTS = Path(__file__).resolve().parents[2] / "infra" / "manifests"
+TF_APPLY_STAGE1_TARGETS = (
+    "module.iam",
+    "module.data",
+    "module.vector_search",
+    "module.vertex",
+    "module.gke",
+    "module.messaging",
+    "module.meilisearch",
+    "module.monitoring",
+    "module.slo",
+)
 
 # Overall start time; per-step timing relates elapsed time to the wall-clock
 # position in the deploy-all sequence so operators can see WHICH step is slow
@@ -125,6 +139,32 @@ def _run_tf_plan() -> int:
 
 
 def _run_tf_apply() -> int:
+    project_id = env("PROJECT_ID")
+    region = env("REGION", "asia-northeast1")
+    cluster_name = env("GKE_CLUSTER_NAME", GKE_CLUSTER_NAME_DEFAULT)
+    deployed_index_id = env("VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID", "property_embeddings_v1")
+
+    wait_for_deployed_index_absent(project_id, region, deployed_index_id)
+
+    stage1_args = [
+        "terraform",
+        f"-chdir={INFRA}",
+        "apply",
+        "-auto-approve",
+        *terraform_var_args("GITHUB_REPO", "ONCALL_EMAIL"),
+        *[f"-target={target}" for target in TF_APPLY_STAGE1_TARGETS],
+    ]
+    print(
+        "==> terraform apply stage1 (core infra before kube provider resources): "
+        + ", ".join(TF_APPLY_STAGE1_TARGETS)
+    )
+    run(stage1_args)
+
+    print(f"==> refresh kubeconfig + wait for cluster API: cluster={cluster_name} region={region}")
+    ensure_kubectl_context()
+    wait_until_api_ready()
+
+    print("==> terraform apply stage2 (full graph including module.kserve)")
     run(
         [
             "terraform",
@@ -132,7 +172,6 @@ def _run_tf_apply() -> int:
             "apply",
             "-auto-approve",
             *terraform_var_args("GITHUB_REPO", "ONCALL_EMAIL"),
-            "tfplan",
         ]
     )
     return 0
@@ -195,7 +234,7 @@ def _steps() -> list[DeployStep]:
             _run_sync_dataform,
         ),
         DeployStep(5, "tf-plan", "tf-plan (saves infra/tfplan)", _run_tf_plan),
-        DeployStep(6, "tf-apply", "terraform apply tfplan -auto-approve", _run_tf_apply),
+        DeployStep(6, "tf-apply", "terraform apply staged (core -> kube-ready -> full)", _run_tf_apply),
         DeployStep(
             7,
             "seed-lgbm-model",

@@ -138,6 +138,7 @@ resource "google_bigquery_table" "property_features_online_latest" {
   dataset_id          = google_bigquery_dataset.feature_mart.dataset_id
   table_id            = "property_features_online_latest"
   deletion_protection = var.enable_deletion_protection
+  depends_on          = [google_bigquery_table.property_features_daily]
 
   view {
     use_legacy_sql = false

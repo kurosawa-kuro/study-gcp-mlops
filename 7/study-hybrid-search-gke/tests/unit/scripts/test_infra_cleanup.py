@@ -139,3 +139,35 @@ def test_undeploy_endpoint_models_iterates_deployed_models() -> None:
     ids = [arg for c in undeploy_calls for arg in c if arg.startswith("--deployed-model-id=")]
     assert "--deployed-model-id=1" in ids
     assert "--deployed-model-id=2" in ids
+
+
+def test_deployed_index_exists_reads_index_endpoint_payload() -> None:
+    payload = json.dumps(
+        [
+            {"name": "ep-a", "deployedIndexes": [{"id": "property_embeddings_v1"}]},
+            {"name": "ep-b", "deployedIndexes": [{"id": "other"}]},
+        ]
+    )
+    with patch.object(subprocess, "run", return_value=_completed(stdout=payload)):
+        assert vertex_cleanup.deployed_index_exists("p", "r", "property_embeddings_v1") is True
+        assert vertex_cleanup.deployed_index_exists("p", "r", "missing") is False
+
+
+def test_wait_for_deployed_index_absent_polls_until_stale_index_disappears() -> None:
+    with (
+        patch.object(
+            vertex_cleanup,
+            "deployed_index_exists",
+            side_effect=[True, True, False],
+        ) as exists_mock,
+        patch.object(vertex_cleanup.time, "sleep") as sleep_mock,
+        patch.object(
+            vertex_cleanup.time,
+            "monotonic",
+            side_effect=[0.0, 1.0, 2.0, 3.0],
+        ),
+    ):
+        vertex_cleanup.wait_for_deployed_index_absent("p", "r", "property_embeddings_v1")
+
+    assert exists_mock.call_count == 3
+    assert sleep_mock.call_count == 2
