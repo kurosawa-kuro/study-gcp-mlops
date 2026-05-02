@@ -60,7 +60,10 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
 	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
 	ops-check-retrain ops-bq-scan-top ops-label-seed \
         ops-slo-status bqml-train-popularity \
-        ops-kserve-monitoring ops-destroy-check
+        ops-kserve-monitoring ops-destroy-check \
+        ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-explain \
+        ops-vertex-monitoring ops-vertex-vector-search-smoke ops-vertex-feature-group \
+        ops-vertex-all
 
 help: ## Show this help
 	@echo "First-time setup:  see README.md §セットアップ (run 'make doctor' to verify tools)"
@@ -157,6 +160,8 @@ run-all-core: ## Core validation flow after deploy (no monitor wrapper)
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
 	$(MAKE) ops-search-components
+	$(MAKE) ops-vertex-vector-search-smoke
+	$(MAKE) ops-vertex-feature-group
 	$(MAKE) ops-feedback
 	$(MAKE) ops-ranking
 	$(MAKE) ops-label-seed
@@ -358,8 +363,11 @@ ops-vertex-monitoring: ## Vertex Model Monitoring: read recent BQ alert rows (LI
 ops-kserve-monitoring: ## Phase 7 self-managed drift alerts from model_monitoring_alerts (LIMIT=10)
 	uv run python -m scripts.ops.vertex.monitoring
 
+ops-vertex-vector-search-smoke: ## Vertex Vector Search: probe find_neighbors against the live serving index
+	uv run python -m scripts.ops.vertex.vector_search
+
 ops-vertex-feature-group: ## Vertex Feature Group: fetch online feature values for PROPERTY_ID=p001
 	uv run python -m scripts.ops.vertex.feature_group
 
-ops-vertex-all: ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-explain ops-vertex-monitoring ops-vertex-feature-group ## Run every Vertex AI smoke check in sequence
+ops-vertex-all: ops-vertex-models-list ops-vertex-pipeline-status ops-vertex-explain ops-vertex-monitoring ops-vertex-vector-search-smoke ops-vertex-feature-group ## Run every Vertex AI smoke check in sequence
 	@echo "==> all Vertex AI smoke checks completed"

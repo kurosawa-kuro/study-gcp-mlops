@@ -1,7 +1,9 @@
 # E2E Tests
 
-`tests/e2e/` は現状 placeholder で、pytest ベースの実 E2E はまだ持たない。
+`tests/e2e/` は **opt-in live acceptance gate** を置く場所。
 
-- 実運用に近い総合確認は `make run-all-core` が担う
-- デプロイ後の smoke は `make run-all` / `make verify-all` から辿る
-- このディレクトリに pytest を追加する場合は、ローカル完結ではなく GCP / GKE / KServe を前提にする理由を README に追記する
+- 常時 CI で回す structural / workflow contract は `tests/integration/` に置く
+- ここは GCP / GKE / KServe を前提にする **破壊的または高コスト** な acceptance のみ
+- `test_phase7_acceptance_gate.py` は `destroy-all -> deploy-all -> ops-search-components -> VVS -> FOS`
+  を 1 本で叩く opt-in gate。`RUN_LIVE_GCP_ACCEPTANCE=1` が無ければ skip する
+- 実運用に近い総合確認コマンドは引き続き `make run-all-core` / `make run-all` が担う
