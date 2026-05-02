@@ -187,3 +187,21 @@ output "kserve_inference_namespace" {
   description = "Namespace hosting KServe InferenceService resources"
   value       = module.kserve.inference_namespace
 }
+
+# Phase 7 W2-4: Cloud Composer outputs — consumed by
+# `scripts/deploy/composer_deploy_dags.py` (DAG bucket) and
+# `make ops-composer-trigger` / `ops-composer-list-runs` smoke targets.
+output "composer_dag_bucket" {
+  description = "GCS prefix Composer reads DAGs from. Consumed by `make composer-deploy-dags`. Empty when `enable_composer=false`."
+  value       = module.composer.dag_bucket
+}
+
+output "composer_airflow_uri" {
+  description = "Airflow UI URL of the Composer environment. Used by `make ops-composer-list-runs`."
+  value       = module.composer.airflow_uri
+}
+
+output "composer_environment_name" {
+  description = "Composer environment name (used by `gcloud composer environments run --environment=<name>`)."
+  value       = module.composer.environment_name
+}

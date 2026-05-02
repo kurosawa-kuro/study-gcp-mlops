@@ -263,3 +263,64 @@ resource "google_project_iam_member" "endpoint_reranker_aiplatform_user" {
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.endpoint_reranker.email}"
 }
+
+# =========================================================================
+# Phase 7 W2-4 (Composer canonical): Cloud Composer environment runtime SA.
+#
+# Composer Gen 3 環境本体が Airflow scheduler / web_server / worker pod を
+# 動かすために使う SA。Phase 7 docs/architecture/01_仕様と設計.md §3 で
+# Composer は **上位 orchestrator** として位置付けられ、3 本 DAG
+# (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`)
+# が Vertex Pipelines submit / BigQuery monitoring query / Feature View sync
+# を invoke する。本 SA はそれらの dispatch 権限を持つ最小セット:
+#
+# - composer.worker: Composer 環境本体の管理 (env / config / DAG bucket)
+# - aiplatform.user: Vertex Pipelines submit + Feature View read +
+#   Vector Search find_neighbors / upsert_datapoints
+# - bigquery.jobUser + bigquery.dataViewer: monitoring SQL 実行 + 結果 read
+# - run.invoker: smoke で `/jobs/check-retrain` (search-api Gateway) を
+#   POST する用 (Composer DAG の `check_retrain` task が呼ぶ)
+# =========================================================================
+
+resource "google_service_account" "composer" {
+  account_id   = "sa-composer"
+  display_name = "Cloud Composer environment runtime SA (Phase 7 canonical orchestrator)"
+}
+
+resource "google_project_iam_member" "composer_worker" {
+  project = var.project_id
+  role    = "roles/composer.worker"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
+resource "google_project_iam_member" "composer_aiplatform_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
+resource "google_project_iam_member" "composer_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
+resource "google_project_iam_member" "composer_bq_data_viewer" {
+  project = var.project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
+resource "google_project_iam_member" "composer_run_invoker" {
+  project = var.project_id
+  role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
+# Composer 環境作成 / 削除権限を deployer SA に追加 (terraform apply で
+# google_composer_environment リソースを操作するため)。
+resource "google_project_iam_member" "github_deployer_composer_admin" {
+  project = var.project_id
+  role    = "roles/composer.admin"
+  member  = "serviceAccount:${google_service_account.github_deployer.email}"
+}

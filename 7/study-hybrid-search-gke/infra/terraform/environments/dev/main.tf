@@ -58,6 +58,36 @@ module "vector_search" {
   depends_on = [google_project_service.enabled]
 }
 
+# Phase 7 W2-4: Cloud Composer (Managed Airflow Gen 3) — canonical
+# orchestrator. 3 DAG (`daily_feature_refresh` / `retrain_orchestration`
+# / `monitoring_validation`) を本線 schedule として走らせる。docs §3 上下
+# 関係 (Composer = 上位 / Vertex Pipelines = 下位) の上位側実体。
+module "composer" {
+  source = "../../modules/composer"
+
+  enable_composer                   = var.enable_composer
+  project_id                        = var.project_id
+  region                            = var.region
+  vertex_location                   = var.vertex_location
+  environment_name                  = var.composer_environment_name
+  composer_service_account_email    = module.iam.service_accounts.composer.email
+  pipeline_root_bucket_name         = module.data.pipeline_root_bucket.name
+  pipeline_template_gcs_path        = var.pipeline_template_gcs_path
+  vector_search_index_resource_name = module.vector_search.index_resource_name
+  feature_online_store_id           = module.vertex.feature_online_store_id
+  feature_view_id                   = module.vertex.feature_view_id
+  api_external_url                  = var.api_external_url
+  slo_availability_goal             = var.slo_availability_goal
+
+  depends_on = [
+    google_project_service.enabled,
+    module.iam,
+    module.data,
+    module.vector_search,
+    module.vertex,
+  ]
+}
+
 module "vertex" {
   source = "../../modules/vertex"
 

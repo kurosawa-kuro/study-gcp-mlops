@@ -1,0 +1,73 @@
+variable "enable_composer" {
+  description = "Provision the Cloud Composer (Gen 3, Managed Airflow 2.x) environment for Phase 7 canonical orchestration. Default true; cost is bounded by `make destroy-all` between PDCA cycles. Composer Gen 3 SMALL costs ~¥9,000/month if torn down between cycles, ~¥80,000/month if left running."
+  type        = bool
+  default     = true
+}
+
+variable "environment_name" {
+  description = "Cloud Composer environment name (shown in Cloud Console / `gcloud composer environments list`)."
+  type        = string
+  default     = "hybrid-search-orchestrator"
+}
+
+variable "project_id" {
+  description = "GCP project ID."
+  type        = string
+}
+
+variable "region" {
+  description = "Region for the Composer environment (e.g. asia-northeast1)."
+  type        = string
+}
+
+variable "vertex_location" {
+  description = "Vertex AI location surfaced to DAGs via env_variables (typically equals `region`)."
+  type        = string
+  default     = "asia-northeast1"
+}
+
+variable "composer_service_account_email" {
+  description = "GCP service account email the Composer environment runs as. Created in `module.iam.google_service_account.composer` (Phase 7 W2-4)."
+  type        = string
+}
+
+variable "pipeline_root_bucket_name" {
+  description = "GCS bucket name (no `gs://`) for Vertex Pipelines run artifacts. Surfaced to DAGs as PIPELINE_ROOT_BUCKET."
+  type        = string
+}
+
+variable "pipeline_template_gcs_path" {
+  description = "GCS path to compiled KFP pipeline YAML (e.g. `gs://<bucket>/templates/property-search-train.yaml`). DAG `retrain_orchestration` reads this to submit Vertex PipelineJob via `scripts.ops.train_now`."
+  type        = string
+  default     = ""
+}
+
+variable "vector_search_index_resource_name" {
+  description = "Vertex AI Vector Search index resource name (`projects/.../locations/.../indexes/...`). Surfaced to DAG `daily_feature_refresh::backfill_vvs_incremental`."
+  type        = string
+  default     = ""
+}
+
+variable "feature_online_store_id" {
+  description = "Vertex AI Feature Online Store ID. Surfaced to DAG `daily_feature_refresh::trigger_fv_sync` for Feature View sync."
+  type        = string
+  default     = ""
+}
+
+variable "feature_view_id" {
+  description = "Vertex AI Feature View ID under the Feature Online Store."
+  type        = string
+  default     = ""
+}
+
+variable "api_external_url" {
+  description = "Public HTTPS URL of search-api GKE Gateway. DAG `retrain_orchestration::check_retrain` POSTs `/jobs/check-retrain` to this URL as a smoke."
+  type        = string
+  default     = ""
+}
+
+variable "slo_availability_goal" {
+  description = "Availability SLO target (fraction 0-1) surfaced to DAG `monitoring_validation::check_slo_burn_rate`."
+  type        = number
+  default     = 0.99
+}

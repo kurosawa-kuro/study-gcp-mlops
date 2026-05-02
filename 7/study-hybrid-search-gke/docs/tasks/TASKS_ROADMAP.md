@@ -1,3 +1,11 @@
+残タスク (本停止点で未着手)
+Stage 1.1 / 1.2: Phase 7 docs (docs/01 §3 / TASKS_ROADMAP.md §4.7 / TASKS.md / CLAUDE.md) と親 docs (CLAUDE.md / README.md) を「Phase 7 canonical 起点」に書換
+Stage 2: 3 DAG (pipeline/dags/) + composer_deploy_dags.py + Make target + deploy_all.py 15 step 化 + DAG unit tests
+Stage 3: enable_composer=true flip + 軽量 trigger 格下げ + live make deploy-all 完走確認 + W2-8 統合 live re-verify
+現在の enable_composer=false default のため、既存 make deploy-all の挙動は完全に変わっていません (Composer リソースは plan に出るが count=0 で no-op)。Stage 2 着手前に user の判断を待ちます。
+
+/home/ubuntu/.claude/plans/unified-cuddling-tome.md
+
 # 02. 移行ロードマップ — 検索アプリを最新仕様へ
 
 Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md) §1-§3 / 親 [docs/01_仕様と設計.md](../../../../docs/architecture/01_仕様と設計.md) / 本 phase [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md)) に追従させるための移行計画。

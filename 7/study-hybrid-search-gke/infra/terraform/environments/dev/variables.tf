@@ -192,3 +192,30 @@ variable "enable_vector_search" {
   type        = bool
   default     = true
 }
+
+# =========================================================================
+# Cloud Composer toggle (Phase 7 W2-4) — module "composer" provisions the
+# canonical Managed Airflow Gen 3 environment that runs the 3 main DAGs
+# (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`).
+# Cost: ~¥9,000/month with PDCA destroy-all loop, ~¥80,000/month if left
+# running. Stage 1 keeps default=false to preserve current deploy-all
+# behaviour; Stage 3 flips to default=true.
+# =========================================================================
+
+variable "enable_composer" {
+  description = "Provision the Cloud Composer (Gen 3) environment. Default false during Stage 1 (skeleton-only), flipped to true in Stage 3 once 3 DAG / IAM / deploy_all step / live verify are in place."
+  type        = bool
+  default     = false
+}
+
+variable "composer_environment_name" {
+  description = "Cloud Composer environment name (shown in Cloud Console / `gcloud composer environments list`). Single environment per dev project."
+  type        = string
+  default     = "hybrid-search-orchestrator"
+}
+
+variable "pipeline_template_gcs_path" {
+  description = "GCS path to compiled KFP pipeline YAML (e.g. `gs://<bucket>/templates/property-search-train.yaml`). DAG `retrain_orchestration::submit_train_pipeline` reads this to invoke `scripts.ops.train_now`. Empty = DAG falls back to local compile (Stage 2 default)."
+  type        = string
+  default     = ""
+}
