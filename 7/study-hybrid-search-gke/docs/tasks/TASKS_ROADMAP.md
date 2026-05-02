@@ -92,7 +92,7 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 - [ ] Composer DAG import layout 修正
 - [ ] `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認
 - [ ] `make run-all-core` PASS 維持確認
-- [ ] `make destroy-all` の最終 re-verify
+- [ ] `make destroy-all` の最終 re-verify (新 `prevent_destroy` + `PERSISTENT_VVS_RESOURCES` の live 検証も兼ねる — §4.9 参照)
 - [ ] `tests/integration/parity/*` の live 実行
 
 ### 4.1 Stage 3.5 未解決
