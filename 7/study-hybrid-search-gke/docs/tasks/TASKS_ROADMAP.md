@@ -10,31 +10,44 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 進捗サマリ (2026-05-02 時点)
+## 進捗サマリ (2026-05-03 時点)
 
 | Wave | フェーズ | 状態 | 要点 |
 |---|---|---|---|
 | Wave 1 | ローカル完結 (検索アプリ層) | ✅ 完了 | PR-1〜PR-4 merge、関連 mypy / pytest 63 passed |
-| Wave 2 | GCP インフラ層 | 🟢 進行中 | W2-8 完了、Composer Stage 1-2 と default flip まで完了。残: Composer を含む live parity / full PDCA 再確認 / 最後の `destroy-all` |
+| Wave 2 | GCP インフラ層 | 🟢 進行中 | W2-8 完了、Composer Stage 1-2 / default flip / live `make deploy-all` 完走 (2026-05-03、Composer 環境 + 3 DAG GCS upload 含む全 15 step PASS、total 1744s)。残: DAG import error 修正 → DAG smoke → run-all-core → 最後の `destroy-all` |
 | Wave 3 | docs / reference architecture 整合 | 🟡 一部進行中 | `03_実装カタログ.md` / `04_検証.md` / `05_運用.md` は更新済。残: `01_仕様と設計.md` の最終同期 |
 
-## 現在地サマリ (2026-05-02)
+## 現在地サマリ (2026-05-03)
 
-現在の停止点: W2-8 完了後、Composer を含む full PDCA の live 再確認待ち。
+現在の停止点: live `make deploy-all` 完走済 (2026-05-03、retry #7 で 1744s で全 15 step PASS)。Composer 環境 + 3 DAG GCS upload 完了。**DAG smoke で `pipeline` パッケージ import error 発見** (`/home/airflow/gcs/dags/*.py` から `from pipeline.dags._common import ...` が NoMod 失敗)。次の作業は `composer_deploy_dags.py` の upload layout を `pipeline/dags/` 階層保持に修正 → DAG smoke 再実行。
 完了済み実装の正本は [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を参照。
+
+### 完了済 (2026-05-03)
+
+- **Stage 3.4-fix シリーズ**:
+  - **fix.A**: cost wording test を user authoritative `¥870-1,200/3h` 等に追従
+  - **fix.B**: `destroy-all` に PDCA reproducibility 用 `undeploy_all_vvs_deployed_indexes` 追加
+  - **fix.C**: stale VVS guard の contract test 追加 (PDCA 反復で deployed_index が残るリスクを offline で弾く)
+  - **fix.D**: 全 contract test PASS / `make check` PASS gate 確立 (live deploy 直前必須 gate)
+  - **fix.E**: `wait_for_deployed_index_absent` を **idempotent 化** (`absent` OR `ready` の両方で early-exit、resume scenario 対応)
+  - **fix.F**: `deployed_index_id` を **v2 → v3** に bump (v1 + v2 ともに GCP soft-state grace period >30min で焼かれた)
+  - **fix.G**: Composer `env_variables` から **`PROJECT_ID` 削除** (Composer Gen 3 予約変数で HTTP 400 'may not be overridden')。DAG 側 `_common.py::project_id` を auto-set `GCP_PROJECT` 参照に変更。**reserved env 禁止 contract test** 新設 (`PROJECT_ID` / `GCP_PROJECT` / `AIRFLOW_*` / `PATH` / `PYTHONPATH` 等を block)
+- **Stage 3.4-retry #7**: `make deploy-all` step 6→15 全成功 (total 1744s ≒ 29 min 経過 / step 6 stage1 = 28m53s VVS v3 + 20m18s Composer)
+- 全 test gate: 643 PASS (workflow contract 64 + unit + integration + e2e skipped)
 
 ### 残り作業
 
-- live `make deploy-all` (Composer 込み) **完走確認** (Stage 3.4-retry 進行中、v2 ID で再走中)
-- `make composer-deploy-dags` + `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認
+- **DAG import error 修正**: `composer_deploy_dags.py` の upload layout を変更 — `pipeline/__init__.py` + `pipeline/dags/__init__.py` + `pipeline/dags/_common.py` を `pipeline/dags/` 階層保持で upload、DAG ファイルは top-level の `dags/` に置く構造へ
+- `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認
 - `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
-- 最後の `make destroy-all` (新 stale VVS guard が live で動作することの検証も兼ねる)
+- 最後の `make destroy-all` (新 stale VVS guard + reserved env contract が live で動作することの検証も兼ねる)
 - `tests/integration/parity/*` の `live_gcp` 本実行 (別 session 妥当)
 
 ### 補足
 
-- `deploy-all` の主な長待機は VVS deployed index attach (2026-05-02 実測 26m21s) + Composer 環境作成 (15-25 min)
-- 初回 deploy-all は 50-65 min が想定範囲 (従来 30-40 min + Composer 創出分)
+- `deploy-all` の主な長待機は VVS deployed index attach (2026-05-03 実測 v3 = 28m53s) + Composer 環境作成 (2026-05-03 実測 20m18s)。step 6 の依存関係は `module.composer.depends_on = [module.vector_search, ...]` で **VVS → Composer の順次実行** (改善余地: `index_resource_name` 参照のみのため `deployed_index` 完了まで待つ必要なし。次回 PR 候補)
+- 初回 deploy-all は 50-65 min が想定範囲 (実測 = 1744s ≒ 29 min は state 大半が前回 retry で作成済の resume シナリオ。fresh は VVS + Composer のフル所要時間が乗る)
 - `SEARCH_RETRIES` は safety net として残置
 - 完了条件は `destroy-all -> deploy-all -> composer-deploy-dags -> run-all-core -> destroy-all`
 
