@@ -59,6 +59,7 @@ class FeatureOnlineStoreFetcher:
         self._client: Any | None = None
         self._fetch_request_factory: Any | None = None
         self._data_key_factory: Any | None = None
+        self._canonical_feature_view: str | None = None
 
     def _resolve_client(self) -> Any:
         if self._client is not None:
@@ -74,6 +75,7 @@ class FeatureOnlineStoreFetcher:
             self._client = self._client_factory(endpoint)
         else:
             from google.cloud.aiplatform_v1beta1 import (  # lazy
+                FeatureOnlineStoreAdminServiceClient,
                 FeatureOnlineStoreServiceClient,
                 FeatureViewDataKey,
                 FetchFeatureValuesRequest,
@@ -84,7 +86,23 @@ class FeatureOnlineStoreFetcher:
             )
             self._fetch_request_factory = FetchFeatureValuesRequest
             self._data_key_factory = FeatureViewDataKey
+            self._canonical_feature_view = self._resolve_canonical_feature_view(
+                FeatureOnlineStoreAdminServiceClient
+            )
         return self._client
+
+    def _resolve_canonical_feature_view(self, admin_client_cls: Any) -> str:
+        location = _resource_part(self._feature_view, "locations")
+        if not location:
+            return self._feature_view
+        try:
+            admin = admin_client_cls(
+                client_options={"api_endpoint": f"{location}-aiplatform.googleapis.com"}
+            )
+            view = admin.get_feature_view(name=self._feature_view)
+        except Exception:
+            return self._feature_view
+        return str(getattr(view, "name", "") or self._feature_view)
 
     def fetch(self, property_ids: list[str]) -> dict[str, FeatureRow]:
         if not property_ids:
@@ -109,11 +127,25 @@ class FeatureOnlineStoreFetcher:
         # can introspect; production pulled the proper proto types in
         # ``_resolve_client``.
         if self._fetch_request_factory is None or self._data_key_factory is None:
-            return {"feature_view": self._feature_view, "data_key": {"key": property_id}}
+            return {
+                "feature_view": self._canonical_feature_view or self._feature_view,
+                "data_key": {"key": property_id},
+            }
         return self._fetch_request_factory(
-            feature_view=self._feature_view,
+            feature_view=self._canonical_feature_view or self._feature_view,
             data_key=self._data_key_factory(key=property_id),
         )
+
+
+def _resource_part(resource_name: str, key: str) -> str:
+    parts = resource_name.split("/")
+    try:
+        index = parts.index(key)
+    except ValueError:
+        return ""
+    if index + 1 >= len(parts):
+        return ""
+    return parts[index + 1]
 
 
 def _row_from_response(property_id: str, response: Any) -> FeatureRow:

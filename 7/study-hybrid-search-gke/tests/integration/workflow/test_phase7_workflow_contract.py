@@ -226,3 +226,14 @@ def test_canonical_docs_describe_workflow_contract_goals() -> None:
         "ops/vertex/{models_list,pipeline_status,vector_search,feature_group,monitoring,explain}.py",
     ):
         assert required in catalog, f"implementation catalog drifted from workflow/test inventory: {required}"
+
+
+def test_feature_view_online_serving_source_is_direct_bigquery() -> None:
+    data_tf = _read("infra/terraform/modules/data/main.tf")
+    vertex_tf = _read("infra/terraform/modules/vertex/main.tf")
+    assert 'table_id            = "property_features_online_latest"' in data_tf
+    assert 'FROM `${var.project_id}.${google_bigquery_dataset.feature_mart.dataset_id}.property_features_daily`' in data_tf
+    assert 'WHERE event_date = CURRENT_DATE("Asia/Tokyo")' in data_tf
+    assert 'uri = "bq://${var.project_id}.${var.feature_mart_dataset_id}.property_features_online_latest"' in vertex_tf
+    assert "entity_id_columns = [\"property_id\"]" in vertex_tf
+    assert "feature_registry_source {" not in vertex_tf

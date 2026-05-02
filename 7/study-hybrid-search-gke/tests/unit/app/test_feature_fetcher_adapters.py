@@ -243,3 +243,71 @@ def test_fos_fetcher_rejects_empty_feature_view() -> None:
             feature_view="",
             endpoint_resolver=lambda: "endpoint",
         )
+
+
+def test_fos_fetcher_canonicalizes_feature_view_name_via_admin_lookup(monkeypatch) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class _AdminClient:
+        def __init__(self, *, client_options):
+            calls.append(("admin_init", client_options))
+
+        def get_feature_view(self, *, name):
+            calls.append(("get_feature_view", name))
+            return type(
+                "FeatureView",
+                (),
+                {
+                    "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a"
+                },
+            )()
+
+    class _DataKey:
+        def __init__(self, *, key):
+            self.key = key
+
+    class _Request:
+        def __init__(self, *, feature_view, data_key):
+            self.feature_view = feature_view
+            self.data_key = data_key
+
+    class _ServingClient:
+        def __init__(self, *, client_options):
+            calls.append(("serving_init", client_options))
+
+        def fetch_feature_values(self, *, request):
+            calls.append(("fetch", request.feature_view, request.data_key.key))
+            response = MagicMock()
+            response.key_values.features = []
+            return response
+
+    import sys
+    from types import SimpleNamespace
+
+    fake_module = SimpleNamespace(
+        FeatureOnlineStoreAdminServiceClient=_AdminClient,
+        FeatureOnlineStoreServiceClient=_ServingClient,
+        FeatureViewDataKey=_DataKey,
+        FetchFeatureValuesRequest=_Request,
+    )
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform_v1beta1", fake_module)
+
+    fetcher = FeatureOnlineStoreFetcher(
+        feature_view=(
+            "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a/"
+            "featureViews/view-a"
+        ),
+        endpoint_resolver=lambda: "featurestore.example",
+    )
+
+    fetcher.fetch(["p001"])
+
+    assert (
+        "get_feature_view",
+        "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
+    ) in calls
+    assert (
+        "fetch",
+        "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
+        "p001",
+    ) in calls

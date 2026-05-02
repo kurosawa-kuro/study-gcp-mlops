@@ -295,6 +295,15 @@ resource "google_vertex_ai_feature_online_store" "property_features" {
   }
 }
 
+# FeatureView は online serving の実体。Run 2 の live 検証では
+# `feature_registry_source` 経由だと sync 完了後も entity lookup が 404
+# のまま残ったため、Wave 2 では online serving contract を優先して
+# BigQuery source を直接 materialize する形に固定する。
+#
+# Feature Group / Feature resources 自体は別目的で残す:
+# - Feature Registry の canonical schema 宣言
+# - feature parity invariant
+# - 将来の monitoring / catalog 用メタデータ
 resource "google_vertex_ai_feature_online_store_featureview" "property_features" {
   count    = var.enable_feature_online_store ? 1 : 0
   provider = google-beta
@@ -303,11 +312,9 @@ resource "google_vertex_ai_feature_online_store_featureview" "property_features"
   region               = var.vertex_location
   feature_online_store = google_vertex_ai_feature_online_store.property_features[0].name
 
-  feature_registry_source {
-    feature_groups {
-      feature_group_id = google_vertex_ai_feature_group.property_features[0].name
-      feature_ids      = [for feat in local.feature_group_property_features : feat.name]
-    }
+  big_query_source {
+    uri = "bq://${var.project_id}.${var.feature_mart_dataset_id}.property_features_online_latest"
+    entity_id_columns = ["property_id"]
   }
 
   # 学習リポ: 1 hour ごとに sync (cron)。実運用なら Dataflow streaming や
@@ -315,8 +322,6 @@ resource "google_vertex_ai_feature_online_store_featureview" "property_features"
   sync_config {
     cron = "0 * * * *"
   }
-
-  depends_on = [google_vertex_ai_feature_group_feature.property_features]
 }
 
 # =========================================================================

@@ -97,6 +97,20 @@ def _emit_404_diagnostics(*, project_id: str, region: str, feature_view: str) ->
     )
 
 
+def _canonical_feature_view_name(
+    *,
+    admin: Any,
+    store_name: str,
+    feature_view_id: str,
+) -> str:
+    raw_name = f"{store_name}/featureViews/{feature_view_id}"
+    try:
+        view = admin.get_feature_view(name=raw_name)
+    except Exception:
+        return raw_name
+    return str(getattr(view, "name", "") or raw_name)
+
+
 def main() -> int:
     project_id = env("PROJECT_ID")
     region = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
@@ -140,9 +154,11 @@ def main() -> int:
 
     # 2. Construct the data-plane client against the regional public endpoint.
     serving = FeatureOnlineStoreServiceClient(client_options={"api_endpoint": public_domain})
-    feature_view = (
-        f"projects/{project_id}/locations/{region}/featureOnlineStores/"
-        f"{online_store_id}/featureViews/{feature_view_id}"
+    store_resource_name = str(getattr(store, "name", "") or store_name)
+    feature_view = _canonical_feature_view_name(
+        admin=admin,
+        store_name=store_resource_name,
+        feature_view_id=feature_view_id,
     )
     req = FetchFeatureValuesRequest(
         feature_view=feature_view,

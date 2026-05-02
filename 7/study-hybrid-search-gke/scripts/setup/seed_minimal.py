@@ -139,7 +139,7 @@ def main() -> int:
 
     # 2. property_features_daily — today's row per property
     rows_feat = ",\n  ".join(
-        f"(CURRENT_DATE('Asia/Tokyo'), {p[0]!r}, {p[4]}, {p[6]}, {p[7]}, "
+        f"(CURRENT_DATE('Asia/Tokyo'), CURRENT_TIMESTAMP(), {p[0]!r}, {p[4]}, {p[6]}, {p[7]}, "
         f"{p[8]}, 0.05, 0.10, 0.02, 0.5)"
         for p in properties
     )
@@ -148,7 +148,7 @@ def main() -> int:
         DELETE FROM `{project_id}.feature_mart.property_features_daily`
         WHERE event_date = CURRENT_DATE('Asia/Tokyo');
         INSERT INTO `{project_id}.feature_mart.property_features_daily`
-          (event_date, property_id, rent, walk_min, age_years, area_m2,
+          (event_date, feature_timestamp, property_id, rent, walk_min, age_years, area_m2,
            ctr, fav_rate, inquiry_rate, popularity_score)
         VALUES
           {rows_feat}

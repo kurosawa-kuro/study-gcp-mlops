@@ -26,6 +26,10 @@ output "property_features_daily_table" {
   value = google_bigquery_table.property_features_daily
 }
 
+output "property_features_online_latest_table" {
+  value = google_bigquery_table.property_features_online_latest
+}
+
 output "property_embeddings_table" {
   value = google_bigquery_table.property_embeddings
 }

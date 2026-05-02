@@ -130,6 +130,33 @@ resource "google_bigquery_table" "property_features_daily" {
   ])
 }
 
+# Online-serving canonical source for Vertex Feature View.
+# Keep only one row per property_id (today's slice) and exclude control
+# columns such as event_date so Feature View direct BigQuery source accepts
+# the schema.
+resource "google_bigquery_table" "property_features_online_latest" {
+  dataset_id          = google_bigquery_dataset.feature_mart.dataset_id
+  table_id            = "property_features_online_latest"
+  deletion_protection = var.enable_deletion_protection
+
+  view {
+    use_legacy_sql = false
+    query = <<-SQL
+      SELECT
+        property_id,
+        rent,
+        walk_min,
+        age_years,
+        area_m2,
+        ctr,
+        fav_rate,
+        inquiry_rate
+      FROM `${var.project_id}.${google_bigquery_dataset.feature_mart.dataset_id}.property_features_daily`
+      WHERE event_date = CURRENT_DATE("Asia/Tokyo")
+    SQL
+  }
+}
+
 resource "google_bigquery_table" "property_embeddings" {
   dataset_id          = google_bigquery_dataset.feature_mart.dataset_id
   table_id            = "property_embeddings"

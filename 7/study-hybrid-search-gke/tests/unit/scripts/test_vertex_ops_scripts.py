@@ -64,9 +64,20 @@ def test_feature_group_uses_feature_view_env(monkeypatch) -> None:
                 "Store",
                 (),
                 {
+                    "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a",
                     "dedicated_serving_endpoint": type(
                         "Endpoint", (), {"public_endpoint_domain_name": "featurestore.example"}
                     )()
+                },
+            )()
+
+        def get_feature_view(self, *, name):
+            calls.append(("get_view", name))
+            return type(
+                "FeatureView",
+                (),
+                {
+                    "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a"
                 },
             )()
 
@@ -108,8 +119,12 @@ def test_feature_group_uses_feature_view_env(monkeypatch) -> None:
         "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a",
     ) in calls
     assert (
+        "get_view",
+        "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
+    ) in calls
+    assert (
         "fetch",
-        "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
+        "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
         "p001",
     ) in calls
 
@@ -133,9 +148,19 @@ def test_feature_group_404_emits_sync_and_bq_diagnostics(monkeypatch, capsys) ->
                 "Store",
                 (),
                 {
+                    "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a",
                     "dedicated_serving_endpoint": type(
                         "Endpoint", (), {"public_endpoint_domain_name": "featurestore.example"}
                     )()
+                },
+            )()
+
+        def get_feature_view(self, *, name):
+            return type(
+                "FeatureView",
+                (),
+                {
+                    "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a"
                 },
             )()
 
@@ -201,3 +226,46 @@ def test_feature_group_404_emits_sync_and_bq_diagnostics(monkeypatch, capsys) ->
         captured.out
     )
     assert "fetch failed: 404 entity missing" in captured.err
+
+
+def test_vector_search_resolves_ids_from_terraform_outputs(monkeypatch) -> None:
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
+    monkeypatch.delenv("VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID", raising=False)
+    monkeypatch.delenv("VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID", raising=False)
+
+    calls: list[tuple[str, object]] = []
+
+    class _Endpoint:
+        def __init__(self, *, index_endpoint_name):
+            calls.append(("endpoint_init", index_endpoint_name))
+
+        def find_neighbors(self, *, deployed_index_id, queries, num_neighbors):
+            calls.append(("find_neighbors", deployed_index_id))
+            return [[type("Neighbor", (), {"id": "p001", "distance": 0.1})()]]
+
+    class _AiPlatform:
+        MatchingEngineIndexEndpoint = _Endpoint
+
+        @staticmethod
+        def init(*, project, location):
+            calls.append(("init", (project, location)))
+
+    import sys
+    from unittest.mock import patch
+
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", _AiPlatform)
+
+    with patch.object(
+        vector_search,
+        "_terraform_output_map",
+        return_value={
+            "vector_search_index_endpoint_id": "4579342784384729088",
+            "vector_search_deployed_index_id": "property_embeddings_v1",
+        },
+    ):
+        assert vector_search.main() == 0
+
+    assert ("init", ("mlops-test", "asia-northeast1")) in calls
+    assert ("endpoint_init", "4579342784384729088") in calls
+    assert ("find_neighbors", "property_embeddings_v1") in calls

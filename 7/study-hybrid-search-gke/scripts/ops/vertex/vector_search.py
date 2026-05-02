@@ -21,11 +21,31 @@ Exit codes:
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
 from scripts._common import env, fail
 
+INFRA = Path(__file__).resolve().parents[3] / "infra" / "terraform" / "environments" / "dev"
 DEFAULT_PROBE_DIM = 768
+
+
+def _terraform_output_map() -> dict[str, str]:
+    from scripts._common import run
+
+    proc = run(["terraform", f"-chdir={INFRA}", "output", "-json"], capture=True, check=False)
+    if proc.returncode != 0:
+        return {}
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return {}
+    resolved: dict[str, str] = {}
+    for key, meta in payload.items():
+        value = meta.get("value", "") if isinstance(meta, dict) else ""
+        resolved[key] = str(value or "")
+    return resolved
 
 
 def _build_probe_vector(dim: int = DEFAULT_PROBE_DIM) -> list[float]:
@@ -39,8 +59,15 @@ def main() -> int:
     if not project_id:
         return fail("vertex-vector-search: PROJECT_ID is required")
     region = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
-    endpoint_id = env("VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID")
-    deployed_index_id = env("VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID")
+    outputs = _terraform_output_map()
+    endpoint_id = env(
+        "VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID",
+        outputs.get("vector_search_index_endpoint_id", ""),
+    )
+    deployed_index_id = env(
+        "VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID",
+        outputs.get("vector_search_deployed_index_id", ""),
+    )
     if not endpoint_id:
         return fail(
             "vertex-vector-search: VERTEX_VECTOR_SEARCH_INDEX_ENDPOINT_ID is required "

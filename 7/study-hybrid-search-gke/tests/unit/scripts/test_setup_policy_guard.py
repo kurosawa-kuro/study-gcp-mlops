@@ -55,3 +55,15 @@ def test_makefile_has_canonical_ops_targets() -> None:
     assert "local-accuracy-report:" in makefile
     assert "python -m scripts.ops.search_components" in makefile
     assert "python -m scripts.ops.accuracy_report" in makefile
+
+
+def test_seed_and_feature_group_contract_pin_feature_timestamp() -> None:
+    seed_minimal = _read("scripts/setup/seed_minimal.py")
+    data_tf = _read("infra/terraform/modules/data/main.tf")
+    vertex_tf = _read("infra/terraform/modules/vertex/main.tf")
+
+    assert "feature_timestamp" in data_tf
+    assert "Feature-time column required by Vertex AI Feature Group BigQuery source" in data_tf
+    assert "CURRENT_TIMESTAMP()" in seed_minimal
+    assert "feature_timestamp, property_id" in seed_minimal
+    assert "entity_id_columns = [\"property_id\"]" in vertex_tf
