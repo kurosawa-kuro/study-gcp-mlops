@@ -81,6 +81,21 @@ def undeploy_all_endpoint_shells(project_id: str | None = None, region: str | No
 
 def deployed_index_exists(project_id: str, region: str, deployed_index_id: str) -> bool:
     """Return True when any Vertex Vector Search endpoint still has the ID deployed."""
+    return deployed_index_state(project_id, region, deployed_index_id) != "absent"
+
+
+def deployed_index_state(project_id: str, region: str, deployed_index_id: str) -> str:
+    """Classify the deployed_index lifecycle state:
+
+    - ``"absent"`` — no DeployedIndex with that ID across any endpoint.
+    - ``"ready"`` — DeployedIndex exists and has ``indexSyncTime`` set
+      (fully attached and serving — terraform apply is idempotent here, so
+      ``wait_for_deployed_index_absent`` can early-exit on resume after a
+      partial deploy-all failure).
+    - ``"transitional"`` — DeployedIndex exists but has no ``indexSyncTime``
+      yet (being-undeployed ghost from prior destroy / mid-attach). Callers
+      must keep waiting for this to clear before re-applying.
+    """
     proc = subprocess.run(
         [
             "gcloud",
@@ -98,14 +113,14 @@ def deployed_index_exists(project_id: str, region: str, deployed_index_id: str) 
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
         print(f"    index-endpoints list failed — assume absent and continue: {detail}")
-        return False
+        return "absent"
     payload = json.loads(proc.stdout) if proc.stdout.strip() else []
     for endpoint in payload:
         deployed = endpoint.get("deployedIndexes") or []
         for idx in deployed:
             if idx.get("id") == deployed_index_id:
-                return True
-    return False
+                return "ready" if idx.get("indexSyncTime") else "transitional"
+    return "absent"
 
 
 def undeploy_all_vvs_deployed_indexes(
@@ -189,21 +204,33 @@ def wait_for_deployed_index_absent(
     timeout_seconds: int = 900,
     poll_seconds: int = 15,
 ) -> None:
-    """Poll until stale Vector Search deployed index ID disappears.
+    """Poll until VVS deployed index reaches a state safe for `terraform apply`.
 
-    `destroy-all` can return while Vertex still reports the old deployed index
-    as `being undeployed`. Reusing the same deployed_index_id immediately then
-    causes apply to fail with HTTP 400. `deploy-all` calls this guard before
-    re-applying the Vector Search module.
+    Two safe states (early-exit):
+
+    - ``absent`` — fresh deploy after destroy-all completed cleanly.
+    - ``ready`` — DeployedIndex already attached and ``indexSyncTime`` set
+      (resume scenario after a partial deploy-all failure; terraform apply
+      is idempotent for the unchanged Vector Search module).
+
+    Unsafe / transitional state (keep waiting):
+
+    - ``transitional`` — DeployedIndex present but no ``indexSyncTime`` (the
+      ghost ``being undeployed`` state after destroy-all, or mid-attach).
+      Re-applying here causes HTTP 400 from Vertex; we must wait it out.
     """
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        if not deployed_index_exists(project_id, region, deployed_index_id):
-            print(f"==> VVS deployed_index_id {deployed_index_id!r} is absent")
+        state = deployed_index_state(project_id, region, deployed_index_id)
+        if state in ("absent", "ready"):
+            print(f"==> VVS deployed_index_id {deployed_index_id!r} state={state} — proceed")
             return
-        print(f"==> waiting for stale VVS deployed_index_id {deployed_index_id!r} to disappear")
+        print(
+            f"==> waiting for transitional VVS deployed_index_id {deployed_index_id!r} "
+            f"(state={state}) to settle"
+        )
         time.sleep(poll_seconds)
     raise RuntimeError(
-        f"Vertex Vector Search deployed_index_id {deployed_index_id!r} still exists after "
+        f"Vertex Vector Search deployed_index_id {deployed_index_id!r} still transitional after "
         f"{timeout_seconds}s; previous undeploy/delete likely still in progress"
     )

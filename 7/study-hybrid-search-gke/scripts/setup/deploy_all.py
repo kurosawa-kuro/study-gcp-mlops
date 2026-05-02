@@ -156,7 +156,7 @@ def _run_tf_apply() -> int:
     project_id = env("PROJECT_ID")
     region = env("REGION", "asia-northeast1")
     cluster_name = env("GKE_CLUSTER_NAME", GKE_CLUSTER_NAME_DEFAULT)
-    deployed_index_id = env("VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID", "property_embeddings_v2")
+    deployed_index_id = env("VERTEX_VECTOR_SEARCH_DEPLOYED_INDEX_ID", "property_embeddings_v3")
 
     wait_for_deployed_index_absent(project_id, region, deployed_index_id)
 

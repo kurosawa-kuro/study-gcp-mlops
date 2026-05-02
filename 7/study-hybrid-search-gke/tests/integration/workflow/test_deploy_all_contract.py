@@ -97,7 +97,7 @@ def test_configmap_overlay_injects_live_vertex_outputs(monkeypatch) -> None:
             "_terraform_output_map",
             return_value={
                 "vector_search_index_endpoint_id": "projects/x/locations/r/indexEndpoints/123",
-                "vector_search_deployed_index_id": "property_embeddings_v2",
+                "vector_search_deployed_index_id": "property_embeddings_v3",
                 "vertex_feature_online_store_id": "store-a",
                 "vertex_feature_view_id": "view-a",
                 "vertex_feature_online_store_endpoint": "store.example.com",
@@ -118,7 +118,7 @@ def test_configmap_overlay_injects_live_vertex_outputs(monkeypatch) -> None:
         "models_bucket": "mlops-test-models",
         "meili_base_url": "https://meili.example.run.app",
         "vertex_vector_search_index_endpoint_id": "projects/x/locations/r/indexEndpoints/123",
-        "vertex_vector_search_deployed_index_id": "property_embeddings_v2",
+        "vertex_vector_search_deployed_index_id": "property_embeddings_v3",
         "vertex_feature_online_store_id": "store-a",
         "vertex_feature_view_id": "view-a",
         "vertex_feature_online_store_endpoint": "store.example.com",
@@ -178,6 +178,25 @@ def test_run_all_core_recipe_pins_canonical_validation_path() -> None:
     )
     assert "verify-all: ## Alias of run-all-core" in makefile
     assert "$(MAKE) run-all-core" in makefile
+
+
+def test_wait_for_deployed_index_absent_is_idempotent_on_resume() -> None:
+    """**Resume idempotency 契約** (2026-05-03 追加): partial deploy-all 失敗からの
+    再開時、既に `READY` (indexSyncTime あり) な DeployedIndex があれば
+    `wait_for_deployed_index_absent` は即 return する。
+
+    過去事故: deploy-all step 6 で Composer API 未有効化により失敗 → 再開時に
+    既デプロイ済 v2 が「absent になるのを待ち続ける」15 min timeout で fail。
+    本契約は『absent OR ready』の両方を early-exit safe state として pin する。"""
+    vertex_cleanup_py = _read("scripts/infra/vertex_cleanup.py")
+    assert "def deployed_index_state(" in vertex_cleanup_py, (
+        "deployed_index_state() must classify lifecycle (absent / ready / transitional)"
+    )
+    assert '"ready"' in vertex_cleanup_py and '"transitional"' in vertex_cleanup_py
+    assert 'state in ("absent", "ready")' in vertex_cleanup_py, (
+        "wait_for_deployed_index_absent must early-exit on both 'absent' AND 'ready' "
+        "(resume scenario after partial deploy-all failure)"
+    )
 
 
 def test_makefile_run_all_core_targets_all_exist() -> None:

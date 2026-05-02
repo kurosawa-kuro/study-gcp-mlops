@@ -14,7 +14,7 @@ from tests.integration.workflow.conftest import read_repo_file as _read
 
 
 def test_vvs_module_lifecycle_protects_against_stale_id_recreation() -> None:
-    """`deployed_index_id` は v2+ (前 PDCA cycle で残った soft-state を回避)。"""
+    """`deployed_index_id` は v3+ (v1 / v2 ともに soft-state grace period に焼かれた)。"""
     variables_tf = _read("infra/terraform/modules/vector_search/variables.tf")
     match = re.search(
         r'variable "deployed_index_id"[^}]*default\s*=\s*"([^"]+)"',
@@ -28,9 +28,9 @@ def test_vvs_module_lifecycle_protects_against_stale_id_recreation() -> None:
         f"deployed_index_id {deployed_id!r} must end with _vN versioned suffix"
     )
     version = int(version_match.group(1))
-    assert version >= 2, (
-        f"deployed_index_id version {version} must be >=2 "
-        "(v1 burned by 2026-05-02 stale soft-state issue)"
+    assert version >= 3, (
+        f"deployed_index_id version {version} must be >=3 "
+        "(v1 burned 2026-05-02; v2 burned 2026-05-03 — both by GCP soft-state grace period)"
     )
 
 

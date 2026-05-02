@@ -47,7 +47,7 @@ def _settings(**overrides: object) -> ApiSettings:
         "vertex_location": "asia-northeast1",
         "enable_search": True,
         "vertex_vector_search_index_endpoint_id": "98765",
-        "vertex_vector_search_deployed_index_id": "property_embeddings_v2",
+        "vertex_vector_search_deployed_index_id": "property_embeddings_v3",
         "vertex_feature_online_store_id": "property_features_store",
         "vertex_feature_view_id": "property_features_view",
         "vertex_feature_online_store_endpoint": "abc.asia-northeast1-fos.googleapis.com",
@@ -78,7 +78,7 @@ def test_build_vertex_vector_search_assembles_endpoint_resource_name() -> None:
     assert semantic._index_endpoint_name == (
         "projects/mlops-test/locations/asia-northeast1/indexEndpoints/98765"
     )
-    assert semantic._deployed_index_id == "property_embeddings_v2"
+    assert semantic._deployed_index_id == "property_embeddings_v3"
 
 
 def test_build_vertex_vector_search_accepts_fully_qualified_endpoint_name() -> None:

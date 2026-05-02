@@ -45,7 +45,7 @@ def _factory_returning(*neighbors: Any) -> Any:
 def _adapter(factory: Any) -> VertexVectorSearchSemanticSearch:
     return VertexVectorSearchSemanticSearch(
         index_endpoint_name="projects/x/locations/asia-northeast1/indexEndpoints/12345",
-        deployed_index_id="property_embeddings_v2",
+        deployed_index_id="property_embeddings_v3",
         project="x",
         location="asia-northeast1",
         endpoint_factory=factory,
@@ -89,7 +89,7 @@ def test_search_returns_empty_when_response_is_empty() -> None:
     endpoint.find_neighbors.return_value = []
     adapter = VertexVectorSearchSemanticSearch(
         index_endpoint_name="projects/x/locations/asia-northeast1/indexEndpoints/12345",
-        deployed_index_id="property_embeddings_v2",
+        deployed_index_id="property_embeddings_v3",
         project="x",
         location="asia-northeast1",
         endpoint_factory=lambda _name: endpoint,
@@ -102,7 +102,7 @@ def test_search_passes_top_k_and_query_vector_and_deployed_index_id() -> None:
     endpoint.find_neighbors.return_value = [[]]
     adapter = VertexVectorSearchSemanticSearch(
         index_endpoint_name="projects/x/locations/asia-northeast1/indexEndpoints/12345",
-        deployed_index_id="property_embeddings_v2",
+        deployed_index_id="property_embeddings_v3",
         project="x",
         location="asia-northeast1",
         endpoint_factory=lambda _name: endpoint,
@@ -111,7 +111,7 @@ def test_search_passes_top_k_and_query_vector_and_deployed_index_id() -> None:
     adapter.search(query_vector=[0.1] * 768, filters=SearchFilters(), top_k=42)
 
     endpoint.find_neighbors.assert_called_once_with(
-        deployed_index_id="property_embeddings_v2",
+        deployed_index_id="property_embeddings_v3",
         queries=[[0.1] * 768],
         num_neighbors=42,
     )
@@ -127,7 +127,7 @@ def test_search_ignores_filters_in_pr1_known_limitation() -> None:
     endpoint.find_neighbors.return_value = [[]]
     adapter = VertexVectorSearchSemanticSearch(
         index_endpoint_name="projects/x/locations/asia-northeast1/indexEndpoints/12345",
-        deployed_index_id="property_embeddings_v2",
+        deployed_index_id="property_embeddings_v3",
         project="x",
         location="asia-northeast1",
         endpoint_factory=lambda _name: endpoint,
@@ -160,7 +160,7 @@ def test_endpoint_factory_called_with_resource_name_once() -> None:
 
     adapter = VertexVectorSearchSemanticSearch(
         index_endpoint_name="projects/x/locations/asia-northeast1/indexEndpoints/12345",
-        deployed_index_id="property_embeddings_v2",
+        deployed_index_id="property_embeddings_v3",
         project="x",
         location="asia-northeast1",
         endpoint_factory=factory,
