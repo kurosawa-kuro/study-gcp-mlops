@@ -59,7 +59,10 @@ def test_bigquery_and_vvs_overlap_on_top_k_live() -> None:
 
     top_k = int(os.environ.get("LIVE_GCP_PARITY_TOP_K", "10"))
     filters: dict[str, object] = {}
-    bq_ids = [row.property_id for row in bq_search.search(query_vector=query_vector, filters=filters, top_k=top_k)]
+    bq_ids = [
+        row.property_id
+        for row in bq_search.search(query_vector=query_vector, filters=filters, top_k=top_k)
+    ]
     vvs_ids = [row.property_id for row in vvs_search.search(query_vector=query_vector, top_k=top_k)]
 
     assert bq_ids, "BigQuery semantic search returned no candidates"

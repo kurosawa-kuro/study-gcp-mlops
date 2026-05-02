@@ -7,6 +7,16 @@ from ml.common.config import base as base_config
 
 
 def test_apisettings_loads_non_secret_values_from_setting_yaml(monkeypatch, tmp_path: Path) -> None:
+    # `make check` exports PROJECT_ID via Makefile L44; env wins over yaml in
+    # pydantic-settings precedence (base.py L45-52). Strip the relevant fields
+    # so this test exercises the yaml source in isolation.
+    for var in (
+        "PROJECT_ID",
+        "MEILI_BASE_URL",
+        "MEILI_IMPERSONATE_SERVICE_ACCOUNT",
+        "MEILI_MASTER_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
     setting_path = tmp_path / "setting.yaml"
     credential_path = tmp_path / "credential.yaml"
     setting_path.write_text(

@@ -63,8 +63,7 @@ def test_bigquery_and_fos_match_feature_values_live() -> None:
             right = getattr(fos_row, attr)
             if left is None or right is None:
                 assert left is None and right is None, (
-                    f"feature parity mismatch for {property_id}.{attr}: "
-                    f"bq={left!r}, fos={right!r}"
+                    f"feature parity mismatch for {property_id}.{attr}: bq={left!r}, fos={right!r}"
                 )
                 continue
             assert abs(left - right) <= tolerance, (

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import Any
 
 from app.domain.candidate import Candidate, RankedCandidate
 from app.domain.search import SearchFilters
@@ -260,6 +259,7 @@ def run_search(
     ]
     ranked.sort(key=lambda item: item.final_rank)
     return ranked[:top_k]
+
 
 def rrf_fuse(
     *,

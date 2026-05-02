@@ -73,7 +73,7 @@ def main() -> int:
             queries=[probe],
             num_neighbors=num_neighbors,
         )
-    except Exception as exc:  # noqa: BLE001 — surface SDK errors verbatim
+    except Exception as exc:
         return fail(f"vertex-vector-search: find_neighbors failed: {exc}")
 
     if not response or not response[0]:

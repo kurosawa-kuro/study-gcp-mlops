@@ -103,7 +103,10 @@ def test_feature_group_uses_feature_view_env(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "google.cloud.aiplatform_v1beta1", fake_module)
 
     assert feature_group.main() == 0
-    assert ("get_store", "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a") in calls
+    assert (
+        "get_store",
+        "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a",
+    ) in calls
     assert (
         "fetch",
         "projects/mlops-test/locations/asia-northeast1/featureOnlineStores/store-a/featureViews/view-a",
