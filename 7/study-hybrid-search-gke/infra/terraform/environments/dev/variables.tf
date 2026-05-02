@@ -105,19 +105,15 @@ variable "gke_cluster_name" {
   default     = "hybrid-search"
 }
 
-variable "k8s_use_data_source" {
-  description = <<-EOT
-    Read GKE cluster endpoint via `data.google_container_cluster.hybrid_search`?
-    Set to `false` (via `TF_VAR_k8s_use_data_source=false`) when running
-    `terraform import` / state operations *while the cluster does not yet
-    exist* (e.g. recover-wif right after destroy-all). With `false`,
-    kubernetes/helm providers initialise against `https://kubernetes.invalid`
-    so import succeeds, but **no actual K8s/Helm resource may be applied**
-    in that mode. Default `true` for normal apply.
-  EOT
-  type        = bool
-  default     = true
-}
+## Phase 7 W3 cleanup: `k8s_use_data_source` is deprecated. The kubernetes /
+## helm providers now read endpoint+token from the local kubeconfig
+## (`scripts/infra/kubectl_context.py::ensure` is invoked before any K8s
+## terraform op runs), removing the data-source ↔ provider-config evaluation
+## race that produced ``Get "http://localhost/api/v1/namespaces/..."`` errors
+## during plan/refresh. The variable was kept as ``true`` default + occasional
+## ``false`` override in `recover_wif.py`; with the kubeconfig-based providers
+## the override is no longer needed. **Variable removed**; provider.tf no
+## longer references it.
 
 variable "api_external_url" {
   description = "Public HTTPS URL of search-api GKE Gateway. Leave empty on initial apply; fill after Gateway has provisioned and re-apply to materialize Cloud Scheduler."
@@ -180,9 +176,9 @@ variable "streaming_flex_template_gcs_path" {
 # =========================================================================
 
 variable "enable_feature_online_store" {
-  description = "Provision the Vertex AI Feature Online Store + FeatureView so /vertex_feature_group.py fetches return featureValues. Default false because the Online Store charges per online query + node hours; flip on when exercising the script."
+  description = "Provision the Vertex AI Feature Online Store + FeatureView so feature_group.py fetches return featureValues. Default true for the dev PDCA environment; cost is bounded by `make destroy-all` between cycles. The Optimized FOS API does not support UpdateFeatureOnlineStore so module.vertex applies `lifecycle.ignore_changes` to keep create-only semantics."
   type        = bool
-  default     = false
+  default     = true
 }
 
 # =========================================================================
@@ -192,7 +188,7 @@ variable "enable_feature_online_store" {
 # =========================================================================
 
 variable "enable_vector_search" {
-  description = "Provision the Vertex AI Vector Search index + endpoint + deployed index. Default false because the deployed index incurs ongoing replica cost; flip on after the BQ embedding source is populated and the backfill script (scripts/setup/backfill_vector_search_index.py) is ready."
+  description = "Provision the Vertex AI Vector Search index + endpoint + deployed index. Default true for the dev PDCA environment so `make deploy-all` provisions the canonical Phase 7 semantic-search backend without TF_VAR overrides; rely on `make destroy-all` between PDCA cycles to bound replica cost."
   type        = bool
-  default     = false
+  default     = true
 }

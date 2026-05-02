@@ -25,7 +25,6 @@ tool としても `python -m scripts.setup.recover_wif` で実行可能。
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -51,32 +50,21 @@ def _gcloud_capture(args: list[str]) -> tuple[int, str]:
     return proc.returncode, proc.stdout.strip()
 
 
-def _tf_env_for_no_cluster() -> dict[str, str]:
-    """Env vars that disable the GKE cluster data source for k8s/helm provider init.
-
-    `infra/terraform/environments/dev/provider.tf` の kubernetes/helm
-    provider は default で ``data.google_container_cluster.hybrid_search``
-    から endpoint / token を引くが、destroy-all 直後の deploy-all では
-    cluster 不在で data source が ``Error: cluster ... not found`` を返し、
-    provider init ごと fallthrough しない resource (terraform import 等) も
-    まとめて落ちる。``var.k8s_use_data_source = false`` で provider を
-    ``https://kubernetes.invalid`` placeholder に切替えて、import 操作
-    だけでも空走させる。WIF resource は K8s API を一切叩かないので
-    placeholder で問題ない。
-    """
-    base = os.environ.copy()
-    base["TF_VAR_k8s_use_data_source"] = "false"
-    return base
-
-
 def recover(project_id: str | None = None) -> None:
-    """Reconcile WIF pool / provider with Terraform state."""
+    """Reconcile WIF pool / provider with Terraform state.
+
+    Phase 7 W3 cleanup: kubernetes/helm providers (provider.tf) now read
+    endpoint+token from the local kubeconfig instead of the
+    ``data.google_container_cluster`` data source. Without that data source
+    the provider init no longer requires the GKE cluster to exist — so the
+    ``TF_VAR_k8s_use_data_source=false`` placeholder mode that this module
+    used to need is no longer required. Terraform `import` runs against the
+    parent process env directly.
+    """
     pid = project_id or env("PROJECT_ID")
     if not pid:
         raise SystemExit("[error] PROJECT_ID is empty")
     print("==> Recovery: reconcile WIF pool/provider with Terraform state")
-
-    no_cluster_env = _tf_env_for_no_cluster()
 
     pool_address = "module.iam.google_iam_workload_identity_pool.github"
     pool_id = f"projects/{pid}/locations/global/workloadIdentityPools/github"
@@ -105,12 +93,11 @@ def recover(project_id: str | None = None) -> None:
                 "--quiet",
             ]
         )
-    if pool_exists_in_gcp and not is_in_state(INFRA, pool_address, env=no_cluster_env):
+    if pool_exists_in_gcp and not is_in_state(INFRA, pool_address):
         print(f"    pool exists in GCP but NOT in tfstate → import {pool_address}")
         subprocess.run(
             ["terraform", f"-chdir={INFRA}", "state", "rm", pool_address],
             check=False,
-            env=no_cluster_env,
         )
         subprocess.run(
             [
@@ -122,7 +109,6 @@ def recover(project_id: str | None = None) -> None:
                 pool_id,
             ],
             check=True,
-            env=no_cluster_env,
         )
 
     provider_address = "module.iam.google_iam_workload_identity_pool_provider.github"
@@ -161,12 +147,11 @@ def recover(project_id: str | None = None) -> None:
                 "--quiet",
             ]
         )
-    if provider_exists_in_gcp and not is_in_state(INFRA, provider_address, env=no_cluster_env):
+    if provider_exists_in_gcp and not is_in_state(INFRA, provider_address):
         print(f"    provider exists in GCP but NOT in tfstate → import {provider_address}")
         subprocess.run(
             ["terraform", f"-chdir={INFRA}", "state", "rm", provider_address],
             check=False,
-            env=no_cluster_env,
         )
         subprocess.run(
             [
@@ -178,7 +163,6 @@ def recover(project_id: str | None = None) -> None:
                 provider_id,
             ],
             check=True,
-            env=no_cluster_env,
         )
 
 

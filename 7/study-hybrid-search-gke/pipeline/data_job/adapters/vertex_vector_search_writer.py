@@ -94,7 +94,13 @@ class VertexVectorSearchWriter:
         # can introspect. Production lazy-imports the proper proto type on
         # first call so we do not pay the SDK cost during unit tests.
         if self._datapoint_factory is None and self._index_factory is None:
-            from google.cloud.aiplatform_v1beta1.types import (  # lazy
+            # GA ``aiplatform.MatchingEngineIndex.upsert_datapoints`` validates
+            # the proto class as ``aiplatform_v1.types.IndexDatapoint``;
+            # passing the v1beta1 variant raises
+            # ``TypeError: Parameter to initialize message field must be ...
+            # expected <class 'IndexDatapoint'> got
+            # <class 'google.cloud.aiplatform_v1beta1.types.index.IndexDatapoint'>``.
+            from google.cloud.aiplatform_v1.types import (  # lazy
                 IndexDatapoint,
             )
 

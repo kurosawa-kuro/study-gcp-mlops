@@ -21,9 +21,9 @@ def state_list(infra_dir: Path, env: dict[str, str] | None = None) -> list[str]:
     `subprocess` の例外を吸収し、CLI 失敗時は空リストを返す。呼び出し側で
     state の有無を判定する用途で使う (空判定 = state 未初期化 or destroy 済)。
 
-    ``env`` を渡すと subprocess の環境変数を上書きできる。recover_wif 等で
-    kubernetes/helm provider に cluster 不在を伝える ``TF_VAR_k8s_use_data_source=false``
-    を流す用途。
+    ``env`` を渡すと subprocess の環境変数を上書きできる (現状コード内で
+    アクティブな利用先は無いが、ad-hoc な ``TF_VAR_*`` 上書きを可能にする
+    ための general-purpose hook として残す)。
     """
     proc = subprocess.run(
         ["terraform", f"-chdir={infra_dir}", "state", "list"],
