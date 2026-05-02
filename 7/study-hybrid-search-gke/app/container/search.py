@@ -185,7 +185,7 @@ class SearchBuilder:
         Default (``bq``): return ``None`` so ``BigQueryCandidateRetriever``
         constructs its built-in ``BigQuerySemanticSearch`` and existing
         Phase 4 / Phase 5 default behaviour is preserved unchanged
-        (Strangler 原則 — see Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §2.1).
+        (Strangler 原則 — see Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §2.1).
 
         ``vertex_vector_search``: build ``VertexVectorSearchSemanticSearch``
         using the configured Index Endpoint resource. If endpoint /

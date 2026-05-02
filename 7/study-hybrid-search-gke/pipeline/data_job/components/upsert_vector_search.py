@@ -15,7 +15,7 @@ a MERGE manifest, downstream BQ runner executes it).
 
 Wired into the embed DAG only when ``enable_vector_search_upsert=True``
 is passed to ``property_search_embed_pipeline`` (default ``False`` —
-Strangler 原則, see ``docs/tasks/02_移行ロードマップ.md`` §3.3).
+Strangler 原則, see ``docs/tasks/TASKS_ROADMAP.md`` §3.3).
 """
 
 import json

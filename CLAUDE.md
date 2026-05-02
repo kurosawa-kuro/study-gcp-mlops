@@ -90,7 +90,7 @@ Phase 4 / 5 / 6 / 7 はローカル CI 同等チェックとして `make check` 
 
 各 phase の `docs/TASKS.md` を **current sprint の正本** とする。「現在の目的 / 今回の作業対象 / 今回はやらない / 完了条件 / 実装済 / 未実装」を 1 ファイルに集約。長期 backlog/index は従来通り `docs/tasks/02_移行ロードマップ.md`、過去判断履歴は `docs/decisions/` (Phase 1/2/6/7)。権威順位は `02 > TASKS > 01 > README > CLAUDE`。
 
-**Phase 7 のみフォルダ構造**: Phase 7 では docs/ 配下を `architecture/` (01,03) / `tasks/` (02, TASKS) / `runbook/` (04,05) / `decisions/` / `conventions/` に再編済。`docs/tasks/TASKS.md` / `docs/tasks/02_移行ロードマップ.md` / `docs/architecture/01_仕様と設計.md` / `docs/runbook/04_検証.md` / `docs/runbook/05_運用.md` を正本とする。Phase 1-6 は従来構造 (番号付き flat) を維持。
+**Phase 7 のみフォルダ構造**: Phase 7 では docs/ 配下を `architecture/` (01,03) / `tasks/` (TASKS, TASKS_ROADMAP) / `runbook/` (04,05) / `decisions/` / `conventions/` に再編済。`docs/tasks/TASKS.md` (current sprint) / `docs/tasks/TASKS_ROADMAP.md` (長期 backlog + Wave 1-3 詳細) / `docs/architecture/01_仕様と設計.md` / `docs/runbook/04_検証.md` / `docs/runbook/05_運用.md` を正本とする。Phase 1-6 は従来構造 (番号付き flat、`docs/02_移行ロードマップ.md` 等) を維持。
 
 ## エージェント
 

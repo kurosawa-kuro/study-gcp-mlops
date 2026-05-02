@@ -28,7 +28,7 @@
 | ファイル | 役割 | 本リポの実装 |
 |---|---|---|
 | `TASKS.md` / `TODO.md` | 今 sprint の作業状態 (現在の目的 / やる・やらない / 完了条件) | 全 7 phase の `docs/TASKS.md` (今回新設) |
-| `ROADMAP.md` / 移行計画 | 中長期 backlog | 各 phase の `docs/tasks/02_移行ロードマップ.md` |
+| `ROADMAP.md` / 移行計画 | 中長期 backlog | Phase 1-6 = `docs/02_移行ロードマップ.md` / Phase 7 = `docs/tasks/TASKS_ROADMAP.md` (TASKS 系統に rename) / root = `docs/tasks/02_移行ロードマップ.md` (Phase 横断ハブ) |
 | `CHANGELOG.md` | リリースごとの変更履歴 | 未使用 (学習リポなので不要) |
 
 ### 1.3 参照型 (関連時のみ読む)

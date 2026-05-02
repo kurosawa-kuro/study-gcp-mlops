@@ -22,7 +22,7 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 > **方針**: **Wave 1 = 検索アプリ自体 (app / ml / pipeline コード)** を先に整える。**Wave 2 = GCP インフラ (Terraform / IAM / deploy)** はその後。Wave 3 は docs / reference architecture との整合確認のみ (コード変更なし)。
 >
-> Port / Adapter / DI 大枠の整理は [`docs/02_移行ロードマップ.md`](02_移行ロードマップ.md)、過去の制約決定は [`docs/decisions/`](../decisions/README.md) を参照。
+> Port / Adapter / DI 大枠の整理は [`docs/TASKS_ROADMAP.md`](TASKS_ROADMAP.md)、過去の制約決定は [`docs/decisions/`](../decisions/README.md) を参照。
 >
 > **教育コード原則**: 後方互換・legacy fallback・旧 env 名 alias・旧 UI redirect・使われない shell resource は残さない。移行の都合で一時導入した互換レイヤも、役目を終えた時点で削除する。
 
@@ -547,7 +547,7 @@ Wave 2 本線と並行で別 PR にて吸収可:
   - [README.md](../README.md)
   - [CLAUDE.md](../CLAUDE.md)
   - [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md) §「実案件想定の reference architecture」(Phase 5 を継承)
-  - [docs/02_移行ロードマップ.md](02_移行ロードマップ.md) Port / Adapter / DI 大枠
+  - [docs/TASKS_ROADMAP.md](TASKS_ROADMAP.md) Port / Adapter / DI 大枠
   - [docs/decisions/](../decisions/README.md) 過去の制約決定 (ADR 0001〜0008)
 - Phase 5 (継承元):
   - [5/study-hybrid-search-vertex/docs/01_仕様と設計.md](../../../../5/study-hybrid-search-vertex/docs/01_仕様と設計.md)

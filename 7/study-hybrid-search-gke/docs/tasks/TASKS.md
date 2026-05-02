@@ -1,8 +1,8 @@
 # TASKS.md (Phase 7 — current sprint)
 
-`docs/02_移行ロードマップ.md` (長期 backlog/index、554 行) の current-sprint 抜粋。Claude Code の新セッションで「今 sprint で何をやり、何をやらないか」を最初に確認する単一エントリポイント。詳細は `02_移行ロードマップ.md` 本体、過去判断履歴は `docs/decisions/` (ADR 0001〜0008)。
+`docs/TASKS_ROADMAP.md` (長期 backlog/index、554 行) の current-sprint 抜粋。Claude Code の新セッションで「今 sprint で何をやり、何をやらないか」を最初に確認する単一エントリポイント。詳細は `TASKS_ROADMAP.md` 本体、過去判断履歴は `docs/decisions/` (ADR 0001〜0008)。
 
-権威順位: `02_移行ロードマップ.md > TASKS.md > 01_仕様と設計.md > README.md`。
+権威順位: `TASKS_ROADMAP.md > TASKS.md > 01_仕様と設計.md > README.md`。
 
 ## 現在の目的
 
@@ -12,7 +12,7 @@ Phase 7 = Phase 6 (PMLE + Composer 本線) と Phase 5 必須の Feature Store /
 
 Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** opt-in 参照、TreeSHAP 用 explain 専用 Pod を独立 deploy。
 
-## 進捗サマリ (2026-05-02 時点 — `02_移行ロードマップ.md §進捗サマリ` 抜粋)
+## 進捗サマリ (2026-05-02 時点 — `TASKS_ROADMAP.md §進捗サマリ` 抜粋)
 
 | Wave | フェーズ | 状態 | 内容 |
 |---|---|---|---|
@@ -22,7 +22,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 
 ## 今回の作業対象 (Wave 2 の残り)
 
-`02_移行ロードマップ.md §4` (Wave 2) を正本として以下を残作業として扱う:
+`TASKS_ROADMAP.md §4` (Wave 2) を正本として以下を残作業として扱う:
 
 - [ ] `infra/terraform/modules/vector_search/` の **live apply** + deployed index の作成
 - [ ] `enable_feature_online_store` を `dev` で `true` に flip + Feature View outputs 反映の live apply
@@ -37,7 +37,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 - 中核 5 要素の置換 (Meilisearch → Elasticsearch 等) — User 合意必須
 - `/search` デフォルト挙動の変更 — User 合意必須
 - 全 Phase 共通禁止技術 (Agent Builder / Discovery Engine / Gemini RAG / Model Garden / Vizier / W&B / Looker Studio / Doppler)
-- BigQuery fallback / backend 切替 env を「default off で残す」運用 — 教育コード原則として **撤去** (`02_移行ロードマップ.md §2.1` / `§2.4`)
+- BigQuery fallback / backend 切替 env を「default off で残す」運用 — 教育コード原則として **撤去** (`TASKS_ROADMAP.md §2.1` / `§2.4`)
 
 ## 完了条件
 
@@ -51,13 +51,13 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 
 ## 実装済 (Wave 1 + Wave 2 offline 部分)
 
-### Wave 1 (`02_移行ロードマップ.md §3` / 63 unit tests passed)
+### Wave 1 (`TASKS_ROADMAP.md §3` / 63 unit tests passed)
 - [x] PR-1: `SemanticSearch` Port + `vertex_vector_search_semantic_search.py` adapter (17 tests)
 - [x] PR-2: `FeatureFetcher` Port + Feature Online Store adapter (18 tests)
 - [x] PR-3: `VectorSearchWriter` Port + pipeline component (17 tests)
 - [x] PR-4: Container 配線 + `ranking.py` merge (11 tests)
 
-### Wave 2 offline wiring (`02_移行ロードマップ.md §4`)
+### Wave 2 offline wiring (`TASKS_ROADMAP.md §4`)
 - [x] W2-1: `infra/terraform/modules/vector_search/` module (main/variables/outputs/versions.tf) 新規
 - [x] W2-2: `vertex/variables.tf` で `enable_feature_online_store` default `true` + Feature View outputs
 - [x] W2-3: KServe SAs (vector search query / feature view read) IAM bindings (`modules/iam`)
@@ -74,6 +74,6 @@ Phase 7 が到達ゴール。これ以降の phase は無い (`README.md` / 親 
 
 ## 参照
 
-- `02_移行ロードマップ.md` (本ファイルの正本、Wave 1/2/3 詳細)
+- `TASKS_ROADMAP.md` (本ファイルの正本、Wave 1/2/3 詳細)
 - `docs/decisions/0001〜0008` (恒久対処ギャップの ADR)
 - 親 `CLAUDE.md §「Cloud Composer (Phase 6 必須、Phase 7 継承)」` (orchestration 二重化禁止)

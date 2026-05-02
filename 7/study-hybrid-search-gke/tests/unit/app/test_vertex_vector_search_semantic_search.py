@@ -4,7 +4,7 @@ Covers the adapter contract without importing or hitting
 ``google.cloud.aiplatform`` — tests inject ``endpoint_factory`` to satisfy
 the lazy-import seam, so ``make check`` runs offline.
 
-Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.1 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §3.1 受け入れ条件 (ローカル):
 - mock で Vertex SDK call を stub した unit test PASS
 """
 

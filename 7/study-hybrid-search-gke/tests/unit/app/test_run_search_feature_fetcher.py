@@ -12,7 +12,7 @@ Verifies the contract added in PR-4:
 - A failing fetcher does not 503 the request — rerank continues with
   BQ-enriched (stale) features and the failure is logged.
 
-Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.4 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §3.4 受け入れ条件 (ローカル):
 - default で挙動変わらず (unit test で確認)
 - 設定時のみ Feature Online Store の fetch 経路に分岐 (unit test で確認)
 """

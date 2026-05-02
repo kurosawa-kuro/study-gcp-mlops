@@ -6,7 +6,7 @@
 
 | ファイル | 役割 | いつ読むか |
 |---|---|---|
-| [`02_移行ロードマップ.md`](02_移行ロードマップ.md) | Phase 横断移行ロードマップ + Wave 1-3 計画 (canonical は Phase 7 [`docs/tasks/02_移行ロードマップ.md`](../../7/study-hybrid-search-gke/docs/tasks/02_移行ロードマップ.md)) | Phase 跨ぎの段差を見たい時 / Phase 7 Wave 計画の参照時 |
+| [`02_移行ロードマップ.md`](02_移行ロードマップ.md) | Phase 横断移行ロードマップ + Wave 1-3 計画 (canonical は Phase 7 [`docs/tasks/TASKS_ROADMAP.md`](../../7/study-hybrid-search-gke/docs/tasks/TASKS_ROADMAP.md)) | Phase 跨ぎの段差を見たい時 / Phase 7 Wave 計画の参照時 |
 
 ## 各 Phase の current sprint (`TASKS.md`)
 

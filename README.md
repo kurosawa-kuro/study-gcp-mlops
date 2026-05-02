@@ -324,7 +324,7 @@ Phase 1 → 2 → 3 → 4 → 5 → 6 → 7 の番号順。
 - `6/study-hybrid-search-pmle/README.md`(PMLE 技術を Phase 5 実コードに実統合、2026-04-24 完了)
 - `6/study-hybrid-search-pmle/docs/01_仕様と設計.md`(統合トピック詳細 + ファイル配置図)
 - `6/study-hybrid-search-pmle/docs/02_移行ロードマップ.md`(決定的仕様)
-- `7/study-hybrid-search-gke/docs/tasks/02_移行ロードマップ.md`(到達ゴール: GKE + KServe。**§4 Wave 2 = クラウド側 (GCP インフラ) の修正作業計画の母艦** — Terraform / IAM / Manifest / backfill / Composer 継承 / default flip の実施順序 W2-1〜W2-9)
+- `7/study-hybrid-search-gke/docs/tasks/TASKS_ROADMAP.md`(到達ゴール: GKE + KServe。**§4 Wave 2 = クラウド側 (GCP インフラ) の修正作業計画の母艦** — Terraform / IAM / Manifest / backfill / Composer 継承 / default flip の実施順序 W2-1〜W2-9)
 
 ### 過去の設計判断ログ(archive)
 

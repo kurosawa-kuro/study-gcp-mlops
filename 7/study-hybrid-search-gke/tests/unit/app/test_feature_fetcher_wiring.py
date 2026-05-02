@@ -9,7 +9,7 @@ is the consumer. These tests pin down:
 - ``online_store`` 選択でも settings 不足なら WARN + ``None`` フォールバック
 - ``InMemoryFeatureFetcher`` fake が Port を充足する (型契約の sanity)
 
-Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.2 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §3.2 受け入れ条件 (ローカル):
 - composition root のレイヤ境界を `make check-layers` が PASS
 - in-memory fake fetcher 経由で ranking が動作 (in_memory + Port の sanity)
 """

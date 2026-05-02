@@ -1,6 +1,6 @@
 # property-encoder — multilingual-e5 serving via KServe Python predictor
 #
-# ランタイム選定メモ (docs/tasks/02_移行ロードマップ.md §11 段階 B):
+# ランタイム選定メモ (docs/tasks/TASKS_ROADMAP.md §11 段階 B):
 # - 第一候補: 自前 Python predictor (sentence-transformers + transformers)
 # - 第二候補: Huggingface serving runtime (HF runtime の e5 サポート状況要検証)
 # - GPU の要否は P95 latency 実測で判断。Autopilot で GPU は `nvidia-l4` 等の
@@ -20,7 +20,7 @@ spec:
   predictor:
     serviceAccountName: encoder
     # 学習リポは最小スペック方針 (memory `feedback_low_spec_learning.md` /
-    # docs/tasks/02_移行ロードマップ.md §7)。ME5 (multilingual-e5-base) は ~560MB
+    # docs/tasks/TASKS_ROADMAP.md §7)。ME5 (multilingual-e5-base) は ~560MB
     # params なので 1cpu/2Gi requests で推論可。peak で limits まで swing する。
     # maxReplicas=1 にして GKE Autopilot CPU quota 予約と学習用コストを最小化。
     # Production 化時は User 判断で 2cpu/4Gi + maxReplicas=3 に戻す。

@@ -51,7 +51,7 @@ def _extract_attributions(
     Returns ``None`` when the response carries no attribution payload (e.g. the
     operator is still running the MLServer LightGBM runtime, which ignores
     ``parameters.explain=true``). Caller can treat ``None`` as "explain not
-    supported by the deployed container — see docs/tasks/02_移行ロードマップ.md §4.2 T4".
+    supported by the deployed container — see docs/tasks/TASKS_ROADMAP.md §4.2 T4".
 
     Count-mismatch distinction: when an attribution list IS present but its
     length doesn't match ``n_instances``, this is NOT the same degraded path

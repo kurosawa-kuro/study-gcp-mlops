@@ -12,7 +12,7 @@ verify the wiring via static inspection of ``main.py`` text — brittle
 to formatting, robust to KFP version churn, and adequate for catching
 the Strangler default regressions this test exists to guard.
 
-Phase 7 ``docs/tasks/02_移行ロードマップ.md`` §3.3 受け入れ条件 (ローカル):
+Phase 7 ``docs/tasks/TASKS_ROADMAP.md`` §3.3 受け入れ条件 (ローカル):
 - `ENABLE_VECTOR_SEARCH_UPSERT=false` で skip され、現行挙動と同等
 """
 
