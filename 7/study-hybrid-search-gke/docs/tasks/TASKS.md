@@ -17,7 +17,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 | Wave | フェーズ | 状態 | 内容 |
 |---|---|---|---|
 | **Wave 1** | ローカル完結 (検索アプリ層) | **✅ 完了 (M-Local 達成)** | PR-1 〜 PR-4 全 merge、`make lint` / `make fmt-check` / 関連 mypy / pytest 63 passed |
-| **Wave 2** | GCP インフラ層 (クラウド側主作業) | 🟡 一部実装済 | offline wiring 完了 (W2-1/2/3/5/6/7-a)、live apply / Composer 継承 / parity・live smoke / 互換レイヤ削除 が未完了 |
+| **Wave 2** | GCP インフラ層 (クラウド側主作業) | 🟡 live 検証中 | local ADC-free boot、G3-G8 (`ops-search-components` / VVS / FOS / feedback / ranking / accuracy / retrain wait) は実測 PASS。canonical ConfigMap auto-flip も実装済。未完了は full PDCA 完走、Composer 継承確認、互換レイヤのコード削除 |
 | **Wave 3** | docs / reference architecture 整合 | ⏳ Wave 2 後 | `03_実装カタログ.md` / `05_運用.md` の semantic / feature / Composer 経路記述を Wave 1/2 に追従 |
 
 ## 今回の作業対象 (Wave 2 の残り)
@@ -25,12 +25,15 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 `TASKS_ROADMAP.md §4` (Wave 2) を正本として以下を残作業として扱う:
 
 - [ ] `infra/terraform/modules/vector_search/` の **live apply** + deployed index の作成
-- [ ] `enable_feature_online_store` を `dev` で `true` に flip + Feature View outputs 反映の live apply
+- [x] `enable_feature_online_store` を `dev` で `true` に flip + Feature View outputs 反映の live apply
 - [ ] **Composer 継承確認**: Phase 6 の `daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation` 3 DAG が Phase 7 環境でも稼働すること
 - [ ] **live GCP smoke**: `tests/integration/parity/test_semantic_backend_parity.py` / `test_feature_fetcher_parity.py` の `live_gcp` marker 付きを実 GCP で実行
 - [ ] **互換レイヤ削除** (Wave 2 完了後): `BigQuerySemanticSearch` / `BigQueryFeatureFetcher` / `SEMANTIC_BACKEND` / `FEATURE_FETCHER_BACKEND` env / legacy alias を撤去し、canonical 1 本に収束
 - [ ] `scripts/setup/backfill_vector_search_index.py` の live 実行 (BQ embedding → VVS index 初回 backfill)
-- [ ] `scripts/ops/vertex/vector_search.py` smoke の live 実行
+- [x] `scripts/ops/vertex/vector_search.py` smoke の live 実行
+- [x] `scripts/ops/vertex/feature_group.py` smoke の live 実行
+- [x] `make ops-feedback` / `make ops-ranking` / `make ops-accuracy-report` の live 実行
+- [x] `ops-train-wait` 追加 (`ops-train-now` submit 後に SUCCEEDED まで待つ contract)
 
 ## 今回はやらない
 
@@ -43,7 +46,7 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 
 - [ ] `make check` (ruff + format + mypy strict + pytest) 通過
 - [ ] `make deploy-all` 完了 (tf-bootstrap → tf-init → WIF 復元 → sync-dataform-config → tf-plan → tf apply → deploy-api、約 12-15 分)
-- [ ] `make run-all-core` 通過 (check-layers → seed-test → ops-train-now → ops-livez/search/search-components/feedback/ranking/label-seed → ops-daily → ops-accuracy-report)
+- [ ] `make run-all-core` 通過 (check-layers → seed-test → sync-meili → ops-train-now → ops-train-wait → ops-livez/search/search-components/VVS/FOS/feedback/ranking/label-seed → ops-daily → ops-accuracy-report)
 - [ ] Composer 3 DAG が retrain schedule の本線として稼働
 - [ ] `/search` semantic 経路が Vertex Vector Search 1 本 (BQ fallback 撤去後)
 - [ ] feature 取得経路が Feature Online Store (Feature View 経由) 1 本 (BQ direct fetch 撤去後)

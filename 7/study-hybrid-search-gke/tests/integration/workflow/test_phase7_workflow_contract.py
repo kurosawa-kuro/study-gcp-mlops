@@ -147,6 +147,7 @@ def test_run_all_core_recipe_pins_canonical_validation_path() -> None:
         "$(MAKE) seed-test",
         "$(MAKE) sync-meili",
         "$(MAKE) ops-train-now",
+        "$(MAKE) ops-train-wait",
         "$(MAKE) ops-livez",
         "$(MAKE) ops-search",
         "$(MAKE) ops-search-components",

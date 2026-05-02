@@ -57,7 +57,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
         ops-accuracy-report local-accuracy-report \
         ops-skew-latest ops-search-volume ops-runs-recent \
-	ops-skew-run ops-train-now ops-pipeline-run ops-promote-reranker ops-reload-api \
+	ops-skew-run ops-train-now ops-train-wait ops-pipeline-run ops-promote-reranker ops-reload-api \
 	ops-check-retrain ops-bq-scan-top ops-label-seed \
         ops-slo-status bqml-train-popularity \
         ops-kserve-monitoring ops-destroy-check \
@@ -157,6 +157,7 @@ run-all-core: ## Core validation flow after deploy (no monitor wrapper)
 	$(MAKE) seed-test
 	$(MAKE) sync-meili
 	$(MAKE) ops-train-now
+	$(MAKE) ops-train-wait
 	$(MAKE) ops-livez
 	$(MAKE) ops-search
 	$(MAKE) ops-search-components
@@ -287,6 +288,9 @@ ops-recover-wif: ## Manually reconcile WIF pool/provider with Terraform state (P
 
 ops-train-now: ## Submit train pipeline to Vertex AI
 	uv run python -m pipeline.workflow.compile --target train --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com
+
+ops-train-wait: ## Wait for the latest train pipeline run to reach SUCCEEDED
+	uv run python -m scripts.ops.vertex.pipeline_wait
 
 ops-pipeline-run: ## Submit a pipeline manually: TARGET=embed|train PARAM='key=value'
 	uv run python -m pipeline.workflow.compile --target $${TARGET:-train} --output-dir dist/pipelines --submit --project-id $(PROJECT_ID) --location $(VERTEX_LOCATION) --pipeline-root gs://$(PIPELINE_ROOT_BUCKET)/runs --service-account sa-pipeline@$(PROJECT_ID).iam.gserviceaccount.com $${PARAM:+--parameter $$PARAM}

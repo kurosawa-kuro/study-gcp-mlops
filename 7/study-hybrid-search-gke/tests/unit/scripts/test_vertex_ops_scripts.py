@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scripts.ops.vertex import feature_group, vector_search
+from scripts.ops.vertex import feature_group, pipeline_wait, vector_search
 from scripts.setup import backfill_vector_search_index
 
 
@@ -269,3 +269,100 @@ def test_vector_search_resolves_ids_from_terraform_outputs(monkeypatch) -> None:
     assert ("init", ("mlops-test", "asia-northeast1")) in calls
     assert ("endpoint_init", "4579342784384729088") in calls
     assert ("find_neighbors", "property_embeddings_v1") in calls
+
+
+def test_pipeline_wait_passes_when_latest_run_succeeds(monkeypatch) -> None:
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
+    monkeypatch.setenv("PIPELINE_WAIT_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("PIPELINE_WAIT_POLL_SECONDS", "0")
+
+    calls: list[tuple[str, object]] = []
+
+    class _State:
+        def __init__(self, value: int):
+            self.value = value
+
+    jobs = [
+        type(
+            "Job",
+            (),
+            {
+                "display_name": "property-search-train",
+                "state": _State(3),
+                "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
+            },
+        )(),
+        type(
+            "Job",
+            (),
+            {
+                "display_name": "property-search-train",
+                "state": _State(4),
+                "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
+            },
+        )(),
+    ]
+
+    class _PipelineJob:
+        @staticmethod
+        def list(*, filter, order_by):
+            calls.append(("list", filter))
+            return [jobs.pop(0)]
+
+    class _AiPlatform:
+        PipelineJob = _PipelineJob
+
+        @staticmethod
+        def init(*, project, location):
+            calls.append(("init", (project, location)))
+
+    import sys
+    from unittest.mock import patch
+
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", _AiPlatform)
+
+    with patch.object(pipeline_wait.time, "sleep", return_value=None):
+        assert pipeline_wait.main() == 0
+
+    assert ("init", ("mlops-test", "asia-northeast1")) in calls
+    assert any(item[0] == "list" for item in calls)
+
+
+def test_pipeline_wait_fails_when_latest_run_fails(monkeypatch) -> None:
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
+    monkeypatch.setenv("PIPELINE_WAIT_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("PIPELINE_WAIT_POLL_SECONDS", "0")
+
+    class _State:
+        def __init__(self, value: int):
+            self.value = value
+
+    class _PipelineJob:
+        @staticmethod
+        def list(*, filter, order_by):
+            return [
+                type(
+                    "Job",
+                    (),
+                    {
+                        "display_name": "property-search-train",
+                        "state": _State(5),
+                        "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
+                    },
+                )()
+            ]
+
+    class _AiPlatform:
+        PipelineJob = _PipelineJob
+
+        @staticmethod
+        def init(*, project, location):
+            return None
+
+    import sys
+
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", _AiPlatform)
+
+    assert pipeline_wait.main() == 1

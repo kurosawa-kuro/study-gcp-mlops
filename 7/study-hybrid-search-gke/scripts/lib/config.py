@@ -35,9 +35,9 @@ _GROUPS: list[list[str]] = [
 ]
 
 # Default value applied when generate_configmap_data() is not overridden.
-# Strangler design: `bq` keeps Phase 5/6 behaviour live; empty strings flip
-# to real Vertex Vector Search / Feature Online Store IDs after Wave 2 live
-# apply (TASKS_ROADMAP §4).
+# Committed example YAML still renders the pre-live safe values (`bq` / "").
+# Runtime overlay flips the backend selectors to the canonical Vertex paths
+# once Terraform outputs provide the required IDs/endpoints.
 _DEFAULTS: dict[str, str] = {
     "semantic_backend": "bq",
     "vertex_vector_search_index_endpoint_id": "",
@@ -66,8 +66,13 @@ def generate_configmap_data(
 
     Caller-supplied values: ``project_id``, ``models_bucket``,
     ``meili_base_url`` (these are environment-specific and resolved at
-    runtime by deploy_all overlay). All other keys take strangler defaults
-    (`bq` / "") preserving Phase 5/6 behaviour until Wave 2 live apply.
+    runtime by deploy_all overlay). The backend selector keys are derived
+    from the supplied runtime values:
+
+    - both VVS IDs present -> ``semantic_backend=vertex_vector_search``
+    - FOS store/view/endpoint present -> ``feature_fetcher_backend=online_store``
+
+    Otherwise the committed-example defaults (``bq`` / empty string) remain.
     """
     data: dict[str, str] = {
         "project_id": project_id,
@@ -81,6 +86,17 @@ def generate_configmap_data(
     data["vertex_feature_online_store_id"] = vertex_feature_online_store_id
     data["vertex_feature_view_id"] = vertex_feature_view_id
     data["vertex_feature_online_store_endpoint"] = vertex_feature_online_store_endpoint
+    if (
+        vertex_vector_search_index_endpoint_id
+        and vertex_vector_search_deployed_index_id
+    ):
+        data["semantic_backend"] = "vertex_vector_search"
+    if (
+        vertex_feature_online_store_id
+        and vertex_feature_view_id
+        and vertex_feature_online_store_endpoint
+    ):
+        data["feature_fetcher_backend"] = "online_store"
     return data
 
 

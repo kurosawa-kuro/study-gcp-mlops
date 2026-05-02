@@ -46,7 +46,7 @@ def test_generate_configmap_data_returns_all_keys_strings() -> None:
     assert all(isinstance(v, str) for v in data.values())
 
 
-def test_strangler_defaults_preserve_phase5_behaviour() -> None:
+def test_committed_example_defaults_preserve_safe_pre_live_values() -> None:
     data = generate_configmap_data(project_id="p", models_bucket="b", meili_base_url="u")
     assert data["semantic_backend"] == "bq"
     assert data["feature_fetcher_backend"] == "bq"
@@ -76,6 +76,23 @@ def test_generate_configmap_data_accepts_live_vertex_outputs() -> None:
     assert data["vertex_feature_online_store_id"] == "store-1"
     assert data["vertex_feature_view_id"] == "view-1"
     assert data["vertex_feature_online_store_endpoint"] == "store.example.com"
+    assert data["semantic_backend"] == "vertex_vector_search"
+    assert data["feature_fetcher_backend"] == "online_store"
+
+
+def test_generate_configmap_data_keeps_bq_until_required_live_values_exist() -> None:
+    data = generate_configmap_data(
+        project_id="p",
+        models_bucket="b",
+        meili_base_url="u",
+        vertex_vector_search_index_endpoint_id="idx-endpoint",
+        vertex_vector_search_deployed_index_id="",
+        vertex_feature_online_store_id="store-1",
+        vertex_feature_view_id="view-1",
+        vertex_feature_online_store_endpoint="",
+    )
+    assert data["semantic_backend"] == "bq"
+    assert data["feature_fetcher_backend"] == "bq"
 
 
 def test_render_committed_form_matches_example_yaml() -> None:

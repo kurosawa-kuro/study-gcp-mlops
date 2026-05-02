@@ -66,6 +66,8 @@ INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environme
 # 履歴:
 # - Phase 6 Run 2 で BQ table `ranking_log_hourly_ctr` (T2) を追加 → 9
 # - Phase 7 Run 4 で **GKE cluster** を追加 (10)
+# - Phase 7 Wave 2 で online serving view `property_features_online_latest`
+#   を追加 → 11
 PROTECTED_TARGETS = [
     "module.data.google_bigquery_table.training_runs",
     "module.data.google_bigquery_table.search_logs",
@@ -73,6 +75,7 @@ PROTECTED_TARGETS = [
     "module.data.google_bigquery_table.feedback_events",
     "module.data.google_bigquery_table.validation_results",
     "module.data.google_bigquery_table.property_features_daily",
+    "module.data.google_bigquery_table.property_features_online_latest",
     "module.data.google_bigquery_table.property_embeddings",
     "module.data.google_bigquery_table.model_monitoring_alerts",
     "module.data.google_bigquery_table.ranking_log_hourly_ctr",
