@@ -34,25 +34,54 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 - `/search` canonical 経路で 200
 - `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` / `ops-train-now` + `ops-train-wait` PASS
 - `destroy-all -> deploy-all -> run-all-core` まで再現済
+- **W2-8 互換レイヤ撤去 完了** (`BigQuerySemanticSearch` / `BigQueryFeatureFetcher` / `SEMANTIC_BACKEND` / `FEATURE_FETCHER_BACKEND` env をコード/manifest/ConfigMap から削除済)
+- **W2-4 Composer Stage 1-2 完了** (offline):
+  - Composer Terraform module (`infra/terraform/modules/composer/` 4 ファイル) + dev wiring
+  - `sa-composer` IAM SA + 5 role + deployer SA に `composer.admin` 付与 + outputs map に composer entry
+  - 3 本 DAG (`pipeline/dags/{daily_feature_refresh,retrain_orchestration,monitoring_validation}.py`) + `_common.py`、すべて BashOperator base で `python -m scripts.* / pipeline.workflow.compile` 経由 (KFP 2.16 互換 issue 回避)
+  - `scripts/deploy/composer_deploy_dags.py` + Make target (`composer-deploy-dags` / `ops-composer-trigger` / `ops-composer-list-runs`)
+  - `deploy_all.py` を 14 → 15 step 化、`TF_APPLY_STAGE1_TARGETS` に `module.composer` 追加
+  - `pipeline/dags/` の `app.*` import 禁止を `scripts/ci/layers.py::DIRECTORY_RULES` に追加
+  - DAG file unit test (AST / schedule / dag_id / 既存 script reference 整合) + composer_deploy_dags unit test
+- **Stage 3 Composer flip + 軽量 trigger 格下げ 完了**:
+  - `enable_composer` default `false` → `true`
+  - Cloud Scheduler `check-retrain-daily`: `0 4 * * *` → `0 4 1 * *` (月 1 回 smoke)
+  - Cloud Function `pipeline_trigger` + Eventarc 2 本 + `/jobs/check-retrain` の docstring/コメントを「smoke / 軽量代替経路」に更新
+- **PDCA reproducibility ガード (新)**:
+  - `destroy-all` step [2/6+] に `vertex_cleanup.undeploy_all_vvs_deployed_indexes` 追加 — 前 PDCA cycle で残った deployed index を能動的に undeploy し、次の `deploy-all` step 6 timeout fail を防ぐ
+  - GCP API 制約 (deployed_index_id の "being undeployed / failed" soft-state grace period >30 min) を回避するため、`vector_search/variables.tf::deployed_index_id` を `property_embeddings_v1` → **`property_embeddings_v2`** に bump
+  - 全関連テスト・コードを v2 へ追従
+- **workflow contract test 43 件**: deploy-all step / Composer module / IAM / DAG schedule / cron 5 field / KFP 2.16 回避 / VVS undeploy guard / cost wording (¥870-1,200/3h) / canonical docs 等を pin
+- **コスト見積もり仕様化** ([docs/runbook/05_運用.md §1.4-bis](../runbook/05_運用.md)): 3h 学習 1 回 ~¥870-1,200 (Composer + GKE + Gateway + VVS + FOS + 従量系合算)、当日 destroy 前提なら destroy 漏れリスクゼロ
 
 ### 残り作業
 
-- W2-8 互換レイヤ削除
-- W2-4 Composer Stage 2 / 3
-- `tests/integration/parity/*` の live 実行
-- 最後の `destroy-all`
+- live `make deploy-all` (Composer 込み) **完走確認** (Stage 3.4-retry 進行中、v2 ID で再走中)
+- `make composer-deploy-dags` + `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認
+- `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
+- 最後の `make destroy-all` (新 stale VVS guard が live で動作することの検証も兼ねる)
+- `tests/integration/parity/*` の `live_gcp` 本実行 (別 session 妥当)
 
 ### 補足
 
-- `deploy-all` の主な長待機は VVS deployed index attach (2026-05-02 実測 26m21s)
+- `deploy-all` の主な長待機は VVS deployed index attach (2026-05-02 実測 26m21s) + Composer 環境作成 (15-25 min)
+- 初回 deploy-all は 50-65 min が想定範囲 (従来 30-40 min + Composer 創出分)
 - `SEARCH_RETRIES` は safety net として残置
-- 完了条件は `destroy-all -> deploy-all -> run-all-core -> destroy-all`
+- 完了条件は `destroy-all -> deploy-all -> composer-deploy-dags -> run-all-core -> destroy-all`
 
 ### 実測メモ
 
 - live で確認済み: `ops-livez` / `ops-search` / `ops-search-components` / `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` / `ops-feedback` / `ops-ranking` / `ops-train-now` / `ops-train-wait` / `ops-label-seed` / `ops-daily` / `ops-accuracy-report`
 - 代表値: `lexical=1 semantic=3 rerank=5`、`ndcg_at_10=1.0 hit_rate=1.0 mrr=1.0`
-- 主要修正は deploy-all step 拡張、ConfigMap overlay 自動注入、provider の kubeconfig 化、FOS lifecycle 安定化、destroy-all parity 修正
+- 主要修正は deploy-all step 拡張、ConfigMap overlay 自動注入、provider の kubeconfig 化、FOS lifecycle 安定化、destroy-all parity 修正、**Composer 本実装 + 軽量 trigger 格下げ + 互換レイヤ撤去 + stale VVS guard**
+
+### 2026-05-02 終端で踏んだ live 障害と恒久対処
+
+| 障害 | 原因 | 恒久対処 |
+|---|---|---|
+| `make deploy-all` step 6 で stale `property_embeddings_v1` deployed_index 待機 timeout | 前 PDCA cycle の destroy-all が deployed index を残したまま終了 | `destroy-all` に `vertex_cleanup.undeploy_all_vvs_deployed_indexes` 追加 (能動 undeploy)。contract test `test_destroy_all_proactively_undeploys_stale_vvs_indexes` で再発検知 |
+| 手動 undeploy 後も "There exists a DeployedIndex...either in failed state or being undeployed" で create がブロック (>30 min 観察) | GCP API が deployed_index_id を soft-state で grace period 保持 | `deployed_index_id` を `property_embeddings_v1` → `property_embeddings_v2` に bump し、grace period を回避 (今後の destroy-all guard により再発しない) |
+| contract test 1 件 (`test_cost_estimate_documented_in_runbook`) が live deploy 中に fail | runbook §1.4-bis の cost wording が user 編集で更新されたが test 側が追従していなかった | live retry 前の **必須 gate** として contract test 全 PASS を確認する手順に固定。test を `¥870-1,200/3h` の最新 wording に追従 |
 
 ---
 
