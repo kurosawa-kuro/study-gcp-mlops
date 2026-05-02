@@ -166,7 +166,9 @@ def test_run_all_core_recipe_pins_canonical_validation_path() -> None:
         "$(MAKE) ops-accuracy-report",
     ]
     positions = [makefile.index(line) for line in expected_lines]
-    assert positions == sorted(positions), "run-all-core drifted from the canonical validation order"
+    assert positions == sorted(positions), (
+        "run-all-core drifted from the canonical validation order"
+    )
     assert "verify-all: ## Alias of run-all-core" in makefile
     assert "$(MAKE) run-all-core" in makefile
 
@@ -224,7 +226,9 @@ def test_canonical_docs_describe_workflow_contract_goals() -> None:
         "ops-vertex-vector-search-smoke",
         "ops-vertex-feature-group",
     ):
-        assert required in operations, f"operations guide drifted from workflow contract: {required}"
+        assert required in operations, (
+            f"operations guide drifted from workflow contract: {required}"
+        )
 
     for required in (
         "tests/integration/workflow/",
@@ -232,7 +236,9 @@ def test_canonical_docs_describe_workflow_contract_goals() -> None:
         "setup/deploy_all.py",
         "ops/vertex/{models_list,pipeline_status,vector_search,feature_group,monitoring,explain}.py",
     ):
-        assert required in catalog, f"implementation catalog drifted from workflow/test inventory: {required}"
+        assert required in catalog, (
+            f"implementation catalog drifted from workflow/test inventory: {required}"
+        )
 
 
 def test_feature_view_online_serving_source_is_direct_bigquery() -> None:
@@ -241,10 +247,16 @@ def test_feature_view_online_serving_source_is_direct_bigquery() -> None:
     deploy_all_py = _read("scripts/setup/deploy_all.py")
     assert 'table_id            = "property_features_online_latest"' in data_tf
     assert "depends_on          = [google_bigquery_table.property_features_daily]" in data_tf
-    assert 'FROM `${var.project_id}.${google_bigquery_dataset.feature_mart.dataset_id}.property_features_daily`' in data_tf
+    assert (
+        "FROM `${var.project_id}.${google_bigquery_dataset.feature_mart.dataset_id}.property_features_daily`"
+        in data_tf
+    )
     assert 'WHERE event_date = CURRENT_DATE("Asia/Tokyo")' in data_tf
-    assert 'uri = "bq://${var.project_id}.${var.feature_mart_dataset_id}.property_features_online_latest"' in vertex_tf
-    assert "entity_id_columns = [\"property_id\"]" in vertex_tf
+    assert (
+        'uri = "bq://${var.project_id}.${var.feature_mart_dataset_id}.property_features_online_latest"'
+        in vertex_tf
+    )
+    assert 'entity_id_columns = ["property_id"]' in vertex_tf
     assert "feature_registry_source {" not in vertex_tf
     assert "TF_APPLY_STAGE1_TARGETS" in deploy_all_py
     assert "wait_for_deployed_index_absent" in deploy_all_py

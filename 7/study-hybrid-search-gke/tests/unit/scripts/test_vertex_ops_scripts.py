@@ -41,8 +41,8 @@ def test_ops_search_fails_after_retry_budget(monkeypatch, capsys) -> None:
     monkeypatch.setattr(search, "_search_once", lambda **_: (_ for _ in ()).throw(URLError("boom")))
 
     assert search.main() == 1
-    out = capsys.readouterr().out
-    assert "search timed out after 2 attempt(s)" in out
+    captured = capsys.readouterr()
+    assert "search timed out after 2 attempt(s)" in captured.err
 
 
 def test_backfill_build_spec_reads_required_env(monkeypatch) -> None:
@@ -119,7 +119,7 @@ def test_feature_group_uses_feature_view_env(monkeypatch) -> None:
                     "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a",
                     "dedicated_serving_endpoint": type(
                         "Endpoint", (), {"public_endpoint_domain_name": "featurestore.example"}
-                    )()
+                    )(),
                 },
             )()
 
@@ -203,7 +203,7 @@ def test_feature_group_404_emits_sync_and_bq_diagnostics(monkeypatch, capsys) ->
                     "name": "projects/123456789/locations/asia-northeast1/featureOnlineStores/store-a",
                     "dedicated_serving_endpoint": type(
                         "Endpoint", (), {"public_endpoint_domain_name": "featurestore.example"}
-                    )()
+                    )(),
                 },
             )()
 

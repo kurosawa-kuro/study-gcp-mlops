@@ -86,10 +86,7 @@ def generate_configmap_data(
     data["vertex_feature_online_store_id"] = vertex_feature_online_store_id
     data["vertex_feature_view_id"] = vertex_feature_view_id
     data["vertex_feature_online_store_endpoint"] = vertex_feature_online_store_endpoint
-    if (
-        vertex_vector_search_index_endpoint_id
-        and vertex_vector_search_deployed_index_id
-    ):
+    if vertex_vector_search_index_endpoint_id and vertex_vector_search_deployed_index_id:
         data["semantic_backend"] = "vertex_vector_search"
     if (
         vertex_feature_online_store_id

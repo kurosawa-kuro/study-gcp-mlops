@@ -66,4 +66,4 @@ def test_seed_and_feature_group_contract_pin_feature_timestamp() -> None:
     assert "Feature-time column required by Vertex AI Feature Group BigQuery source" in data_tf
     assert "CURRENT_TIMESTAMP()" in seed_minimal
     assert "feature_timestamp, property_id" in seed_minimal
-    assert "entity_id_columns = [\"property_id\"]" in vertex_tf
+    assert 'entity_id_columns = ["property_id"]' in vertex_tf

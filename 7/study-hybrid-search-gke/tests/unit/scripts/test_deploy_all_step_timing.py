@@ -204,7 +204,9 @@ def test_run_sync_meili_resolves_url_and_restores_env() -> None:
             },
             clear=False,
         ),
-        patch("scripts.setup.deploy_all.cloud_run_url", return_value="https://meili.example.run.app"),
+        patch(
+            "scripts.setup.deploy_all.cloud_run_url", return_value="https://meili.example.run.app"
+        ),
         patch("scripts.setup.deploy_all.run", side_effect=_fake_run),
         patch("scripts.setup.deploy_all.sync_meili_run", return_value=5) as sync_mock,
     ):

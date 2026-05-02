@@ -288,7 +288,9 @@ def _steps() -> list[DeployStep]:
             _run_sync_dataform,
         ),
         DeployStep(5, "tf-plan", "tf-plan (saves infra/tfplan)", _run_tf_plan),
-        DeployStep(6, "tf-apply", "terraform apply staged (core -> kube-ready -> full)", _run_tf_apply),
+        DeployStep(
+            6, "tf-apply", "terraform apply staged (core -> kube-ready -> full)", _run_tf_apply
+        ),
         DeployStep(
             7,
             "seed-lgbm-model",
