@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from urllib.error import URLError
+
+from scripts.ops import search
 from scripts.ops.vertex import feature_group, pipeline_wait, vector_search
 from scripts.setup import backfill_vector_search_index
 
@@ -9,6 +12,37 @@ def test_vector_search_probe_vector_has_expected_shape() -> None:
     assert len(probe) == 768
     assert probe[0] == 1.0
     assert probe[1] == 0.5
+
+
+def test_ops_search_retries_transient_timeout(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("SEARCH_RETRIES", "3")
+    monkeypatch.setenv("SEARCH_RETRY_SLEEP", "0")
+
+    attempts = {"count": 0}
+
+    def _fake_once(*, payload: dict[str, object]) -> tuple[int, str]:
+        attempts["count"] += 1
+        assert payload["query"] == "赤羽駅徒歩10分 ペット可"
+        if attempts["count"] == 1:
+            raise TimeoutError("timed out")
+        return 200, '{"results":[]}'
+
+    monkeypatch.setattr(search, "_search_once", _fake_once)
+
+    assert search.main() == 0
+    out = capsys.readouterr().out
+    assert "transient failure attempt=1/3" in out
+    assert attempts["count"] == 2
+
+
+def test_ops_search_fails_after_retry_budget(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("SEARCH_RETRIES", "2")
+    monkeypatch.setenv("SEARCH_RETRY_SLEEP", "0")
+    monkeypatch.setattr(search, "_search_once", lambda **_: (_ for _ in ()).throw(URLError("boom")))
+
+    assert search.main() == 1
+    out = capsys.readouterr().out
+    assert "search timed out after 2 attempt(s)" in out
 
 
 def test_backfill_build_spec_reads_required_env(monkeypatch) -> None:

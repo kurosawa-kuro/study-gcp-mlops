@@ -1,241 +1,30 @@
-Ready to code?                                                                                                                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                                      
- Here is Claude's plan:                                                                                                                                                                                                                                                                                                                                                               
-╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
- Phase 7 Wave 2 — VVS / FOS live 検証中に発覚した 8 件のバグ徹底修正                                                                                                                                                                                                                                                                                                                  
-                                                                                                                                                                                                                                                                                                                                                                                    
- Context
+停止します。destroy-all は実行しません。
+
+  現在の残状態だけ明確にします。
+
+  - 稼働環境は残したまま
+  - deploy-all 本線修正はワークツリーに未コミットで残存
+  - live で確認済み
+      - ops-search-components PASS
+      - ops-vertex-vector-search-smoke PASS
+      - ops-vertex-feature-group PASS
+  - 未解決
+      - run-all-core は make ops-search の /search read timeout で停止
+  - 直近の追加修正
+      - scripts/ops/search.py に retry を追加
+      - 対応 unit test を追加
+      - ただしこの修正後の run-all-core 再通しは未実施
+
+  引き継ぎ先が見るべき主ファイル:
+
+  - 7/study-hybrid-search-gke/docs/tasks/TASKS_ROADMAP.md
+  - 7/study-hybrid-search-gke/scripts/setup/deploy_all.py
+  - 7/study-hybrid-search-gke/scripts/ops/search.py
+  - 7/study-hybrid-search-gke/docs/runbook/04_検証.md
+  - 7/study-hybrid-search-gke/docs/runbook/05_運用.md
+
+  必要になれば、再開時はここから続けられます。
 
- 直前のセッションで Vertex Vector Search の live 起動 → semantic 経路 VVS で動作確認まで達成 (W2-1 / W2-6 / W2-7 / G4 前段)。ただしその過程で 8 件のバグ / 設計欠落が発覚 し、いずれも次回 PDCA loop で再発する危険性がある。本セッションでこれらを 徹底修正 し、make destroy-all && make deploy-all 1 発で「3 種 all non-zero (VVS+FOS) + G4 前後段」が自動的に成立する状態にする。
-
- 修正なしで残ると毎回:
- - TF_VAR_enable_*=true を手で export し忘れる (#11)
- - VVS Index 作成に feature_norm_type 系の謎 400 で詰まる (修正済 #1)
- - VVS upsert で v1/v1beta1 mismatch (修正済 #2)
- - ConfigMap drift で Pod が起動できない (修正済 #3)
- - FOS Optimized の Update 不可で plan が apply 不能 (#4)
- - FV sync が seed 投入前に走り FV が空のままでテスト fail (#5)
- - ConfigMap の VVS/FOS 値が空のままで semantic 経路を flip 不能 (#6)
- - provider data source race で localhost:80 401 連発 (#7)
- - pipe の | tail -N で deploy_all のエラーが exit 0 にすり替わる (#8)
- - deploy-all 1 発で完結せず手動 step が複数必要 (#9)
- - FV fetch 404 のとき何も診断情報が出ない (#10)
-
- …という状態が続き、毎回の destroy-all → deploy-all PDCA で別々の手作業を要求される。
-
- 8 件の修正方針
-
- #4 FOS Optimized は Update API 未サポート → terraform の plan 差分を抑止
-
- 症状: Error 400: UpdateFeatureOnlineStore action is not supported for Optimized FeatureOnlineStore yet.
-
- 原因: infra/terraform/modules/vertex/main.tf の google_vertex_ai_feature_online_store.property_features は optimized {} (Optimized type) で create するが、provider が空 block 等の minor diff を検知すると update を試みる → API 拒否で apply fail。
-
- 修正: lifecycle { ignore_changes = [optimized, dedicated_serving_endpoint, labels] } を追加。これで作成後の minor diff を terraform が無視。create-only リソースとして扱う。
-
- ファイル: infra/terraform/modules/vertex/main.tf の resource "google_vertex_ai_feature_online_store" "property_features" block
-
- #5 + #9 FV sync は seed 投入後 に走る必要がある + deploy-all が 1 発で完結しない
-
- 症状: tf apply 直後に走る FV 初回 sync は BQ source が空 → FV にデータ無し → feature_group.py fetch が 404。
-
- 原因: deploy_all step リストに seed-test も trigger-fv-sync も含まれていない。手動で make seed-test → manual sync 必要。
-
- 修正: scripts/setup/deploy_all.py::_steps() に新 step を 2 つ追加:
- - 新 step "seed-test" (元 step 7 の後): scripts.setup.seed_minimal.main() を呼ぶ
- - 新 step "trigger-fv-sync" (新 seed-test の後、enable_feature_online_store=true 時のみ): FV sync を REST API で trigger + 完了 polling
-
- 新 helper を scripts/infra/feature_view_sync.py に作成 (W3 リファクタの infra/ 層に整合)。10 step → 12 step 構成に増える。
-
- ファイル:
- - scripts/setup/deploy_all.py — step list 拡張
- - 新規 scripts/infra/feature_view_sync.py — sync trigger + polling
- - 新規 tests/unit/scripts/test_infra_feature_view_sync.py — mock test
-
- #6 ConfigMap の VVS / FOS 値を terraform output から自動注入
-
- 症状: scripts/deploy/configmap_overlay.py は meili_base_url だけ動的解決、VVS / FOS 値は strangler default の空文字のまま。kubectl patch を手で叩く必要があった。
-
- 修正: configmap_overlay.py::main() で terraform -chdir=... output -json を呼び、出力から:
- - vector_search_index_endpoint_id
- - vector_search_deployed_index_id
- - vertex_feature_online_store_id
- - vertex_feature_view_id
- - vertex_feature_online_store_endpoint
- を取得して generate_configmap_data() の入力に追加。
-
- scripts/lib/config.py::generate_configmap_data の signature を拡張 (新 keyword 引数を default 空文字で受ける、既存呼び出しと互換)。
-
- semantic_backend / feature_fetcher_backend は引き続き strangler default "bq" を使う (この session の本目的は wiring を完成させることで、自動 flip は別件)。
-
- ファイル:
- - scripts/lib/config.py — generate_configmap_data 拡張
- - scripts/deploy/configmap_overlay.py — terraform output 読み込み追加
- - tests/unit/scripts/test_lib_config.py — 新引数の test 追加
-
- #7 provider data source の評価レース → localhost:80 401
-
- 症状: terraform plan 実行時に data.google_container_cluster.hybrid_search が空評価され local.k8s_host = "https://" → kubernetes provider が localhost にフォールバック → module.kserve.kubernetes_namespace の refresh で 401 エラー連発。
-
- 原因: data "google_container_cluster" "hybrid_search" は depends_on = [module.gke] を持つが、data source は plan/refresh 時に毎回再評価される。最初の evaluation で provider が初期化される瞬間に data source 結果が遅延し、空文字が provider config に流れる場合がある (terraform の data source ↔ provider config 評価順の既知問題)。
-
- 修正: provider config から data source 直参照を 削除し、gcloud container clusters get-credentials 経由の kubeconfig だけを使う形に切替え。具体的には:
-
- provider "kubernetes" {
-   config_path    = "~/.kube/config"
-   config_context = "gke_${var.project_id}_${var.region}_${var.gke_cluster_name}"
- }
-
- provider "helm" {
-   kubernetes {
-     config_path    = "~/.kube/config"
-     config_context = "gke_${var.project_id}_${var.region}_${var.gke_cluster_name}"
-   }
- }
-
- deploy-all は step "ensure_kubectl_context" で gcloud container clusters get-credentials を必ず先行実行する (既に存在、scripts/infra/kubectl_context.py::ensure)。state op を行う scripts/setup/recover_wif.py 用の k8s_use_data_source=false ロジックは廃止可能 (kubeconfig が無くても provider init は失敗しない、resource 操作時のみ kubectl 呼ぶ)。
-
- ただしこの fix は module.gke の depends_on を kubernetes/helm provider 側で明示できなくなる ため、tf apply は事前に cluster が存在する状態を要求する。これは現状の運用 (2 段階 apply: cluster 先行 → 残部) と整合。
-
- var.k8s_use_data_source 変数は廃止 → recover_wif.py::_tf_env_for_no_cluster() も簡略化。
-
- ファイル:
- - infra/terraform/environments/dev/provider.tf — kubernetes/helm provider を kubeconfig-based に
- - infra/terraform/environments/dev/variables.tf — k8s_use_data_source 削除
- - scripts/setup/recover_wif.py — _tf_env_for_no_cluster 簡略化 (TF_VAR 不要)
-
- #8 deploy_all 失敗時の exit code が | tail で隠れる問題
-
- 症状: uv run python -m scripts.setup.deploy_all ... 2>&1 | tail -30 形式の wrapper invocation で、deploy_all が exit 1 で落ちても tail の exit 0 が wrapper の rc になり、上位の Bash tool が「成功」と誤認識。
-
- 原因: shell pipe の rc 仕様。
-
- 修正: Python script 側を強化 (本 session 以降の Bash 呼び出しでは | tail を使わない、または set -o pipefail を入れる) + script 自体に 失敗時の last-line summary を出して見落としにくくする:
- - scripts/setup/deploy_all.py::main() の例外 handler で「==> deploy-all FAILED at step N (name) — see traceback above」を stdout 末尾に出してから raise する。
-
- ファイル: scripts/setup/deploy_all.py::main に try/except 追加
-
- #10 feature_group.py 404 時の診断情報強化
-
- 症状: 404 が出たとき "FeatureView sync ran" と書くだけで、実際に sync が走ったか / 何時に走ったか / source row count はいくつかが見えない。
-
- 修正: 404 fail 時に追加で:
- 1. 直近 sync の featureViewSyncs:list を呼び、runTime.startTime/endTime/finalStatus.code を表示
- 2. BQ source table ({project_id}.feature_mart.property_features_daily) の COUNT(*) を表示
- 3. 「次に何をすればよいか」の hint (sync trigger / wait / source 投入)
-
- ファイル: scripts/ops/vertex/feature_group.py::main の except 句強化
-
- #11 enable_vector_search / enable_feature_online_store の default を true に
-
- 症状: infra/terraform/environments/dev/variables.tf で両方 default false → TF_VAR_enable_*=true を毎回 export 必要、忘れると VVS/FOS が空走。
-
- 修正: dev environment は PDCA loop 用なので true を default に。コスト懸念があるなら destroy-all で全消しする運用を継続する (本 phase 設計意図)。
-
- ファイル: infra/terraform/environments/dev/variables.tf の 2 var の default を true に変更 + description 修正。
-
- 修正順序と依存
-
- 1. #11 (default flag) — 1 行 × 2、即適用、make check のみ
- 2. #10 (feature_group diagnostics) — script 追加、unit test 追加
- 3. #6 (configmap_overlay terraform output 注入) — lib/config.py 拡張 + configmap_overlay.py 拡張 + test 拡張
- 4. #5 + #9 (deploy-all に seed-test + FV sync 統合) — 新 step 2 個追加 + 新 module 追加 + test 追加
- 5. #4 (FOS lifecycle) — terraform 1 block 追加
- 6. #7 (provider kubeconfig-based) — provider.tf 書き換え + var.k8s_use_data_source 撤去 + recover_wif.py 簡略化
- 7. #8 (deploy_all exit code visibility) — main() に except 句追加
-
- 検証
-
- 各 fix 後:
- - make check (ruff + fmt + mypy strict + pytest) 全 PASS
- - make sync-configmap で committed YAML が unchanged
-
- 全 fix 後の end-to-end 再検証:
- 1. make destroy-all (現在の cluster 完全消去)
- 2. make deploy-all (新 12-step、TF_VAR_enable_*=true export 不要)
- 3. make ops-search-components で 3 種 all non-zero
- 4. make ops-vertex-vector-search-smoke (= python -m scripts.ops.vertex.vector_search) で 1 件以上 neighbor
- 5. python -m scripts.ops.vertex.feature_group で property feature 値表示 (FOS sync が deploy-all 内で走っているはず)
- 6. kubectl logs deployment/search-api | grep vertex_vector_search で adapter 起動 log 確認 (但し semantic_backend は default bq のまま、本 session ではあくまで wiring 完成)
-
- Critical Files
-
-     Critical Files
-
-     新規作成
-
-     - scripts/infra/feature_view_sync.py — FV sync trigger + polling
-     - tests/unit/scripts/test_infra_feature_view_sync.py — mock test
-
-     編集
-
-     - infra/terraform/environments/dev/variables.tf — default 切替 (#11) + k8s_use_data_source 撤去 (#7)
-     - infra/terraform/environments/dev/provider.tf — kubeconfig-based provider (#7)
-     - infra/terraform/modules/vertex/main.tf — FOS lifecycle (#4)
-     - scripts/lib/config.py — generate_configmap_data 拡張 (#6)
-     - scripts/deploy/configmap_overlay.py — terraform output 読み込み (#6)
-     - scripts/setup/deploy_all.py — step list 拡張 (#5+#9) + main() exit visibility (#8)
-     - scripts/setup/recover_wif.py — _tf_env_for_no_cluster 簡略化 (#7)
-     - scripts/ops/vertex/feature_group.py — 404 診断強化 (#10)
-     - tests/unit/scripts/test_lib_config.py — 新引数 test (#6)
-
-     全体所要時間 (見積)
-
-     ┌────────────────────────────────────────────────┬─────────────┐
-     │                     Phase                      │    所要     │
-     ├────────────────────────────────────────────────┼─────────────┤
-     │ 修正実装 (8 件) + unit test                    │ ~60-90 分   │
-     ├────────────────────────────────────────────────┼─────────────┤
-     │ make check 反復                                │ ~10 分      │
-     ├────────────────────────────────────────────────┼─────────────┤
-     │ destroy-all → deploy-all (full live)           │ ~30-40 分   │
-     ├────────────────────────────────────────────────┼─────────────┤
-     │ End-to-end smoke (3 種 + VVS smoke + FV fetch) │ ~5 分       │
-     ├────────────────────────────────────────────────┼─────────────┤
-     │ 最終 destroy-all                               │ ~5 分       │
-     ├────────────────────────────────────────────────┼─────────────┤
-     │ 合計                                           │ ~110-150 分 │
-     └────────────────────────────────────────────────┴─────────────┘
-
-     Out of Scope (今 session でやらない)
-
-     - W2-8 互換レイヤ撤去 (SEMANTIC_BACKEND 等の env 削除) — 別 session
-     - ConfigMap が VVS canonical を default にする (= semantic_backend default を vertex_vector_search に flip) — wiring 完成 → soak → 別 session で flip
-     - 中核 5 要素 / /search デフォルト挙動の変更 — 非負制約
-
-● 修正開始。まず #11 (default flag) と #4 (FOS lifecycle) と #10 (feature_group 診断強化) — 独立で小さい変更から。
-
-
-そもそも今回の仕様変更のVertex Vector Searchは機能していましたか？
-
- 次の判断 (user 選択)                                                                                                                                                                                                                                                                                                                                                              
-                                                                                                                                                                                                                                                                                                                                                                                      
-  3 種検証は通ったので、ここから先は user の方針次第です:                                                                                                                                                                                                                                                                                                                             
-                                                                                                                                                                                                                                                                                                                                                                                      
-  A. ここで PDCA 完了 → make destroy-all でコスト止める (~3-5分、tfstate / API 有効化は残るので翌日 deploy-all 数分で復帰可能)                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                      
-  B. Wave 2 W2-1 (VVS live apply) + W2-6 (backfill) を続けて canonical G4 経路 (semantic を VVS 直接に flip) まで達成する (+ ~10-15分、追加コスト発生)                                                                                                                                                                                                                                
-                                                                                                                                                                                                                                                                                                                                                                                      
-  C. cluster 残しつつ別の検証に進む (e.g. make ops-feedback/ops-ranking/ops-accuracy-report、Wave 2 残作業ぶん)                                                                                                                                                                                                                                                                       
-                                                                                                                                                                                                                                                                                                                                                                                    
-  どれにしますか?       
-
-
-W2-1: Create infra/terraform/modules/vector_search/ module (main/variables/outputs/versions.tf)
-
-W2-1: Wire module "vector_search" into environments/dev/main.tf + root variables.tf/outputs.tf
-
-W2-2: Flip enable_feature_online_store default to true in vertex/variables.tf + add feature_view outputs
-
-W2-3: Add IAM bindings for KServe SAs (vector search query / feature view read) in modules/iam
-
-W2-5: Add new env vehicles to search-api configmap.example + deployment.yaml
-
-W2-6: Implement scripts/setup/backfill_vector_search_index.py
-
-W2-7: Implement scripts/ops/vertex/vector_search.py smoke
-
-Run make tf-validate / make check / pytest to confirm offline correctness
 
 
 # 02. 移行ロードマップ — 検索アプリを最新仕様へ
@@ -258,12 +47,70 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 | **Wave 2** | **GCP インフラ層 (= クラウド側の主作業計画)** | 🟡 live 検証中 | §4 が母艦。**W2-1 / W2-2 / W2-3 / W2-5 / W2-6 / W2-7 の live wiring は成立**: VVS smoke / FOS fetch / feedback / ranking / accuracy / retrain wait を実測 PASS。**追加で canonical ConfigMap auto-flip と `ops-train-wait` を実装**。未完了は full PDCA 完走、Composer 継承、互換レイヤのコード削除 |
 | Wave 3 | docs / reference architecture 整合 | ⏳ Wave 2 後 | 03_実装カタログ.md / 05_運用.md の「semantic 経路」「feature 取得経路」「Composer DAG 経路」記述を Wave 1/2 に追従 |
 
+## 現在地サマリ (2026-05-02)
+
+### 残り作業
+
+- full PDCA 完走
+  - `destroy-all -> deploy-all -> run-all-core -> destroy-all`
+  - **完走するまで未完了扱い**
+- `/search` 統合経路の安定化
+  - 現在の本丸。`run-all-core` はここで止まる
+- `run-all-core` 完走後の docs / acceptance gate 最終同期
+- `W2-8` 互換レイヤ撤去
+  - `SEMANTIC_BACKEND`
+  - `FEATURE_FETCHER_BACKEND`
+  - `BigQuerySemanticSearch`
+  - `BigQueryFeatureFetcher`
+- Composer 継承確認
+- `tests/e2e/` / `live_gcp` parity の本実行
+
+### 現在詰まっていること
+
+- `run-all-core` の `make ops-search`
+  - `/search` が `TimeoutError: The read operation timed out` で FAIL
+  - `ops-search-components` / `ops-vertex-vector-search-smoke` / `ops-vertex-feature-group` は PASS 済み
+  - つまり VVS/FOS wiring 単体ではなく、**統合 `/search` 経路**が未安定
+- `deploy-all` は完走するが、managed service の長待機が大きい
+  - VVS deployed index attach は 2026-05-02 実測で **26m21s**
+  - 待機そのものは bug ではないが、PDCA 速度を大きく悪化させる
+
+### 今回の主要な失敗事例
+
+- `deploy-all` 本線に `sync-meili` が入っておらず、完走後でも `lexical=0`
+- `deploy-all` 本線に `backfill-vvs` が入っておらず、完走後でも `0 neighbors`
+- `trigger-fv-sync` が seed 前提を満たさず、Feature View fetch が 404
+- `property_features_online_latest` を同一 apply で早く作りすぎて 404
+- `module.kserve` / `helm_release` が GKE ready 前に走って timeout
+- stale VVS deployed index が残り、再作成で 400 conflict
+- `run-all-core` が部分的に通っていても、最後に `/search` timeout で全体 FAIL
+
+### 今回の反省
+
+- 最大の失敗要因は個別バグだけではなく、**不必要なブロッキング**だった
+- 早期に出ていた停滞シグナルや error を AI 側が即切らず、放置する時間が長すぎた
+- ユーザーが進捗確認を何度も入れて初めて問題が顕在化する悪循環を作った
+- 部分成功 (`ops-*` 単体 PASS) を、ユーザー価値のある完了 (`full PDCA PASS`) と混同しかけた
+- 今後の基準は以下に固定する
+  - 30 秒超の待機は「現在地 / 待機理由 / 次の分岐」を即報告
+  - 3 分超の待機は異常候補として切り分けに移る
+  - 長待機中は docs 更新、contract test 追加、代替検証を並行実行
+  - `destroy-all -> deploy-all -> run-all-core -> destroy-all` が通るまで完了扱いしない
+
 ### 進捗ログ (2026-05-02)
 
 「何も進んでいないのでは」という不安を避けるため、Wave 2 live 検証で実際に通した項目と、まだ残る項目を分離して記録する。
 
 **この時点で実測 PASS 済み**
 
+- 8 件バグ修正 (live 検証中に発覚) は **コード上で全て done**:
+  - **#4 FOS Optimized lifecycle.ignore_changes** — `infra/terraform/modules/vertex/main.tf:289-294` に `ignore_changes = [optimized, dedicated_serving_endpoint, labels]` を追加。Update API 未サポートの 400 を回避
+  - **#5+#9 deploy-all step list 拡張** — `scripts/setup/deploy_all.py::_steps()` に `seed-test` (step 8) と `trigger-fv-sync` (step 11) を追加 + 新 helper `scripts/infra/feature_view_sync.py`
+  - **#6 ConfigMap が Terraform output から VVS/FOS 値を自動注入** — `scripts/deploy/configmap_overlay.py::_terraform_output_map()` + `scripts/lib/config.py::generate_configmap_data` 拡張
+  - **#7 provider を kubeconfig-based に切替** — `infra/terraform/environments/dev/provider.tf` から `data.google_container_cluster` 直参照を撤去、`config_path` / `config_context` 経由に固定。`var.k8s_use_data_source` は廃止 (variables.tf から削除、recover_wif.py の placeholder mode も撤去)
+  - **#8 deploy_all 失敗時 last-line summary** — `scripts/setup/deploy_all.py::main()` の except 句で `==> deploy-all FAILED at step N (name)` を stdout 末尾に出力 (pipe で exit code が消える wrapper invocation 対策)
+  - **#10 feature_group.py 404 診断強化** — `scripts/ops/vertex/feature_group.py::_emit_404_diagnostics()` で recent FeatureViewSyncs / BQ source row count / next_action hint を表示
+  - **#11 enable_vector_search / enable_feature_online_store default=true** — `infra/terraform/environments/dev/variables.tf` で両 var の default を `true` に。`TF_VAR_enable_*=true` の手動 export 不要
 - local boot contract:
   - Docker build 成功
   - import smoke 成功
@@ -314,7 +161,13 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
   - root cause は `deploy-all` 本線に `backfill_vector_search_index --apply`
     と `sync-meili` が入っていなかったこと。両方を step 追加で修正し、
     workflow contract も `seed-test -> sync-meili -> backfill-vvs -> trigger-fv-sync`
-    に更新中
+    に更新済み
+  - 修正後、`uv run python -m scripts.setup.deploy_all --from-step 8 --to-step 14`
+    を live 再実行し、その直後に
+    - `make ops-search-components`
+    - `make ops-vertex-vector-search-smoke`
+    - `make ops-vertex-feature-group`
+    が全て PASS することを確認
   - 続いて `run-all-core` → 最後の `destroy-all` を通す
 
 **まだ未完了**
