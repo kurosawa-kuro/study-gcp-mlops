@@ -560,6 +560,269 @@ def test_no_vertex_pipeline_job_schedule_resource_in_terraform() -> None:
             )
 
 
+# =========================================================================
+# 深い Composer 検証 (live verify でハマる事故を contract レベルで先回り)
+# =========================================================================
+
+
+def test_dag_files_have_valid_python_syntax() -> None:
+    """3 DAG file が Python として AST parse 可能 (Composer scheduler が DAG bag に
+    込み読みするとき構文エラーで全 DAG が止まる事故を防ぐ)。"""
+    import ast
+
+    for dag_file in DAG_FILES:
+        text = (DAGS_DIR / dag_file).read_text(encoding="utf-8")
+        try:
+            ast.parse(text, filename=str(DAGS_DIR / dag_file))
+        except SyntaxError as exc:
+            raise AssertionError(f"{dag_file} has invalid Python syntax: {exc}") from exc
+
+
+def test_dag_schedules_are_valid_5_field_cron() -> None:
+    """全 DAG の schedule cron が **5-field 形式** で、Airflow が parse 可能なこと。
+
+    1 field でも欠けると Composer scheduler が DAG を loaded but not scheduled
+    状態にする事故が起きる。本 test は cron 5 field の存在 + 各 field が
+    妥当範囲に収まっていることを syntactic に pin。
+    """
+    cron_pattern = re.compile(r'schedule="([^"]+)"')
+    for dag_file in DAG_FILES:
+        text = (DAGS_DIR / dag_file).read_text(encoding="utf-8")
+        match = cron_pattern.search(text)
+        assert match is not None, f"{dag_file}: schedule literal missing"
+        cron = match.group(1)
+        fields = cron.split()
+        assert len(fields) == 5, (
+            f"{dag_file}: schedule {cron!r} must be 5-field cron (got {len(fields)} fields)"
+        )
+        valid_field = re.compile(r"^[\d*,/\-]+$")
+        for i, field in enumerate(fields):
+            assert valid_field.match(field), (
+                f"{dag_file}: schedule field {i} ({field!r}) has invalid characters"
+            )
+
+
+def test_dag_schedules_avoid_simultaneous_run() -> None:
+    """3 DAG schedule が同時刻に走らない (Composer scheduler 圧迫回避)。
+    daily_feature_refresh → retrain_orchestration → monitoring_validation の
+    順序で >=30 min stagger している契約。"""
+    schedules: dict[str, tuple[int, int]] = {}
+    cron_pattern = re.compile(r'schedule="([^"]+)"')
+    for dag_file in DAG_FILES:
+        text = (DAGS_DIR / dag_file).read_text(encoding="utf-8")
+        match = cron_pattern.search(text)
+        assert match is not None
+        cron = match.group(1)
+        minute, hour, *_ = cron.split()
+        schedules[dag_file.removesuffix(".py")] = (int(hour), int(minute))
+
+    assert schedules["daily_feature_refresh"] < schedules["retrain_orchestration"], (
+        "daily_feature_refresh must run BEFORE retrain_orchestration "
+        "(feature refresh → retrain 順序契約)"
+    )
+    assert schedules["retrain_orchestration"] < schedules["monitoring_validation"], (
+        "retrain_orchestration must run BEFORE monitoring_validation"
+    )
+
+    from itertools import pairwise
+
+    sorted_times = sorted(schedules.values())
+    for prev, curr in pairwise(sorted_times):
+        prev_minutes = prev[0] * 60 + prev[1]
+        curr_minutes = curr[0] * 60 + curr[1]
+        assert curr_minutes - prev_minutes >= 30, (
+            f"DAG schedules too close: {prev} → {curr} (must be >=30 min apart)"
+        )
+
+
+def test_composer_module_passes_required_terraform_inputs() -> None:
+    """`module "composer"` が必須 input 全てを渡している (apply で
+    `var. ... is required` の compile 失敗を防ぐ)。"""
+    main_tf = _read("infra/terraform/environments/dev/main.tf")
+    composer_block_match = re.search(r'module "composer" \{(.+?)\n\}\n', main_tf, flags=re.DOTALL)
+    assert composer_block_match is not None
+    block = composer_block_match.group(1)
+
+    required_inputs = (
+        "enable_composer",
+        "project_id",
+        "region",
+        "vertex_location",
+        "environment_name",
+        "composer_service_account_email",
+        "pipeline_root_bucket_name",
+        "vector_search_index_resource_name",
+        "feature_online_store_id",
+        "feature_view_id",
+    )
+    for required in required_inputs:
+        assert required in block, f"module composer missing required input: {required}"
+
+
+def test_composer_sa_email_consumed_by_module() -> None:
+    """`module.iam.service_accounts.composer.email` が module composer 入力に
+    渡されている (新 SA を作っても consume されない bug を防ぐ)。"""
+    main_tf = _read("infra/terraform/environments/dev/main.tf")
+    assert "module.iam.service_accounts.composer.email" in main_tf, (
+        "module composer must consume module.iam.service_accounts.composer.email "
+        "(otherwise sa-composer は作成されるが Composer 環境が使わない bug)"
+    )
+
+
+def test_composer_environment_uses_correct_region_var() -> None:
+    """Composer 環境の `region` は `var.region` を使う (`var.vertex_location`
+    と取り違えると別 region に立って egress 課金発生)。"""
+    composer_main = _read("infra/terraform/modules/composer/main.tf")
+    assert (
+        "region   = var.region" in composer_main
+        or "region  = var.region" in composer_main
+        or "region = var.region" in composer_main
+    ), "Composer environment region must be var.region"
+
+
+def test_composer_environment_has_proper_create_destroy_timeouts() -> None:
+    """Composer 環境作成は 15-25 min かかるため、provider default の 30 min
+    timeout では足りない場合がある。明示的に 60m / 30m を指定する契約。"""
+    composer_main = _read("infra/terraform/modules/composer/main.tf")
+    assert 'create = "60m"' in composer_main, (
+        "Composer create timeout must be explicit 60m (default 30m too short)"
+    )
+    assert 'delete = "30m"' in composer_main, "Composer delete timeout must be explicit 30m"
+
+
+def test_make_composer_env_default_matches_terraform_default() -> None:
+    """`Makefile::COMPOSER_ENV` default が terraform `composer_environment_name`
+    var default と一致 (`make ops-composer-trigger` が存在しない環境を叩かない)。"""
+    makefile = _read("Makefile")
+    variables_tf = _read("infra/terraform/environments/dev/variables.tf")
+
+    make_match = re.search(r"COMPOSER_ENV\s+\?=\s+(\S+)", makefile)
+    assert make_match is not None
+    make_default = make_match.group(1).strip()
+
+    tf_match = re.search(
+        r'variable "composer_environment_name" \{[^}]*default\s+=\s+"([^"]+)"',
+        variables_tf,
+        flags=re.DOTALL,
+    )
+    assert tf_match is not None
+    tf_default = tf_match.group(1)
+
+    assert make_default == tf_default, (
+        f"Makefile COMPOSER_ENV default ({make_default!r}) must match "
+        f"terraform composer_environment_name default ({tf_default!r})"
+    )
+
+
+def test_composer_dag_bucket_terraform_output_consumed_by_deploy_script() -> None:
+    """`composer_dag_bucket` output 名が deploy script と outputs.tf で同一
+    (typo で空文字読みになり upload silent skip する事故を防ぐ)。"""
+    deploy_script = _read("scripts/deploy/composer_deploy_dags.py")
+    outputs_tf = _read("infra/terraform/environments/dev/outputs.tf")
+    composer_outputs_tf = _read("infra/terraform/modules/composer/outputs.tf")
+
+    assert '_terraform_output("composer_dag_bucket")' in deploy_script
+    assert 'output "composer_dag_bucket" {' in outputs_tf
+    assert 'output "dag_bucket" {' in composer_outputs_tf
+    assert "module.composer.dag_bucket" in outputs_tf
+
+
+def test_enable_composer_default_is_flipped_to_true() -> None:
+    """Stage 3 で `enable_composer` default を true に flip 済 (deploy-all で
+    Composer 環境が立ち上がる canonical 運用契約)。"""
+    variables_tf = _read("infra/terraform/environments/dev/variables.tf")
+    enable_block_match = re.search(
+        r'variable "enable_composer" \{(.+?)\n\}', variables_tf, flags=re.DOTALL
+    )
+    assert enable_block_match is not None
+    block = enable_block_match.group(1)
+    assert "default     = true" in block or "default = true" in block, (
+        "enable_composer default must be true (Stage 3 flip 完了済の契約)"
+    )
+
+
+def test_legacy_cloud_scheduler_demoted_to_monthly_smoke() -> None:
+    """Stage 3.2 格下げ契約: `check-retrain-daily` を `0 4 * * *` (daily) →
+    `0 4 1 * *` (monthly smoke) に格下げ済。"""
+    messaging_tf = _read("infra/terraform/modules/messaging/main.tf")
+    assert 'schedule    = "0 4 1 * *"' in messaging_tf, (
+        "Cloud Scheduler check-retrain-daily must be demoted to monthly smoke "
+        "(0 4 1 * *), not daily (0 4 * * *)"
+    )
+    assert "smoke" in messaging_tf, "Cloud Scheduler description must indicate smoke status"
+
+
+def test_legacy_cloud_function_eventarc_marked_as_smoke() -> None:
+    """Stage 3.2: Cloud Function `pipeline_trigger` + Eventarc 2 本に「smoke /
+    軽量代替経路として残置」コメントが記載されていること。"""
+    vertex_tf = _read("infra/terraform/modules/vertex/main.tf")
+    assert "Stage 3 で smoke" in vertex_tf or "軽量代替経路として残置" in vertex_tf, (
+        "Cloud Function pipeline_trigger must have demotion comment"
+    )
+
+
+def test_retrain_router_marked_as_smoke_endpoint() -> None:
+    """Stage 3.2: `app/api/routers/retrain_router.py` docstring に「本線
+    スケジューラから格下げ」「Composer DAG が呼ぶ smoke 経路」明記契約。"""
+    router_py = _read("app/api/routers/retrain_router.py")
+    assert "本線スケジューラから格下げ" in router_py, (
+        "retrain_router docstring must indicate it's no longer the main scheduler"
+    )
+    assert "Composer DAG" in router_py, (
+        "retrain_router docstring must reference Composer DAG as the canonical path"
+    )
+
+
+def test_composer_deploy_dags_uses_gsutil_m_for_parallel_upload() -> None:
+    """DAG file 数が増えても upload を高速化するため `-m` flag (parallel) を
+    使う契約 (single-threaded だと scheduler reparse 開始が遅れる)。"""
+    deploy_script = _read("scripts/deploy/composer_deploy_dags.py")
+    assert '"-m"' in deploy_script and '"cp"' in deploy_script, (
+        "composer_deploy_dags must use 'gsutil -m cp' for parallel upload"
+    )
+
+
+def test_composer_module_workloads_config_has_max_count() -> None:
+    """Composer Gen 3 worker の `max_count` が指定されていること (無限スケール
+    アウトでコスト爆発を防ぐ契約)。"""
+    composer_main = _read("infra/terraform/modules/composer/main.tf")
+    for required in ("scheduler {", "web_server {", "worker {"):
+        assert required in composer_main, f"workloads_config missing {required}"
+    assert "max_count" in composer_main, (
+        "worker.max_count must be set (avoid unbounded scale-out cost)"
+    )
+
+
+def test_deploy_all_step_runner_imports_composer_deploy_dags() -> None:
+    """deploy_all.py が `composer_deploy_dags.main` を import 可能 + step 14
+    の `_run_composer_deploy_dags` wrapper が定義されていること。"""
+    deploy_all_py = _read("scripts/setup/deploy_all.py")
+    assert (
+        "from scripts.deploy.composer_deploy_dags import main as composer_deploy_dags_main"
+        in deploy_all_py
+    )
+    assert "def _run_composer_deploy_dags() -> int:" in deploy_all_py
+    assert "return composer_deploy_dags_main()" in deploy_all_py
+
+
+def test_cost_estimate_documented_in_runbook() -> None:
+    """Stage 3 コスト見積もり (DCU-hour ベース) が runbook §1.4-bis に明記
+    されていること — 過去の ¥9,000 padding ミス再発防止の contract。"""
+    runbook = _read("docs/runbook/05_運用.md")
+    assert "### 1.4-bis Composer / Phase 7 フル構成のコスト見積もり" in runbook, (
+        "runbook §1.4-bis (cost estimation section) is missing"
+    )
+    assert "DCU-hour" in runbook, "runbook must explain DCU-hour pricing model"
+    # 信頼できる数字 (1 cycle ¥400-500、当日 destroy 前提) が明記されていること
+    assert "~¥400-500" in runbook or "¥400-500" in runbook, (
+        "runbook must pin Phase 7 full Stage 3 1 cycle cost as ~¥400-500"
+    )
+    # 当日 destroy 契約が言及されていること
+    assert "当日 destroy 前提" in runbook, (
+        "runbook must explicitly state 'same-day destroy' contract"
+    )
+
+
 def test_composer_canonical_doc_section_exists() -> None:
     """docs/01 §3 が「Phase 7 で本実装、後方派生で Phase 6 へ引き算」の wording で
     canonical 起点を宣言していること (Stage 1.1 docs rewrite 結果 pin)。"""
