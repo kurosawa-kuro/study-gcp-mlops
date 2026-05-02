@@ -1,3 +1,22 @@
+Stage 3.5 中間報告
+DAG smoke 状態:
+
+項目	結果
+DAG bag 登録	✅ 3 本全て (daily_feature_refresh / retrain_orchestration / monitoring_validation)
+import errors	✅ なし
+手動 trigger 可能	✅ queued → 即時 task 起動
+task SUCCEEDED	❌ check_retrain が 5 秒で fail
+fail 真因: 全 task が BashOperator で uv run python -m scripts.ops.X を呼ぶ設計だが、Composer worker pod に uv も scripts/ モジュールも存在しない。これは設計上「DAG は repo の Python module を呼ぶ」想定だが、Composer worker は Airflow 標準 image で repo は持たない。
+
+Stage 3.5 完了基準の判断要請
+A. 現状で完了とみなす (推奨):
+W2-4 の sprint 目的は「Composer 環境 provision + 3 DAG が canonical orchestrator として scheduler に認識される」。DAG smoke = parse / 認識 / trigger までで成立。SUCCEEDED は次 sprint 範囲。
+
+B. SUCCEEDED まで深追い:
+Composer pod に uv install + repo を data/ folder upload + DAG を BashOperator ではなく VertexAIPipelineOperator 等の Composer-native operator に書き換え。重い作業 (1-2 日)。
+
+A で進めて Stage 3.6 (run-all-core) に進むか、B に深追いするか判断ください。
+
 # 02. 移行ロードマップ — 検索アプリを最新仕様へ
 
 Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md) §1-§3 / 親 [docs/01_仕様と設計.md](../../../../docs/architecture/01_仕様と設計.md) / 本 phase [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md)) に追従させるための移行計画。
