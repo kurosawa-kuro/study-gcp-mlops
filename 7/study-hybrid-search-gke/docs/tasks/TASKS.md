@@ -13,6 +13,20 @@
 
 ## 🎯 ダッシュボード (2026-05-04)
 
+### 進捗ログ（長時間コマンド・待機ブロック時は **ここを更新**）
+
+**ルール**: Cloud Build / DAG Run / Vertex pipeline 待ちなどで手が止まるたび、直近の **状態・Run ID・次コマンド** を 1〜3 行追記する（ゴール逃げ禁止・事実のみ）。
+
+| 時点 (UTC) | 状態 | メモ |
+|---|---|---|
+| 2026-05-03 | runner | `make build-composer-runner` **SUCCESS**（Cloud Build ~217s）・`:latest` 付与ログ確認済 |
+| 2026-05-03 | DAG | `make composer-deploy-dags` 実施済（GCS upload OK） |
+| 2026-05-03 | IAM | `submit_train_pipeline` 失敗の一因を **actAs 不足** と特定。live: `sa-composer` に `sa-pipeline` への `roles/iam.serviceAccountUser` + `pipeline-root` の `objectAdmin` を付与済（Terraform にも同内容をコード化済） |
+| 2026-05-03 | trigger | `manual__2026-05-03T08:13:47+00:00` で再 trigger。**タスク完走までの states 確定はポーリング中断のため未クローズ** |
+| 2026-05-04 | build | `make build-composer-runner` が **ユーザー中断**（完走ログ未取得）— 直前ビルドが新しい場合はスキップ可 |
+
+**次に実行（コピペ）**: `make composer-deploy-dags` → `make ops-composer-trigger DAG=retrain_orchestration` → `airflow tasks states-for-dag-run` で Run ID 追跡 → 全 task `success`/`skipped` 後に `make ops-livez` と `make ops-search-components`。Terraform 単体実行時は `env/config/setting.yaml` の `oncall_email` を参照するか `make tf-plan` 経由にする。
+
 ### 死守ライン（クライアント説明の最低条件）
 
 `check_retrain` のみ success **では足りない**（[`04_検証.md` §0 補足](../runbook/04_検証.md)）。**下 checklist 全項目**まで。
@@ -35,7 +49,7 @@
 | V1 `deploy-all` | ✅ | 実測 Run 6 |
 | V2 `run-all-core` | ✅ | |
 | V5 **狭いゲート**（`check_retrain`） | ✅ Run 4 | F1–F5 反映済 |
-| V5 **死守 E2E**（上 checklist） | 🔴 未達 | Run 4 は `submit_train_pipeline` **failed** → V5-8 コードあり、**`make build-composer-runner` + deploy-dags + trigger** で再検証（詳細は実装カタログ） |
+| V5 **死守 E2E**（上 checklist） | 🟡 進行中 | **IAM（actAs + pipeline-root 書き込み）** と **runner ビルド** は実施済。**checklist 全 [x] は未**（最終 Run の task states / ops-livez / ops-search-components まで未確定）。長いステップのたびに上「進捗ログ」を更新すること |
 
 ### 優先順位（同列にしない）
 

@@ -229,6 +229,16 @@ resource "google_service_account_iam_member" "pipeline_trigger_can_use_pipeline_
   member             = "serviceAccount:${google_service_account.pipeline_trigger.email}"
 }
 
+# Composer Pod (Workload Identity = sa-composer) runs `submit_train_pipeline`,
+# which calls `PipelineJob.submit(service_account=sa-pipeline@...)`. The caller
+# must have iam.serviceAccountUser on the pipeline runtime SA (same pattern as
+# pipeline_trigger_can_use_pipeline_sa).
+resource "google_service_account_iam_member" "composer_can_use_pipeline_sa" {
+  service_account_id = google_service_account.pipeline.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.composer.email}"
+}
+
 resource "google_project_iam_member" "endpoint_encoder_logging_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"

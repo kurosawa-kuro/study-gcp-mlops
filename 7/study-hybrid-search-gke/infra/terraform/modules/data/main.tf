@@ -580,6 +580,15 @@ resource "google_storage_bucket_iam_member" "pipeline_root_pipeline_admin" {
   member = "serviceAccount:${var.service_accounts.pipeline.email}"
 }
 
+# sa-composer submits PipelineJobs with a local compiled YAML; Vertex / KFP
+# stages artifacts under pipeline_root using the caller identity before the
+# run switches to sa-pipeline.
+resource "google_storage_bucket_iam_member" "pipeline_root_composer_object_admin" {
+  bucket = google_storage_bucket.pipeline_root.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${var.service_accounts.composer.email}"
+}
+
 resource "google_storage_bucket_iam_member" "endpoint_encoder_models_viewer" {
   bucket = google_storage_bucket.models.name
   role   = "roles/storage.objectViewer"

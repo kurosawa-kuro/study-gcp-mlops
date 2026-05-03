@@ -37,17 +37,15 @@ pipeline_template_gcs_path: gs://mlops-dev-a-pipeline-root/templates
 # Terraform var に流す識別子。GITHUB_REPO は WIF の `attribute.repository`
 # 制約に焼き込まれる (タイポすると CI が auth できなくなる)。ONCALL_EMAIL は
 # monitoring alert policy の通知先 — `@` を含まないと variables.tf の
-# validation で落ちる。`make tf-plan` 等は env var で都度上書き可能。
+# validation で落ちる。`make tf-plan` / deploy-all は setting.yaml 経由で
+# `-var=oncall_email=...` を組み立てる。学習用途ではプレースホルダでよい。
 github_repo: kurosawa-kuro/study-gcp-mlops-hybrid-search-cloud-v2.0
-oncall_email: kurosawa-kuro@gmail.com
+oncall_email: admin@admin.com
 
-# sa-api を impersonate してローカルから Meilisearch / 他の Cloud Run service を
-# 叩きたい開発者 user account (OIDC audience=<service URL> の identity token 発行に
-# `roles/iam.serviceAccountTokenCreator` 権限が要る)。Terraform で
-# `google_service_account_iam_member` を付与する。Phase 5 実運用で手動 `gcloud iam
-# service-accounts add-iam-policy-binding` が漏れて 2 時間ハマった教訓。
+# sa-api impersonate 用の開発者ユーザ (Terraform が Token Creator を bind)。
+# 実運用では個人メール、学習ではプレースホルダでよい。
 admin_user_emails:
-  - kurokawa81toshifumi@gmail.com
+  - admin@admin.com
 
 # Dataform — pipeline/data_job/dataform/workflow_settings.yaml は本ファイルから自動生成される
 # (Makefile の `make sync-dataform-config` を実行)。Dataform の YAML スキーマは
