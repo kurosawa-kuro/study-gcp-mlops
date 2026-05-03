@@ -1,8 +1,10 @@
 """Parse `gcloud composer environments run ... tasks states-for-dag-run` output.
 
 `gcloud composer environments run` prints log lines and banners *before* the
-JSON array, so piping stdout to `json.load` often fails with JSONDecodeError on
-line 1. This module finds the first top-level ``[...]`` and decodes it.
+JSON array — including ``Executing the command: [ airflow ... ]`` (a non-JSON
+bracket group). Piping stdout to ``json.load`` then fails with JSONDecodeError.
+This module takes the **task payload** starting at ``[{`` (array of objects) and
+decodes it.
 """
 
 from __future__ import annotations

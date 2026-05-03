@@ -4,12 +4,16 @@ Stdlib-only by design (per scripts/README.md). The functions wrap the most
 common shell idioms (gcloud subprocess calls, IAM-gated HTTP requests,
 env-var defaults) so individual scripts stay short and focused on intent.
 
-DEFAULTS are loaded at import time from `env/config/setting.yaml` so the
-project-wide constants (project_id / region / api_service / artifact_repo /
-vertex_location / pipeline_root_bucket / pipeline_template_gcs_path)
-live in exactly one place. The YAML parser is a deliberately minimal
-hand-rolled parser that supports only top-level flat key:value entries and
-block-style lists to keep the stdlib-only promise (no PyYAML dependency).
+**Config split (do not conflate)**:
+
+- ``DEFAULTS`` ← ``env/config/setting.yaml`` — **non-secret values only** by repo
+  design (IDs, regions, bucket names). Never store credential material there.
+- ``SECRET_DEFAULTS`` ← ``env/secret/credential.yaml`` — **local secrets only**
+  (directory gitignored). Production uses Secret Manager.
+
+The YAML parser is a deliberately minimal hand-rolled parser that supports only
+top-level flat key:value entries and block-style lists (no PyYAML dependency).
+See ``env/README.md``.
 """
 
 from __future__ import annotations
@@ -106,8 +110,46 @@ DEFAULTS = _load_flat_yaml(_SETTINGS_PATH)
 SECRET_DEFAULTS = _load_flat_yaml(_SECRET_SETTINGS_PATH)
 
 
+def resolve_project_id() -> str:
+    """Return GCP project id for SDK / gcloud.
+
+    **GCP (Composer / composer-runner Pod)**: Composer injects ``GCP_PROJECT``.
+    Do **not** rely on ``setting.yaml`` for live behavior — change
+    ``infra/terraform/modules/composer`` ``env_variables`` if something is missing.
+
+    **Precedence** (first non-empty wins):
+
+    1. ``GCP_PROJECT`` — Composer / GKE standard (canonical on GCP)
+    2. ``PROJECT_ID`` — Makefile / CI exports
+    3. ``DEFAULTS["PROJECT_ID"]`` from ``setting.yaml`` — **local laptop only**
+       when neither env var is set (composer-runner image omits ``setting.yaml``
+       on purpose).
+    """
+    return (
+        os.environ.get("GCP_PROJECT", "").strip()
+        or os.environ.get("PROJECT_ID", "").strip()
+        or DEFAULTS.get("PROJECT_ID", "").strip()
+    )
+
+
 def env(name: str, default: str | None = None) -> str:
-    """Read an env var with a project-wide default fallback."""
+    """Read an env var with a project-wide default fallback.
+
+    For ``PROJECT_ID`` and ``GCP_PROJECT``, unset or empty values fall through to
+    the other name, then ``default``, then ``DEFAULTS["PROJECT_ID"]`` — see
+    :func:`resolve_project_id`.
+    """
+    if name in ("PROJECT_ID", "GCP_PROJECT"):
+        explicit = os.environ.get(name)
+        if explicit is not None and str(explicit).strip() != "":
+            return str(explicit).strip()
+        sibling = "GCP_PROJECT" if name == "PROJECT_ID" else "PROJECT_ID"
+        alt = os.environ.get(sibling, "").strip()
+        if alt:
+            return alt
+        if default is not None:
+            return str(default).strip() if default else ""
+        return DEFAULTS.get("PROJECT_ID", "").strip()
     fallback = default if default is not None else DEFAULTS.get(name, "")
     return os.environ.get(name, fallback)
 

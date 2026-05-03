@@ -1,6 +1,6 @@
 # env/secret/
 
-ローカル開発用クレデンシャル置き場。
+ローカル開発用クレデンシャル置き場。`setting.yaml` との役割分離の一覧は [`../README.md`](../README.md)。
 
 **このディレクトリは `.gitignore` 対象。** README.md のみコミットする。
 

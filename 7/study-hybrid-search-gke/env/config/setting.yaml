@@ -1,7 +1,19 @@
-# プロジェクト全体の非クレデンシャル設定 — ここが single source of truth。
+# =============================================================================
+# 非クレデンシャルのみ（設計上ここに秘密を書かない）
+# =============================================================================
+# パスワード・API 鍵・トークン実体は env/secret/credential.yaml（gitignore）または
+# Secret Manager。setting に秘密を足すのは設計違反。エージェントはこの前提を誤読しないこと。
 #
-# - Python から: scripts/_common.py が起動時に読み込み、DEFAULTS を構築する
-# - Makefile から: トップで awk で読み出して PROJECT_ID 等の make 変数に流し込む
+# ローカル開発・Makefile 用（リポジトリにコミットする値）。
+#
+# **GCP 本番相当の正本ではない**: Cloud Composer / GKE 上の composer-runner Pod は
+# **Terraform の google_composer_environment.env_variables + Composer が注入する
+# GCP_PROJECT** が唯一のソースである。死守ラインや live 障害を「setting.yaml を
+# 直せばよい」で解決しようとしない — 不足キーは Terraform の Composer モジュールへ
+# 追加し tf apply する。
+#
+# - Python（ノート PC）: scripts/_common.py が読み込み、env 未設定時の DEFAULTS に使う
+# - Makefile: awk で PROJECT_ID 等に流し込む
 #
 # 既存値を変えた場合の影響範囲:
 #   project_id     — 全 gcloud / bq 呼び出し、Terraform var, infra/main.tf
@@ -11,8 +23,8 @@
 #   このファイルは scripts/_common.py の簡易 parser 前提:
 #                  top-level の flat `key: value` と block-style list のみ対応
 #
-# Credentials / secrets は **ここに置かない**。Secret Manager か env/secret/ に
-# 個別のファイルを置き、env/secret/ 自体は .gitignore する想定。
+# （繰り返し）クレデンシャル実体は **ここに置かない**。`env/secret/credential.yaml`
+# または Secret Manager。参照 ID（例: meili_master_key_secret_id）は非秘密としてここ可。
 
 project_id: mlops-dev-a
 region: asia-northeast1

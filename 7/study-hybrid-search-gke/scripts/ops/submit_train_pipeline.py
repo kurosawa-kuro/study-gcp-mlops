@@ -6,41 +6,42 @@ literals (no shell expansion) and Vertex / KFP then fail in confusing ways. A
 separate failure mode was ``FileNotFoundError: 'dist/pipelines'`` when the
 process cwd or permissions did not match local `make` runs.
 
-This entrypoint runs **inside composer-runner** at task execution time, reads
-``GCP_PROJECT`` / ``VERTEX_LOCATION`` / ``PIPELINE_ROOT_BUCKET`` from
-``os.environ`` (propagated via ``pipeline/dags/_pod.py``), and invokes
-``pipeline.workflow.compile`` with concrete argv and a writable ``--output-dir``.
+This entrypoint runs **inside composer-runner** at task execution time. Project
+id uses :func:`scripts._common.resolve_project_id` (**GCP_PROJECT** from
+Composer is canonical). Region / bucket use :func:`scripts._common.env` so
+values come from **Composer ``env_variables``** (Terraform), not ``setting.yaml``.
 
 Code/comments English per repo convention.
 """
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
+
+from scripts._common import env, resolve_project_id
 
 
 def main() -> int:
     from pipeline.workflow import compile as compile_mod
 
-    project = (os.environ.get("GCP_PROJECT") or os.environ.get("PROJECT_ID") or "").strip()
+    project = resolve_project_id()
     if not project:
         print(
-            "[error] submit_train_pipeline: set GCP_PROJECT or PROJECT_ID in Composer env_var",
+            "[error] submit_train_pipeline: GCP_PROJECT missing — Composer must inject it. "
+            "Extend infra/terraform/modules/composer env_variables; do not rely on editing "
+            "env/config/setting.yaml for live.",
             file=sys.stderr,
         )
         return 1
 
-    location = (os.environ.get("VERTEX_LOCATION") or os.environ.get("REGION") or "").strip()
-    if not location:
-        location = "asia-northeast1"
+    location = (env("VERTEX_LOCATION") or env("REGION") or "").strip() or "asia-northeast1"
 
-    bucket = (os.environ.get("PIPELINE_ROOT_BUCKET") or "").strip()
+    bucket = env("PIPELINE_ROOT_BUCKET").strip()
     if not bucket:
         print(
-            "[error] submit_train_pipeline: PIPELINE_ROOT_BUCKET missing "
-            "(Composer env_variables / _pod PROPAGATED_ENV_KEYS)",
+            "[error] submit_train_pipeline: PIPELINE_ROOT_BUCKET missing — "
+            "set in Terraform Composer env_variables and propagate via _pod.py",
             file=sys.stderr,
         )
         return 1

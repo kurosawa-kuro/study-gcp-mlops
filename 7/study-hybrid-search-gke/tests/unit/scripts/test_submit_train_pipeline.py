@@ -12,6 +12,17 @@ from scripts.ops import submit_train_pipeline
 def test_main_requires_pipeline_root_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PIPELINE_ROOT_BUCKET", raising=False)
     monkeypatch.setenv("GCP_PROJECT", "p")
+
+    import scripts._common as common
+
+    orig_env = common.env
+
+    def env_no_bucket(name: str, default: str | None = None) -> str:
+        if name == "PIPELINE_ROOT_BUCKET":
+            return ""
+        return orig_env(name, default)
+
+    monkeypatch.setattr("scripts.ops.submit_train_pipeline.env", env_no_bucket)
     assert submit_train_pipeline.main() == 1
 
 

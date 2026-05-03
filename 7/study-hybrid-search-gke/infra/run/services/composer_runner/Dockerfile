@@ -16,6 +16,10 @@
 #   なので gcloud は使わないが、Dataform / Composer ops の便宜上同梱。
 # - scripts/ + pipeline/ + ml/ source code (DAG が呼ぶ Python module)
 #
+# **意図的に含めないもの**: env/config/setting.yaml を image に含めない。
+# Composer / Terraform が Pod に注入する env が **GCP 上の唯一の正本**であり、
+# setting.yaml をビルドへ焼くと「yaml を都度いじればよい」という誤った運用を誘発する。
+#
 # 含まないもの:
 # - app/ (FastAPI source、本 image は web server を立てない)
 # - `[ml]` extra (torch + sentence-transformers ~2.5GB)。DAG task は ML 推論

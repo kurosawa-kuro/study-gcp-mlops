@@ -16,7 +16,7 @@ import os
 import time
 from typing import Any
 
-from scripts._common import env, fail
+from scripts._common import env, fail, resolve_project_id
 
 TERMINAL_FAILURE_STATES = {"FAILED", "CANCELLED", "CANCELLING", "PAUSED"}
 
@@ -49,13 +49,16 @@ def _latest_job(*, aiplatform: Any, display_name: str) -> Any | None:
 
 
 def main() -> int:
-    project_id = env("PROJECT_ID")
+    project_id = resolve_project_id()
     region = env("VERTEX_LOCATION", env("REGION", "asia-northeast1"))
     display_name = os.environ.get("PIPELINE_DISPLAY_NAME", "property-search-train")
     timeout_seconds = int(os.environ.get("PIPELINE_WAIT_TIMEOUT_SECONDS", "1800"))
     poll_seconds = int(os.environ.get("PIPELINE_WAIT_POLL_SECONDS", "30"))
     if not project_id:
-        return fail("vertex-pipeline-wait: PROJECT_ID is required")
+        return fail(
+            "vertex-pipeline-wait: missing GCP_PROJECT (Composer injects). "
+            "Fix Terraform Composer env — do not patch env/config/setting.yaml for live."
+        )
 
     from google.cloud import aiplatform
 

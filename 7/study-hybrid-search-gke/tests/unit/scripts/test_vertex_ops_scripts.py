@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import sys
 from urllib.error import URLError
+
+import pytest
 
 from scripts.ops import search
 from scripts.ops.vertex import feature_group, pipeline_wait, vector_search
@@ -323,98 +326,129 @@ def test_vector_search_resolves_ids_from_terraform_outputs(monkeypatch) -> None:
     assert ("find_neighbors", "property_embeddings_v3") in calls
 
 
-def test_pipeline_wait_passes_when_latest_run_succeeds(monkeypatch) -> None:
+def _clear_aiplatform_sys_modules(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    for key in list(sys.modules.keys()):
+        if key == "google.cloud.aiplatform" or key.startswith("google.cloud.aiplatform."):
+            monkeypatch.delitem(sys.modules, key, raising=False)
+
+
+def test_pipeline_wait_passes_when_latest_run_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_aiplatform_sys_modules(monkeypatch)
     monkeypatch.setenv("PROJECT_ID", "mlops-test")
     monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
     monkeypatch.setenv("PIPELINE_WAIT_TIMEOUT_SECONDS", "5")
     monkeypatch.setenv("PIPELINE_WAIT_POLL_SECONDS", "0")
 
-    calls: list[tuple[str, object]] = []
+    init_calls: list[tuple[str, str]] = []
+
+    import types
+    from unittest.mock import MagicMock, patch
+
+    fake_ai = types.ModuleType("google.cloud.aiplatform")
+    fake_ai.init = lambda **kw: init_calls.append((kw["project"], kw["location"]))
+    fake_ai.PipelineJob = MagicMock()
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", fake_ai)
 
     class _State:
         def __init__(self, value: int):
             self.value = value
 
-    jobs = [
-        type(
+    round_n = {"n": 0}
+
+    def fake_latest(*, aiplatform: object, display_name: str):
+        round_n["n"] += 1
+        st = _State(3) if round_n["n"] == 1 else _State(4)
+        return type(
             "Job",
             (),
             {
-                "display_name": "property-search-train",
-                "state": _State(3),
+                "display_name": display_name,
+                "state": st,
                 "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
             },
-        )(),
-        type(
-            "Job",
-            (),
-            {
-                "display_name": "property-search-train",
-                "state": _State(4),
-                "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
-            },
-        )(),
-    ]
+        )()
 
-    class _PipelineJob:
-        @staticmethod
-        def list(*, filter, order_by):
-            calls.append(("list", filter))
-            return [jobs.pop(0)]
-
-    class _AiPlatform:
-        PipelineJob = _PipelineJob
-
-        @staticmethod
-        def init(*, project, location):
-            calls.append(("init", (project, location)))
-
-    import sys
-    from unittest.mock import patch
-
-    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", _AiPlatform)
+    monkeypatch.setattr(pipeline_wait, "_latest_job", fake_latest)
 
     with patch.object(pipeline_wait.time, "sleep", return_value=None):
         assert pipeline_wait.main() == 0
 
-    assert ("init", ("mlops-test", "asia-northeast1")) in calls
-    assert any(item[0] == "list" for item in calls)
+    assert ("mlops-test", "asia-northeast1") in init_calls
 
 
-def test_pipeline_wait_fails_when_latest_run_fails(monkeypatch) -> None:
-    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+def test_pipeline_wait_resolves_project_from_gcp_project(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_aiplatform_sys_modules(monkeypatch)
+    monkeypatch.delenv("PROJECT_ID", raising=False)
+    monkeypatch.setenv("GCP_PROJECT", "mlops-from-gcp-env")
     monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
     monkeypatch.setenv("PIPELINE_WAIT_TIMEOUT_SECONDS", "5")
     monkeypatch.setenv("PIPELINE_WAIT_POLL_SECONDS", "0")
+
+    init_calls: list[tuple[str, str]] = []
+
+    import types
+    from unittest.mock import MagicMock, patch
+
+    fake_ai = types.ModuleType("google.cloud.aiplatform")
+    fake_ai.init = lambda **kw: init_calls.append((kw["project"], kw["location"]))
+    fake_ai.PipelineJob = MagicMock()
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", fake_ai)
 
     class _State:
         def __init__(self, value: int):
             self.value = value
 
-    class _PipelineJob:
-        @staticmethod
-        def list(*, filter, order_by):
-            return [
-                type(
-                    "Job",
-                    (),
-                    {
-                        "display_name": "property-search-train",
-                        "state": _State(5),
-                        "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
-                    },
-                )()
-            ]
+    def fake_latest(*, aiplatform: object, display_name: str):
+        return type(
+            "Job",
+            (),
+            {
+                "display_name": display_name,
+                "state": _State(4),
+                "resource_name": "projects/x/locations/r/pipelineJobs/run-gcp",
+            },
+        )()
 
-    class _AiPlatform:
-        PipelineJob = _PipelineJob
+    monkeypatch.setattr(pipeline_wait, "_latest_job", fake_latest)
 
-        @staticmethod
-        def init(*, project, location):
-            return None
+    with patch.object(pipeline_wait.time, "sleep", return_value=None):
+        assert pipeline_wait.main() == 0
 
-    import sys
+    assert ("mlops-from-gcp-env", "asia-northeast1") in init_calls
 
-    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", _AiPlatform)
+
+def test_pipeline_wait_fails_when_latest_run_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_aiplatform_sys_modules(monkeypatch)
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
+    monkeypatch.setenv("PIPELINE_WAIT_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("PIPELINE_WAIT_POLL_SECONDS", "0")
+
+    import types
+    from unittest.mock import MagicMock
+
+    fake_ai = types.ModuleType("google.cloud.aiplatform")
+    fake_ai.init = lambda **kw: None
+    fake_ai.PipelineJob = MagicMock()
+    monkeypatch.setitem(sys.modules, "google.cloud.aiplatform", fake_ai)
+
+    class _State:
+        def __init__(self, value: int):
+            self.value = value
+
+    def fake_latest(*, aiplatform: object, display_name: str):
+        return type(
+            "Job",
+            (),
+            {
+                "display_name": display_name,
+                "state": _State(5),
+                "resource_name": "projects/x/locations/r/pipelineJobs/run-1",
+            },
+        )()
+
+    monkeypatch.setattr(pipeline_wait, "_latest_job", fake_latest)
 
     assert pipeline_wait.main() == 1
