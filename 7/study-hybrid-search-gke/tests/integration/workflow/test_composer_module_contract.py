@@ -246,7 +246,9 @@ def test_composer_sa_email_consumed_by_module() -> None:
 
 def test_tf_apply_stage1_targets_includes_module_composer() -> None:
     """`module.composer` は `TF_APPLY_STAGE1_TARGETS` に含まれること。"""
-    assert "module.composer" in deploy_all.TF_APPLY_STAGE1_TARGETS
+    from scripts.infra.terraform_stage_apply import TF_APPLY_STAGE1_TARGETS
+
+    assert "module.composer" in TF_APPLY_STAGE1_TARGETS
 
 
 def test_composer_deploy_dags_step_inserted_between_overlay_and_deploy_api() -> None:

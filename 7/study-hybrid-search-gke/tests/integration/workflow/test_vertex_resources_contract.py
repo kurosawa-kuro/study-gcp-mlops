@@ -60,6 +60,7 @@ def test_feature_view_online_serving_source_is_direct_bigquery() -> None:
     data_tf = _read("infra/terraform/modules/data/main.tf")
     vertex_tf = _read("infra/terraform/modules/vertex/main.tf")
     deploy_all_py = _read("scripts/setup/deploy_all.py")
+    stage_apply_py = _read("scripts/infra/terraform_stage_apply.py")
     assert 'table_id            = "property_features_online_latest"' in data_tf
     assert "depends_on          = [google_bigquery_table.property_features_daily]" in data_tf
     assert (
@@ -73,7 +74,7 @@ def test_feature_view_online_serving_source_is_direct_bigquery() -> None:
     )
     assert 'entity_id_columns = ["property_id"]' in vertex_tf
     assert "feature_registry_source {" not in vertex_tf
-    assert "TF_APPLY_STAGE1_TARGETS" in deploy_all_py
+    assert "TF_APPLY_STAGE1_TARGETS" in stage_apply_py
     assert "wait_for_deployed_index_absent" in deploy_all_py
     assert "wait_until_api_ready" in deploy_all_py
 

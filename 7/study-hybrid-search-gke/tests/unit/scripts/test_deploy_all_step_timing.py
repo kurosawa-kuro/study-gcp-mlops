@@ -141,19 +141,14 @@ def test_main_prints_failure_summary_for_nonzero_step(
 
 
 def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
-    calls: list[list[str]] = []
+    stage1_calls: list[list[str]] = []
+    stage2_calls: list[list[str]] = []
 
-    def _fake_run(cmd: list[str], **_: object):
-        calls.append(cmd)
-        return None
+    def _fake_stage1(args: list[str], **_: object) -> None:
+        stage1_calls.append(args)
 
-    import subprocess as sp
-
-    def _fake_subprocess_run(cmd: list[str], **_: object):
-        """Stage1 uses subprocess.run directly — must not invoke real terraform."""
-        fake = sp.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
-        calls.append(cmd)
-        return fake
+    def _fake_stream(cmd: list[str], **_: object) -> None:
+        stage2_calls.append(cmd)
 
     with (
         patch.dict(
@@ -166,8 +161,14 @@ def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
             },
             clear=False,
         ),
-        patch("scripts.setup.deploy_all.subprocess.run", side_effect=_fake_subprocess_run),
-        patch("scripts.setup.deploy_all.run", side_effect=_fake_run),
+        patch(
+            "scripts.setup.deploy_all.terraform_apply_stage1_with_retries",
+            side_effect=_fake_stage1,
+        ),
+        patch(
+            "scripts.setup.deploy_all.run_terraform_streaming_with_lock_retry",
+            side_effect=_fake_stream,
+        ),
         patch("scripts.setup.deploy_all.wait_for_deployed_index_absent") as wait_vvs,
         patch("scripts.setup.deploy_all.ensure_kubectl_context") as ensure_ctx,
         patch("scripts.setup.deploy_all.wait_until_api_ready") as wait_k8s,
@@ -180,9 +181,10 @@ def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
     wait_vvs.assert_called_once_with("mlops-test", "asia-northeast1", "property_embeddings_v3")
     ensure_ctx.assert_called_once_with()
     wait_k8s.assert_called_once_with()
-    tf_calls = [c for c in calls if c and c[0] == "terraform"]
-    assert len(tf_calls) == 2, f"expected 2 terraform apply invocations, got {tf_calls!r}"
-    first, second = tf_calls
+    assert len(stage1_calls) == 1
+    assert len(stage2_calls) == 1
+    first = stage1_calls[0]
+    second = stage2_calls[0]
     assert "terraform" in first[0]
     assert "apply" in first
     assert "-target=module.gke" in first

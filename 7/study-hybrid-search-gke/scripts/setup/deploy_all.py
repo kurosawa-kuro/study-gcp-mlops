@@ -45,6 +45,9 @@ moment infra is created. See CLAUDE.md non-negotiables.
 - 本ファイルは **orchestrator のみ**。各 step の business logic は
   sibling module (`scripts/{ci,deploy,setup}/<step>.py`) または
   topical module (`scripts/{lib,infra}/`) に置く。
+- **Terraform**: stage1 の target 集合・409 リトライ・state lock 吸収は
+  ``scripts/infra/terraform_stage_apply.py`` と ``scripts/infra/terraform_lock.py``
+  に集約 (このファイルにロジックを再増殖させない)。
 - _run_* は対応 module の `main()` を呼ぶだけの thin wrapper にする
   (drift 源にならないように)。
 """
@@ -53,7 +56,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -69,6 +71,11 @@ from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
 from scripts.infra.state_recovery import recover_orphan_gcp_resources
+from scripts.infra.terraform_lock import run_terraform_streaming_with_lock_retry
+from scripts.infra.terraform_stage_apply import (
+    TF_APPLY_STAGE1_TARGETS,
+    terraform_apply_stage1_with_retries,
+)
 from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
 from scripts.infra.vertex_feature_store_wait import wait_until_feature_store_names_released
 from scripts.infra.vertex_import import import_persistent_vvs_resources
@@ -83,19 +90,6 @@ from scripts.setup.tf_plan import main as tf_plan_main
 
 INFRA = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
 MANIFESTS = Path(__file__).resolve().parents[2] / "infra" / "manifests"
-TF_APPLY_STAGE1_TARGETS = (
-    "module.iam",
-    "module.data",
-    "module.vector_search",
-    "module.vertex",
-    "module.gke",
-    "module.messaging",
-    "module.meilisearch",
-    "module.monitoring",
-    "module.slo",
-    # Phase 7 W2-4 Stage 1: Composer 環境 (kserve provider 初期化前に立てる)
-    "module.composer",
-)
 
 # Overall start time; per-step timing relates elapsed time to the wall-clock
 # position in the deploy-all sequence so operators can see WHICH step is slow
@@ -154,43 +148,6 @@ def _run_sync_dataform() -> int:
 
 def _run_tf_plan() -> int:
     return tf_plan_main()
-
-
-def _terraform_apply_stage1_with_retries(stage1_args: list[str]) -> None:
-    """Run stage1 apply; retry on Vertex HTTP 409 / async-delete name collision."""
-    max_attempts = int(env("TF_APPLY_STAGE1_MAX_ATTEMPTS", "5"))
-    sleep_s = int(env("TF_APPLY_STAGE1_RETRY_SLEEP_SEC", "120"))
-    for attempt in range(1, max_attempts + 1):
-        proc = subprocess.run(
-            stage1_args,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if proc.returncode == 0:
-            if proc.stdout:
-                print(proc.stdout)
-            return
-        combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
-        print(combined[-12000:])
-        retryable = attempt < max_attempts and any(
-            sig in combined
-            for sig in (
-                "Error 409",
-                ": 409:",
-                "being deleted",
-                "Re-using the same name",
-                "could not be created",
-            )
-        )
-        if retryable:
-            print(
-                f"==> terraform apply stage1 attempt {attempt}/{max_attempts} failed "
-                f"(Vertex eventual consistency?) — sleep {sleep_s}s then retry"
-            )
-            time.sleep(sleep_s)
-            continue
-        raise subprocess.CalledProcessError(proc.returncode, stage1_args, proc.stdout, proc.stderr)
 
 
 def _run_tf_apply() -> int:
@@ -252,21 +209,22 @@ def _run_tf_apply() -> int:
         "==> terraform apply stage1 (core infra before kube provider resources): "
         + ", ".join(TF_APPLY_STAGE1_TARGETS)
     )
-    _terraform_apply_stage1_with_retries(stage1_args)
+    terraform_apply_stage1_with_retries(stage1_args, chdir_infra=INFRA)
 
     print(f"==> refresh kubeconfig + wait for cluster API: cluster={cluster_name} region={region}")
     ensure_kubectl_context()
     wait_until_api_ready()
 
     print("==> terraform apply stage2 (full graph including module.kserve)")
-    run(
+    run_terraform_streaming_with_lock_retry(
         [
             "terraform",
             f"-chdir={INFRA}",
             "apply",
             "-auto-approve",
             *terraform_var_args("GITHUB_REPO", "ONCALL_EMAIL"),
-        ]
+        ],
+        chdir_infra=INFRA,
     )
     return 0
 

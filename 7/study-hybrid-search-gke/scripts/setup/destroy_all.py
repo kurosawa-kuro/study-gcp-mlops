@@ -32,6 +32,12 @@ What this does NOT touch (preserved for the next `make deploy-all`):
 - API enablements (cost nothing when no resource exists).
 - Local artifacts (`infra/tfplan`, `pipeline/data_job/dataform/workflow_settings.yaml`).
 
+Remote state **lock** (``default.tflock``): another ``terraform apply`` / interrupted
+session may hold the lock. Terraform commands use ``scripts/infra/terraform_lock.py``
+— on lock, print the ``force-unlock`` hint; optional auto-unlock when
+``TERRAFORM_STATE_FORCE_UNLOCK=1`` (aliases: ``DESTROY_ALL_FORCE_UNLOCK``,
+``DEPLOY_ALL_FORCE_UNLOCK``). **Only** if no other Terraform is running.
+
 設計方針 (Phase 7 W3 リファクタ):
 - 本ファイルは **orchestrator のみ**。state query / Vertex Endpoint cleanup /
   K8s finalizer cleanup / GCS bucket wipe は `scripts/infra/*` に委譲し、
@@ -43,8 +49,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from scripts._common import env, run, terraform_var_args
+from scripts._common import env, terraform_var_args
 from scripts.infra import gcs_cleanup, kube_cleanup, vertex_cleanup
+from scripts.infra.terraform_lock import run_terraform_streaming_with_lock_retry
 from scripts.infra.terraform_state import (
     addresses_starting_with,
     filter_targets_in_state,
@@ -179,7 +186,7 @@ def main() -> int:
             "-var=enable_deletion_protection=false (state-flip only, no recreate)"
         )
         targets = [arg for tgt in flip_targets for arg in ("-target", tgt)]
-        run(
+        run_terraform_streaming_with_lock_retry(
             [
                 "terraform",
                 f"-chdir={INFRA}",
@@ -187,7 +194,8 @@ def main() -> int:
                 "-auto-approve",
                 *common_vars,
                 *targets,
-            ]
+            ],
+            chdir_infra=INFRA,
         )
     else:
         print(
@@ -201,25 +209,29 @@ def main() -> int:
     )
     # operator destroy より先に CR を消して finalizer deadlock を避ける。
     kube_cleanup.delete_orphan_workloads()
-    proc = subprocess.run(
-        [
-            "terraform",
-            f"-chdir={INFRA}",
-            "destroy",
-            "-auto-approve",
-            *common_vars,
-            f"-target={KSERVE_MODULE_TARGET}",
-        ],
-        check=False,
-    )
+    proc_rc = 0
+    try:
+        run_terraform_streaming_with_lock_retry(
+            [
+                "terraform",
+                f"-chdir={INFRA}",
+                "destroy",
+                "-auto-approve",
+                *common_vars,
+                f"-target={KSERVE_MODULE_TARGET}",
+            ],
+            chdir_infra=INFRA,
+        )
+    except subprocess.CalledProcessError as exc:
+        proc_rc = exc.returncode
     # exit code が 0 でも、cluster unreachable で何も消せなかった ↔ state には
     # 残ってる、というケースが起きうる (Phase 7 Run 4 で観測)。後方確認として
     # `terraform state list` で残存を直接見る。
     remaining = addresses_starting_with(INFRA, f"{KSERVE_MODULE_TARGET}.")
-    if proc.returncode != 0 or remaining:
+    if proc_rc != 0 or remaining:
         reason = (
             "exit code 非 0"
-            if proc.returncode != 0
+            if proc_rc != 0
             else f"exit 0 だが state に {len(remaining)} 件残存"
         )
         print(
@@ -254,7 +266,7 @@ def main() -> int:
             f"(本体: {len(destroy_addrs)} addr 対象、永続 VVS {excluded} addr 除外)"
         )
         target_args = [arg for addr in destroy_addrs for arg in ("-target", addr)]
-        run(
+        run_terraform_streaming_with_lock_retry(
             [
                 "terraform",
                 f"-chdir={INFRA}",
@@ -262,18 +274,20 @@ def main() -> int:
                 "-auto-approve",
                 *common_vars,
                 *target_args,
-            ]
+            ],
+            chdir_infra=INFRA,
         )
     else:
         print("==> [6/6] terraform destroy -auto-approve (本体)")
-        run(
+        run_terraform_streaming_with_lock_retry(
             [
                 "terraform",
                 f"-chdir={INFRA}",
                 "destroy",
                 "-auto-approve",
                 *common_vars,
-            ]
+            ],
+            chdir_infra=INFRA,
         )
 
     print()

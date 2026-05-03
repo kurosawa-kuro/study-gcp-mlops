@@ -252,8 +252,10 @@ def test_wait_for_deployed_index_absent_is_idempotent_on_resume() -> None:
 def test_deploy_all_waits_vertex_feature_store_and_retries_stage1_on_409() -> None:
     """Pin destroy→deploy 409 対策: list API 待ち + stage1 apply 再試行。"""
     deploy_py = _read("scripts/setup/deploy_all.py")
+    stage_py = _read("scripts/infra/terraform_stage_apply.py")
     assert "wait_until_feature_store_names_released" in deploy_py
-    assert "_terraform_apply_stage1_with_retries" in deploy_py
+    assert "terraform_apply_stage1_with_retries" in deploy_py
+    assert "terraform_apply_stage1_with_retries" in stage_py
 
 
 def test_makefile_run_all_core_targets_all_exist() -> None:

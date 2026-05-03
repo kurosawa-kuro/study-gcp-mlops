@@ -35,7 +35,7 @@ def test_destroy_all_destroy_apply_symmetry() -> None:
     維持されていることを pin。
     """
     destroy_all_py = _read("scripts/setup/destroy_all.py")
-    deploy_all_py = _read("scripts/setup/deploy_all.py")
+    stage_apply_py = _read("scripts/infra/terraform_stage_apply.py")
 
     assert 'KSERVE_MODULE_TARGET = "module.kserve"' in destroy_all_py
     assert "terraform destroy -target=module.kserve" in destroy_all_py
@@ -48,7 +48,7 @@ def test_destroy_all_destroy_apply_symmetry() -> None:
         "module.gke",
         "module.composer",
     ):
-        assert required_module in deploy_all_py, (
+        assert required_module in stage_apply_py, (
             f"deploy-all stage1 targets must include {required_module}"
         )
 
