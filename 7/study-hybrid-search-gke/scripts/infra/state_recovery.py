@@ -101,6 +101,38 @@ EVENTARC_TRIGGERS = (
 # Cloud Run services: (gcp_service_name, module_name, terraform_resource_name)
 CLOUD_RUN_SERVICES = (("meili-search", "meilisearch", "meili_search"),)
 
+# Artifact Registry repositories: (gcp_repo_id, module_name, terraform_resource_name)
+# `var.artifact_repo_id` default = "mlops" (`environments/dev/variables.tf`)。
+ARTIFACT_REGISTRY_REPOS = (("mlops", "data", "mlops"),)
+
+# Secret Manager secrets: (gcp_secret_id, module_name, terraform_resource_name)
+SECRET_MANAGER_SECRETS = (
+    ("meili-master-key", "data", "meili_master_key"),
+    ("search-api-iap-oauth-client-secret", "data", "search_api_iap_oauth_client_secret"),
+)
+
+# Dataform repositories: (gcp_repo_name, module_name, terraform_resource_name)
+# `var.dataform_repository_id` default = "hybrid-search-cloud"。
+DATAFORM_REPOS = (("hybrid-search-cloud", "data", "main"),)
+
+# GCS buckets: (gcp_bucket_name, module_name, terraform_resource_name)
+# 名前は `environments/dev/variables.tf` の var default (= mlops-dev-a プロジェクト前提)。
+# tfstate bucket 自身 (`mlops-dev-a-tfstate`) は terraform 管理外のため対象外。
+GCS_BUCKETS = (
+    ("mlops-dev-a-models", "data", "models"),
+    ("mlops-dev-a-artifacts", "data", "artifacts"),
+    ("mlops-dev-a-pipeline-root", "data", "pipeline_root"),
+    ("mlops-dev-a-meili-data", "meilisearch", "meili_data"),
+)
+
+# Vertex AI Feature Store: (gcp_id, module_name, terraform_resource_name)
+# `count = enable_feature_group ? 1 : 0` のため address suffix は `[0]`。
+# defaults: feature_group_id=property_features / feature_online_store_id=mlops_dev_feature_store
+# / feature_view_id=property_features
+FEATURE_GROUPS = (("property_features", "vertex", "property_features"),)
+FEATURE_ONLINE_STORES = (("mlops_dev_feature_store", "vertex", "property_features"),)
+FEATURE_VIEWS = (("mlops_dev_feature_store", "property_features", "vertex", "property_features"),)
+
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -351,6 +383,223 @@ def _recover_cloud_run(infra_dir: Path, project_id: str, region: str, var_args: 
     return imported
 
 
+def _recover_artifact_registry(
+    infra_dir: Path, project_id: str, region: str, var_args: list[str]
+) -> int:
+    imported = 0
+    existing = {
+        r.get("name", "").rsplit("/", 1)[-1]
+        for r in _gcloud_json(
+            [
+                "gcloud",
+                "artifacts",
+                "repositories",
+                "list",
+                f"--project={project_id}",
+                f"--location={region}",
+                "--format=json",
+            ]
+        )
+    }
+    for gcp_id, module, tf_name in ARTIFACT_REGISTRY_REPOS:
+        addr = f"module.{module}.google_artifact_registry_repository.{tf_name}"
+        if gcp_id not in existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = f"projects/{project_id}/locations/{region}/repositories/{gcp_id}"
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+    return imported
+
+
+def _recover_secret_manager(infra_dir: Path, project_id: str, var_args: list[str]) -> int:
+    imported = 0
+    existing = {
+        s.get("name", "").rsplit("/", 1)[-1]
+        for s in _gcloud_json(
+            ["gcloud", "secrets", "list", f"--project={project_id}", "--format=json"]
+        )
+    }
+    for gcp_id, module, tf_name in SECRET_MANAGER_SECRETS:
+        addr = f"module.{module}.google_secret_manager_secret.{tf_name}"
+        if gcp_id not in existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = f"projects/{project_id}/secrets/{gcp_id}"
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+    return imported
+
+
+def _recover_gcs_buckets(infra_dir: Path, project_id: str, var_args: list[str]) -> int:
+    """GCS buckets — `gcloud storage buckets list` で existing を取得し import。
+
+    bucket は `var.{name}_bucket_name` で `mlops-dev-a-{models,artifacts,pipeline-root,meili-data}`。
+    tfstate bucket (`mlops-dev-a-tfstate`) は terraform 管理外のため除外。
+    """
+    imported = 0
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "storage",
+            "buckets",
+            "list",
+            f"--project={project_id}",
+            "--format=value(name)",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return 0
+    existing = {line.strip() for line in (proc.stdout or "").splitlines() if line.strip()}
+    for gcp_name, module, tf_name in GCS_BUCKETS:
+        addr = f"module.{module}.google_storage_bucket.{tf_name}"
+        if gcp_name not in existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        # GCS bucket import ID is the bucket name itself
+        if _terraform_import(infra_dir, addr, gcp_name, terraform_var_args=var_args):
+            imported += 1
+    return imported
+
+
+def _aiplatform_get(token: str, url: str) -> dict:
+    """Vertex AI REST API GET — gcloud に直接 list subcommand が無い resource 用."""
+    proc = subprocess.run(
+        ["curl", "-sS", "-H", f"Authorization: Bearer {token}", url],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return {}
+    try:
+        return json.loads(proc.stdout) if (proc.stdout or "").strip() else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _recover_feature_store(
+    infra_dir: Path, project_id: str, region: str, var_args: list[str]
+) -> int:
+    """Vertex AI Feature Group / Feature Online Store / Feature View — REST API 経由."""
+    imported = 0
+    proc = subprocess.run(
+        ["gcloud", "auth", "print-access-token"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return 0
+    token = (proc.stdout or "").strip()
+    base = f"https://{region}-aiplatform.googleapis.com/v1beta1/projects/{project_id}/locations/{region}"
+
+    # Feature Groups
+    fg_payload = _aiplatform_get(token, f"{base}/featureGroups")
+    fg_existing = {
+        r.get("name", "").rsplit("/", 1)[-1] for r in (fg_payload.get("featureGroups") or [])
+    }
+    for gcp_id, module, tf_name in FEATURE_GROUPS:
+        addr = f"module.{module}.google_vertex_ai_feature_group.{tf_name}[0]"
+        if gcp_id not in fg_existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = f"projects/{project_id}/locations/{region}/featureGroups/{gcp_id}"
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+
+    # Feature Online Stores
+    fos_payload = _aiplatform_get(token, f"{base}/featureOnlineStores")
+    fos_existing = {
+        r.get("name", "").rsplit("/", 1)[-1] for r in (fos_payload.get("featureOnlineStores") or [])
+    }
+    for gcp_id, module, tf_name in FEATURE_ONLINE_STORES:
+        addr = f"module.{module}.google_vertex_ai_feature_online_store.{tf_name}[0]"
+        if gcp_id not in fos_existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = f"projects/{project_id}/locations/{region}/featureOnlineStores/{gcp_id}"
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+
+    # Feature Views (under each Feature Online Store)
+    for fos_id, fv_id, module, tf_name in FEATURE_VIEWS:
+        if fos_id not in fos_existing:
+            continue
+        addr = f"module.{module}.google_vertex_ai_feature_online_store_featureview.{tf_name}[0]"
+        fv_payload = _aiplatform_get(token, f"{base}/featureOnlineStores/{fos_id}/featureViews")
+        fv_existing = {
+            r.get("name", "").rsplit("/", 1)[-1] for r in (fv_payload.get("featureViews") or [])
+        }
+        if fv_id not in fv_existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = (
+            f"projects/{project_id}/locations/{region}/featureOnlineStores/"
+            f"{fos_id}/featureViews/{fv_id}"
+        )
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+    return imported
+
+
+def _recover_dataform(infra_dir: Path, project_id: str, region: str, var_args: list[str]) -> int:
+    """Dataform repositories — gcloud has no list subcommand, fall back to direct API."""
+    imported = 0
+    # Use REST API directly via gcloud's default access token
+    proc = subprocess.run(
+        [
+            "gcloud",
+            "auth",
+            "print-access-token",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return 0
+    token = (proc.stdout or "").strip()
+    api_proc = subprocess.run(
+        [
+            "curl",
+            "-sS",
+            "-H",
+            f"Authorization: Bearer {token}",
+            f"https://dataform.googleapis.com/v1beta1/projects/{project_id}/locations/{region}/repositories",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if api_proc.returncode != 0:
+        return 0
+    try:
+        payload = json.loads(api_proc.stdout) if api_proc.stdout.strip() else {}
+    except json.JSONDecodeError:
+        return 0
+    existing = {r.get("name", "").rsplit("/", 1)[-1] for r in (payload.get("repositories") or [])}
+    for gcp_id, module, tf_name in DATAFORM_REPOS:
+        addr = f"module.{module}.google_dataform_repository.{tf_name}"
+        if gcp_id not in existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = f"projects/{project_id}/locations/{region}/repositories/{gcp_id}"
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+    return imported
+
+
 # ---------------------------------------------------------------------------
 # entrypoint
 # ---------------------------------------------------------------------------
@@ -376,6 +625,11 @@ def recover_orphan_gcp_resources(
     total += _recover_cloudfunctions(infra_dir, project_id, region, var_args)
     total += _recover_eventarc(infra_dir, project_id, region, var_args)
     total += _recover_cloud_run(infra_dir, project_id, region, var_args)
+    total += _recover_artifact_registry(infra_dir, project_id, region, var_args)
+    total += _recover_secret_manager(infra_dir, project_id, var_args)
+    total += _recover_dataform(infra_dir, project_id, region, var_args)
+    total += _recover_gcs_buckets(infra_dir, project_id, var_args)
+    total += _recover_feature_store(infra_dir, project_id, region, var_args)
     if total:
         print(f"==> state recovery: {total} orphan GCP resource(s) imported into state")
     else:

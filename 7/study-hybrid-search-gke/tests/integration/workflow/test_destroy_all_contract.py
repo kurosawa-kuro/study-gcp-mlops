@@ -290,7 +290,10 @@ def test_deploy_all_invokes_state_recovery_before_tf_apply() -> None:
     # 3. Make target
     assert "state-recover:" in makefile, "Makefile must have `state-recover` target"
     assert "scripts.infra.state_recovery" in makefile
-    # 4. recovery resource types が 6 種網羅
+    # 4. recovery resource types が 11 種網羅 (2026-05-03 後 incident で複数回拡張:
+    # Artifact Registry / Secret Manager / Dataform repo / GCS buckets / Feature Store
+    # の `alreadyExists` も実観測。Feature Store は Feature Group + Feature Online Store
+    # + Feature View の 3 sub-resource を 1 helper で recover)
     for required_helper in (
         "_recover_iam_sas",
         "_recover_bq",
@@ -298,10 +301,17 @@ def test_deploy_all_invokes_state_recovery_before_tf_apply() -> None:
         "_recover_cloudfunctions",
         "_recover_eventarc",
         "_recover_cloud_run",
+        "_recover_artifact_registry",
+        "_recover_secret_manager",
+        "_recover_dataform",
+        "_recover_gcs_buckets",
+        "_recover_feature_store",
     ):
         assert f"def {required_helper}(" in state_recovery_py, (
             f"state_recovery.py must implement `{required_helper}` "
-            "(IAM SA / BQ / Pub/Sub / Cloud Function / Eventarc / Cloud Run の 6 種)"
+            "(IAM SA / BQ / Pub/Sub / Cloud Function / Eventarc / Cloud Run / "
+            "Artifact Registry / Secret Manager / Dataform / GCS buckets / "
+            "Feature Store の 11 種)"
         )
 
 
