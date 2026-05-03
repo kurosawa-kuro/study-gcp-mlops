@@ -2,7 +2,7 @@
 
 Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md) §1-§4 / 親 [docs/architecture/01_仕様と設計.md](../../../../docs/architecture/01_仕様と設計.md) / 本 phase [docs/architecture/01_仕様と設計.md](../architecture/01_仕様と設計.md)) に追従させるための移行計画。
 
-> **2026-05-03 教育コード化方針の改訂**: コード化対象を **Phase 1 / 2 / 3 / 4 / 7** に限定。Phase 5 / 6 は **論理 Phase** (個別コード保守なし、本 Phase 7 完成版コードを参照する資料中心の Phase)。Phase 4 は **本 Phase からの引き算ではなく Phase 3 からの足し算** で独立コード化 (GCP MLOps 土台、Vertex AI 以降は含めない)。詳細は [`../../../../docs/architecture/教育コード化についての仕様変更.md`](../../../../docs/architecture/教育コード化についての仕様変更.md)。
+> **2026-05-03 教育コード化方針の改訂**: コード化対象を **Phase 1 / 2 / 3 / 4 / 7** に限定。Phase 5 / 6 は **論理 Phase** (個別コード保守なし、本 Phase 7 完成版コードを参照する資料中心の Phase)。Phase 4 は **本 Phase からの引き算ではなく Phase 3 からの足し算** で独立コード化 (GCP MLOps 土台、Vertex AI 以降は含めない)。詳細は親 [`README.md` §4 コード化方針](../../../../README.md)。
 >
 > 本 Phase 7 は **教材コード完成版 / canonical 起点** であり、Phase 5 / 6 の技術要素 (Vertex AI Pipelines / Feature Store / Vertex Vector Search / Cloud Composer 本線 + PMLE 4 技術) を本 phase 配下に集約する。
 

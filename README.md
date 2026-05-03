@@ -5,7 +5,7 @@ MLOps 学習用の **7 フェーズ構成リポジトリ**。
 
 各 Phase の正本は phase 配下ドキュメント。本ファイルは全体ナビゲーションを担う。
 
-> **2026-05-03 教育コード化方針の改訂**: コード化対象を **Phase 1 / 2 / 3 / 4 / 7** に限定する。Phase 5 / 6 は独立コード保守をやめ、**Phase 7 完成版コードを基準にして Vertex AI MLOps 化 / PMLE 追加技術 + Composer 本線化を理解する論理 Phase** に変更。Phase 4 は Phase 7 からの引き算ではなく **Phase 3 からの足し算 (local → cloud)** として独立コード化する。詳細は [`docs/architecture/教育コード化についての仕様変更.md`](docs/architecture/教育コード化についての仕様変更.md)。
+> **2026-05-03 教育コード化方針の改訂**: コード化対象を **Phase 1 / 2 / 3 / 4 / 7** に限定する。Phase 5 / 6 は独立コード保守をやめ、**Phase 7 完成版コードを基準にして Vertex AI MLOps 化 / PMLE 追加技術 + Composer 本線化を理解する論理 Phase** に変更。Phase 4 は Phase 7 からの引き算ではなく **Phase 3 からの足し算 (local → cloud)** として独立コード化する。詳細は本ファイル §4 コード化方針 を参照。
 
 ---
 
@@ -173,8 +173,6 @@ GKE / KServe: 7/study-hybrid-search-gke/infra/manifests/, 7/study-hybrid-search-
 
 旧版では「Phase 7 = canonical 起点、引き算で Phase 6 → 5 → 4 → 3 → 2 → 1 を後方派生」としていたが、本改訂で **Phase 4 は Phase 3 からの足し算で独立コード化** へ方針転換した。Phase 5 / 6 については、引き算で個別コードを保守する代わりに **Phase 7 完成版コードを基準にして資料で技術境界を理解する** 構成にした。これにより、差分コードの保守負担を避けつつ、各 Phase の技術習得主眼を段階的に説明できる。
 
-詳細は [`docs/architecture/教育コード化についての仕様変更.md`](docs/architecture/教育コード化についての仕様変更.md)。
-
 ### 4.4 Phase 2 → 3 の接続 (飛躍を埋める短い説明)
 
 Phase 2 で学んだ **Port/Adapter を、より複雑なドメインで実践する** のが Phase 3。具体的には:
@@ -314,7 +312,6 @@ Phase 1 → 2 → 3 → 4 → 5 (資料) → 6 (資料) → 7 の番号順。
 ### 全体横断ハブ
 
 - `docs/README.md` — ルート docs の入口と参照優先順位
-- `docs/architecture/教育コード化についての仕様変更.md` — **本改訂の正本** (Phase 1/2/3/4/7 = コード化、Phase 5/6 = 論理 Phase)
 - `docs/architecture/01_仕様と設計.md` — Phase 1〜7 の仕様設計ハブ
 - `docs/architecture/03_実装カタログ.md` — Phase 1〜7 の実装カタログハブ
 - `docs/runbook/04_運用.md` — Phase 1〜7 の運用ハブ
@@ -365,8 +362,6 @@ Phase 1 → 2 → 3 → 4 → 5 (資料) → 6 (資料) → 7 の番号順。
 1. **Phase 4 は GCP MLOps の土台として独立コード化する価値が高い** — Phase 5 / 6 / 7 の前提となるクラウド基盤を、Phase 3 からの足し算で自然に学べる
 2. **Phase 5 / 6 の中間コードを作るよりも、Phase 7 の完成版を正本にして技術境界を説明した方が、教材としても実務資料としても強い** — 差分コードの保守負担を避けつつ、各 Phase の技術習得主眼を段階的に説明できる
 3. **土台までは独立コード、上位レイヤーは完成版コードを分解して理解する教材** として設計するのが最も合理的
-
-詳細は [`docs/architecture/教育コード化についての仕様変更.md`](docs/architecture/教育コード化についての仕様変更.md)。
 
 ### 検索エンジン (Phase 3 以降): Meilisearch
 
