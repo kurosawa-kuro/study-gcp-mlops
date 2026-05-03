@@ -78,6 +78,7 @@ module "composer" {
   feature_view_id                   = module.vertex.feature_view_id
   api_external_url                  = var.api_external_url
   slo_availability_goal             = var.slo_availability_goal
+  composer_runner_image             = var.composer_runner_image
 
   depends_on = [
     google_project_service.enabled,

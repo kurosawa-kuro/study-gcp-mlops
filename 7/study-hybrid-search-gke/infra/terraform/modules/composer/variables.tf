@@ -71,3 +71,9 @@ variable "slo_availability_goal" {
   type        = number
   default     = 0.99
 }
+
+variable "composer_runner_image" {
+  description = "V5 fix (2026-05-03、§4.1): KubernetesPodOperator が起動する `composer-runner` image URI。`make build-composer-runner` で push される `<region>-docker.pkg.dev/<project>/<repo>/composer-runner:latest` を default で参照する。`pipeline/dags/_pod.py::_composer_runner_image()` が COMPOSER_RUNNER_IMAGE env を一次参照、env 未設定時は project + region + repo から組み立てる fallback を持つ。"
+  type        = string
+  default     = ""
+}

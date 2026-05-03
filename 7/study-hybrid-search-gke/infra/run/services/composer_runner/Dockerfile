@@ -7,21 +7,24 @@
 # `python -m <module>` を呼ぶ runner として機能する。
 #
 # 含むもの:
-# - Python 3.12 + 全 dependencies (`[ml]` + `[pipelines]` extras 込み)
+# - Python 3.12 + `[pipelines]` extra (kfp + google-cloud-pipeline-components)
 #   * scripts.ops.check_retrain / promote / slo_status / vertex.pipeline_wait
 #   * scripts.infra.feature_view_sync
-#   * scripts.setup.backfill_vector_search_index
+#   * scripts.setup.backfill_vector_search_index (lazy import の vector search SDK)
 #   * pipeline.workflow.compile (KFP 2.x、submit_train_pipeline 用)
 # - gcloud SDK (apt 経由、~150MB)。`scripts.ops.promote` 等は Python SDK 経由
 #   なので gcloud は使わないが、Dataform / Composer ops の便宜上同梱。
-# - scripts/ + pipeline/ + ml/ source code
+# - scripts/ + pipeline/ + ml/ source code (DAG が呼ぶ Python module)
 #
 # 含まないもの:
 # - app/ (FastAPI source、本 image は web server を立てない)
+# - `[ml]` extra (torch + sentence-transformers ~2.5GB)。DAG task は ML 推論
+#   や training を直接行わない (Vertex Pipelines に submit するだけ) ので不要。
+#   含めると kaniko snapshot で OOM (exit 137)、build 失敗の原因になる
+#   (2026-05-03 incident)。
 #
-# Image size 想定: ~1.5-2GB ([ml] の torch transitive ~500MB + [pipelines] の
-# kfp ~200MB + python runtime + gcloud)。search-api image (~457MB) より重いが
-# DAG task は 1 日数回しか起動しないので OK。
+# Image size 想定: ~700MB-1GB ([pipelines] の kfp ~200MB + python runtime +
+# gcloud)。DAG task は 1 日数回しか起動しないので OK。
 #
 # Build: `gcloud builds submit --config infra/cloudbuild/cloudbuild-composer-runner.yaml .`
 # または `make build-composer-runner`。
@@ -35,10 +38,12 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /src
 
-# 全 extras を install (DAG が pipeline.workflow.compile / KFP / lightgbm を使う)。
+# `[pipelines]` extra のみ install (kfp + google-cloud-pipeline-components)。
+# `[ml]` (torch + sentence-transformers) は DAG が使わないので除外
+# (snapshot OOM 回避、2026-05-03 incident)。
 COPY pyproject.toml uv.lock* ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --all-extras --no-install-project
+    uv sync --frozen --no-dev --extra pipelines --no-install-project
 
 
 FROM python:3.12-slim-bookworm AS runtime

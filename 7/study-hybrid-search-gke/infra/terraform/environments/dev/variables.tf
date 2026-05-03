@@ -221,3 +221,9 @@ variable "pipeline_template_gcs_path" {
   type        = string
   default     = ""
 }
+
+variable "composer_runner_image" {
+  description = "V5 fix (2026-05-03、§4.1): KubernetesPodOperator が起動する `composer-runner` image URI。`make build-composer-runner` で push される `<region>-docker.pkg.dev/<project>/<repo>/composer-runner:latest` を default で参照する。空ならば DAG 側 fallback (project + region + repo から組み立て)。"
+  type        = string
+  default     = ""
+}

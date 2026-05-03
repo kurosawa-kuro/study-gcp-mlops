@@ -8,11 +8,12 @@
 schedule: `0 16 * * *` UTC = 01:00 JST。`retrain_orchestration` (04:00 JST)
 の 3 時間前に feature を refresh しておくため、本 DAG が先行する。
 
-**V5 fix (2026-05-03)**: 旧版は `BashOperator: uv run python -m ...` だったが、
-Composer worker に uv / repo source が無く task SUCCEEDED 未達 (canonical 違反)。
-新版は `KubernetesPodOperator` + `composer-runner` image で実行 (= V5 = §4.1)。
-Dataform は Composer Gen 3 組み込みの `DataformCreateWorkflowInvocationOperator`
-を使う (= gcloud CLI 不要、retry / state 管理が provider 側で処理される)。
+**V5 fix (2026-05-03)**: 旧版は BashOperator + subprocess で `python -m ...` を
+Composer worker 上で実行しようとしていたが、Composer worker に必要 venv が無く
+task SUCCEEDED 未達 (canonical 違反)。新版は `KubernetesPodOperator` +
+`composer-runner` image で実行 (= V5 = §4.1)。Dataform は Composer Gen 3 組み
+込みの `DataformCreateWorkflowInvocationOperator` を使う (= gcloud CLI 不要、
+retry / state 管理が provider 側で処理される)。
 """
 
 from __future__ import annotations

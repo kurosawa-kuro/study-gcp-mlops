@@ -9,8 +9,13 @@ Composer (Airflow Gen 3) は Composer worker 上で実行されるため、ロ�
 - 各 DAG file が `dag_id="<filename stem>"` を文字列リテラルで持つ
 - 各 DAG file に `schedule=` リテラルが存在
 - 各 DAG file に `catchup=False` が存在 (PDCA で再 deploy しても backfill しない契約)
-- `retrain_orchestration` には `scripts.ops.train_now` import が含まれる
-  (KFP 2.16 互換 issue 回避経路 = `pipeline.workflow.compile` 直叩きはしない契約)
+- 各 DAG file が `BashOperator` を使っていない (V5 fix 2026-05-03、§4.1):
+  Composer worker に uv / repo source が無く `BashOperator: uv run python -m`
+  は task SUCCEEDED 未達 (canonical 違反)。代わりに `KubernetesPodOperator`
+  (composer-runner image 経由) を使う。
+- `retrain_orchestration` の `submit_train_pipeline` が `pipeline.workflow.compile`
+  を subprocess (= python_pod) 経由で叩き、module-level import しない契約
+  (KFP 2.16 互換 issue 回避)
 - `monitoring_validation` の SQL path 文字列が `infra/sql/monitoring/*.sql` の
   実ファイルを指す
 
@@ -57,26 +62,66 @@ def test_dag_has_schedule_and_catchup_false(dag_file: str) -> None:
     )
 
 
+@pytest.mark.parametrize("dag_file", DAG_FILES)
+def test_dag_does_not_use_bash_operator(dag_file: str) -> None:
+    """V5 fix (2026-05-03、§4.1): BashOperator + uv run は禁止。
+
+    Composer worker に uv / repo source が無いため `BashOperator(bash_command="uv
+    run python -m ...")` は確実に task SUCCEEDED せず canonical (本線 retrain =
+    Composer DAG) を裏切る。代わりに `KubernetesPodOperator` (composer-runner
+    image) または provider 提供 Operator (DataformCreateWorkflowInvocationOperator
+    / BigQueryInsertJobOperator 等) を使う契約。
+    """
+    text = (DAGS_DIR / dag_file).read_text(encoding="utf-8")
+    assert "from airflow.operators.bash import BashOperator" not in text, (
+        f"{dag_file}: BashOperator は禁止 (V5 fix §4.1、Composer worker 非互換)"
+    )
+    assert "BashOperator(" not in text, (
+        f"{dag_file}: BashOperator() インスタンス化は禁止 (V5 fix §4.1)"
+    )
+    assert "uv run python" not in text, (
+        f"{dag_file}: 'uv run python' は禁止 (Composer worker に uv 不在)"
+    )
+
+
 def test_retrain_orchestration_invokes_compile_via_subprocess_not_import() -> None:
     """KFP 2.16 互換 issue 回避: `pipeline.workflow.compile` は subprocess 経由で叩く契約。
 
     DAG file が module-level で `from pipeline.workflow.compile import ...` すると
     KFP 2.16 の `@dsl.pipeline` decorator 互換 issue (TASKS_ROADMAP §4.8 W2-9) で
-    Composer scheduler が DAG parse 失敗する。代わりに BashOperator で
-    `python -m pipeline.workflow.compile --submit ...` する (= make ops-train-now
-    と同一の live で実証済 invocation path)。
+    Composer scheduler が DAG parse 失敗する。代わりに `python_pod(module="pipeline
+    .workflow.compile", extra_args=[...])` で `python -m pipeline.workflow.compile`
+    を Pod 内で実行する (= V5 fix §4.1、make ops-train-now と同一の subprocess invocation)。
     """
     text = (DAGS_DIR / "retrain_orchestration.py").read_text(encoding="utf-8")
-    assert "python -m pipeline.workflow.compile" in text, (
+    assert 'module="pipeline.workflow.compile"' in text, (
         "retrain_orchestration::submit_train_pipeline must invoke compile via "
-        "subprocess (KFP 2.16 issue 回避). make ops-train-now と同一 invocation"
+        'python_pod(module="pipeline.workflow.compile", ...) (KFP 2.16 issue 回避、V5 fix)'
     )
     assert "from pipeline.workflow.compile" not in text, (
         "retrain_orchestration must NOT import pipeline.workflow.compile directly "
         "(KFP 2.16 互換 issue で module load 段で TypeError)"
     )
-    assert "--target train" in text and "--submit" in text, (
+    assert '"--target"' in text and '"train"' in text and '"--submit"' in text, (
         "submit_train_pipeline must use --target train --submit (matches ops-train-now)"
+    )
+
+
+@pytest.mark.parametrize("dag_file", DAG_FILES)
+def test_dag_uses_pod_or_provider_operator(dag_file: str) -> None:
+    """V5 fix: 各 DAG は KubernetesPodOperator (= python_pod helper 経由)
+    または Airflow provider 提供 Operator (DataformCreateWorkflowInvocationOperator
+    / BigQueryInsertJobOperator 等) のみで task を構成する契約。"""
+    text = (DAGS_DIR / dag_file).read_text(encoding="utf-8")
+    uses_python_pod = "python_pod(" in text
+    uses_provider_op = (
+        "DataformCreateWorkflowInvocationOperator" in text
+        or "BigQueryInsertJobOperator" in text
+        or "ShortCircuitOperator" in text  # gate のみは python callable 可
+    )
+    assert uses_python_pod or uses_provider_op, (
+        f"{dag_file}: KubernetesPodOperator (python_pod) or Airflow provider "
+        "Operator のいずれかを使うこと (BashOperator は §4.1 で禁止)"
     )
 
 
@@ -96,8 +141,8 @@ def test_monitoring_validation_sql_paths_resolve_to_real_files() -> None:
 
 
 def test_all_dag_files_present() -> None:
-    """`pipeline/dags/` 配下に必須 4 ファイル + __init__.py が揃っている。"""
-    expected = {"__init__.py", "_common.py", *DAG_FILES}
+    """`pipeline/dags/` 配下に必須 4 ファイル + __init__.py + _pod.py が揃っている。"""
+    expected = {"__init__.py", "_common.py", "_pod.py", *DAG_FILES}
     actual = {p.name for p in DAGS_DIR.glob("*.py")}
     missing = expected - actual
     assert not missing, f"missing DAG files: {sorted(missing)}"

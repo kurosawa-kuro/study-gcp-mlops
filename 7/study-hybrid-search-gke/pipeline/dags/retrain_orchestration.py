@@ -14,9 +14,10 @@ Vertex `PipelineJobSchedule` を置き換える上下関係。詳細: docs/archi
 
 schedule: `0 19 * * *` UTC = 04:00 JST (`daily_feature_refresh` の 3 時間後)。
 
-**V5 fix (2026-05-03)**: 旧版は `BashOperator: uv run python -m ...` だったが、
-Composer worker に uv / repo source が無く task SUCCEEDED 未達 (canonical 違反)。
-新版は `KubernetesPodOperator` + `composer-runner` image で実行 (= V5 = §4.1)。
+**V5 fix (2026-05-03)**: 旧版は BashOperator + subprocess (Composer worker 上で
+直接 `python -m ...` 実行) だったが、Composer worker に必要 venv が無く task
+SUCCEEDED 未達 (canonical 違反)。新版は `KubernetesPodOperator` +
+`composer-runner` image で実行 (= V5 = §4.1)。
 """
 
 from __future__ import annotations

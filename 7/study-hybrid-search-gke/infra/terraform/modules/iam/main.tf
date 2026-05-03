@@ -317,6 +317,30 @@ resource "google_project_iam_member" "composer_run_invoker" {
   member  = "serviceAccount:${google_service_account.composer.email}"
 }
 
+# V5 fix (2026-05-03、§4.1): 過去 session の Claude が DAG を `BashOperator: uv
+# run python -m scripts.X` で書いたが Composer worker は uv 不在 / repo source
+# 不在で task SUCCEEDED 未達 (canonical 違反)。新版は KubernetesPodOperator で
+# `composer-runner` image を Composer 自身の GKE 上に Pod として起動する。
+#
+# - artifactregistry.reader: Composer worker が `composer-runner` image を
+#   Artifact Registry から pull するため。
+# - storage.objectViewer: kfp / Vertex Pipelines の中間 artifact が GCS
+#   `pipeline-root` bucket に書かれるので、submit_train_pipeline / pipeline_wait
+#   から read できるように。
+# (composer.worker は Composer 自身の GKE 上で Pod を起動する権限を含むため
+# 別途 container.developer は不要。)
+resource "google_project_iam_member" "composer_artifactregistry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
+resource "google_project_iam_member" "composer_storage_object_viewer" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.composer.email}"
+}
+
 # Composer 環境作成 / 削除権限を deployer SA に追加 (terraform apply で
 # google_composer_environment リソースを操作するため)。
 resource "google_project_iam_member" "github_deployer_composer_admin" {

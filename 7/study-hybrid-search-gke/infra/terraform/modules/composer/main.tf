@@ -55,6 +55,11 @@ resource "google_composer_environment" "this" {
         VERTEX_FEATURE_VIEW_ID                   = var.feature_view_id
         API_EXTERNAL_URL                         = var.api_external_url
         SLO_AVAILABILITY_GOAL                    = tostring(var.slo_availability_goal)
+        # V5 fix (2026-05-03、§4.1): KubernetesPodOperator が起動する
+        # `composer-runner` image URI を DAG (`pipeline/dags/_pod.py`) に
+        # 注入する。空ならば DAG 側 fallback (project + region + repo から
+        # 組み立て、`composer-runner:latest`) を使う。
+        COMPOSER_RUNNER_IMAGE = var.composer_runner_image
       }
     }
 
