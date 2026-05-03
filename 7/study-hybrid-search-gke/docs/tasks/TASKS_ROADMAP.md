@@ -10,35 +10,17 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 🎯 ゴール状況ダッシュボード (2026-05-03 夕 更新)
+## 本ドキュメントの債務 (= 何が書いてあるか)
 
-### 今日のゴール (罰金回避ライン = Phase 7 canonical 充足)
+本ファイルの責務は **「過去〜未来の作業計画 + incident postmortem の母艦」**。
 
-`make deploy-all` + `make run-all-core` + **Composer DAG SUCCEEDED** (V5) の **3 つ完遂**。`make destroy-all` の live verify は明日に繰り延べ。
+- **書く**: Wave 1/2/3 計画 / 各 §4.X の詳細仕様 (incident、設計判断、教訓) / 長期 backlog / マイルストーン履歴
+- **書かない (= 他 doc に委譲)**:
+  - 「**今**」 の sprint 進捗 / 当日のゴール → [`TASKS.md`](TASKS.md) (current sprint dashboard、新セッションが最初に読む)
+  - 「**OK か判定する基準**」 (V1-V6 検証ゲート) → [`../runbook/04_検証.md`](../runbook/04_検証.md) (検証 canonical 定義)
+  - 「**やる手順**」 (`make deploy-all` の打ち方) → [`../runbook/05_運用.md`](../runbook/05_運用.md) (PDCA / runbook)
 
-**V5 を含める理由**: CLAUDE.md / 親 README に「**本線 retrain schedule は Composer DAG**」と明記、SUCCEEDED 未達は canonical 根幹未実証 (= MLOps として動いていない = ゴミ納品)。「明日以降」「別 sprint」hedging label でこれを scope 外に逃がすことは禁止 (CLAUDE.md §「⛔ ゴール劣化禁止」)。
-
-### 今日の達成・残り work
-
-| # | item | status | 備考 |
-|---|---|---|---|
-| **V1** | `make deploy-all` 完走 | ✅ **DONE** | Run 6 exit 0 / 35.5 min / state_recovery 12 type で `alreadyExists` ゼロ / Composer 作成 18m48s |
-| **V2** | `make run-all-core` 完走 | ✅ **DONE** | retry 1 回目 PASS / `ndcg_at_10=1.0 hit_rate=1.0 mrr=1.0` / 3 種 lexical/semantic/rerank all non-zero / Vertex Pipeline SUCCEEDED |
-| **V5** | Composer DAG `retrain_orchestration::check_retrain` SUCCEEDED | 🔄 **85% 進行中** (V5-1〜V5-6 ✅、V5-3 build SUCCESS、V5-7 tf-apply 進行中) | 詳細は TASKS.md ダッシュボード § V5 実装サブステップ |
-
-### 直近 1.5 日の主要成果 (= **進捗ゼロではない**、構造的 incident fix + V5 canonical 達成)
-
-| 日付 | 主要成果 |
-|---|---|
-| 05-02 | Wave 1 完了 + Wave 2 offline wiring + run-all-core 1 周 live PASS (`ndcg_at_10=1.0`) |
-| 05-03 朝 | destroy-all 失敗事故 → §4.9 K fix (state rm + import)、contract test 9 → 12 件 |
-| 05-03 昼 | tfstate orphan **151 → 0** cleanup、runbook §1.4-emergency 新節追加 |
-| 05-03 夕 | §4.10 **state_recovery.py 12 type 徹底実装**、contract 12 → 15、**Run 6 deploy-all 完走 (V1 ✅)**、**run-all-core PASS (V2 ✅)** |
-| 05-03 晩 | **§4.1 V5 canonical fix 着手** — `composer-runner` Dockerfile + Cloud Build + Make target / image build SUCCESS (187s) / 3 DAG を `KubernetesPodOperator` 化 + `_pod.py` helper / IAM 追加 (artifactregistry.reader / storage.objectViewer) / Composer env_var に `COMPOSER_RUNNER_IMAGE` / test 18 PASS / 全体 **659 PASS** / tf-apply 進行中 |
-
-### 明日以降
-
-V3 destroy-all live → V4 2 周目 deploy-all (import 経路) → V6 parity live。詳細は §4.0 / §4.9 / §4.10 と [04_検証.md §0](../runbook/04_検証.md#0-🎯-ゴール状況ダッシュボード-2026-05-03-夕-更新)。
+これは hedging label 禁止 (CLAUDE.md §「⛔ ゴール劣化禁止」) と表裏一体: 進捗を 3 箇所に書くと「片方だけ ✅ にして実は未達」のような虚偽が起きやすい → **進捗は TASKS.md に single source of truth** で集約する。
 
 ---
 

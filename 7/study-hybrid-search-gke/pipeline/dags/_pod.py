@@ -42,6 +42,15 @@ PROPAGATED_ENV_KEYS = (
     "APPLY",
 )
 
+# V5 fix (2026-05-03): scripts/_common.py の resolve_api_target() は `API_URL` env
+# を読み、Composer kube context が無い Pod では gateway_url() の kubectl 経由
+# resolve が失敗する。Composer 側 env_variables 名は `API_EXTERNAL_URL` (terraform
+# canonical) を保ちつつ、Pod に inject する際に `API_URL` にも複製して
+# scripts.ops.* が動くようにする。
+ENV_KEY_ALIASES = {
+    "API_EXTERNAL_URL": ("API_URL",),  # script 側 canonical
+}
+
 
 def _composer_runner_image() -> str:
     """`composer-runner` image URI (env override 可)。
@@ -60,8 +69,18 @@ def _composer_runner_image() -> str:
 
 
 def _propagated_env_vars() -> dict[str, str]:
-    """Composer 環境の env_variables から PROPAGATED_ENV_KEYS を Pod に渡す。"""
-    return {key: os.environ[key] for key in PROPAGATED_ENV_KEYS if key in os.environ}
+    """Composer 環境の env_variables から PROPAGATED_ENV_KEYS を Pod に渡す。
+
+    ENV_KEY_ALIASES に従い、scripts 側 canonical 名 (例: API_URL) にも複製する。
+    """
+    out: dict[str, str] = {}
+    for key in PROPAGATED_ENV_KEYS:
+        if key in os.environ:
+            value = os.environ[key]
+            out[key] = value
+            for alias in ENV_KEY_ALIASES.get(key, ()):
+                out[alias] = value
+    return out
 
 
 def python_pod(

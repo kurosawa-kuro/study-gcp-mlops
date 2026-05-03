@@ -80,6 +80,11 @@ def _list_pipeline_pkg_files() -> list[tuple[Path, str]]:
         (PIPELINE_PKG_INIT, "pipeline/__init__.py"),
         (DAGS_DIR / "__init__.py", "pipeline/dags/__init__.py"),
         (DAGS_DIR / "_common.py", "pipeline/dags/_common.py"),
+        # V5 fix (2026-05-03、§4.1): KubernetesPodOperator helper。
+        # 旧 BashOperator + uv run path は Composer worker 非互換のため、
+        # 新版の各 DAG は ``from pipeline.dags._pod import python_pod`` を
+        # 絶対 import する。pkg layout を保ったまま upload する必要あり。
+        (DAGS_DIR / "_pod.py", "pipeline/dags/_pod.py"),
     ]
 
 

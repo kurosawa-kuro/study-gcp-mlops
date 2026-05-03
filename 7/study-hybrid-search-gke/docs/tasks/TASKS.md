@@ -1,8 +1,20 @@
 # TASKS.md (Phase 7 — current sprint)
 
-`docs/TASKS_ROADMAP.md` (長期 backlog/index、554 行) の current-sprint 抜粋。Claude Code の新セッションで「今 sprint で何をやり、何をやらないか」を最初に確認する単一エントリポイント。詳細は `TASKS_ROADMAP.md` 本体、過去判断履歴は `docs/decisions/` (ADR 0001〜0008)。
+Claude Code の新セッションが「**今 sprint で何をやり、何をやらないか**」を最初に確認する単一エントリポイント。
 
-権威順位: `TASKS_ROADMAP.md > TASKS.md > 01_仕様と設計.md > README.md`。
+## 本ドキュメントの債務 (= 何が書いてあるか)
+
+本ファイルの責務は **「今」 の sprint dashboard**。**今日のゴール / 達成済 / 残り work / sub-step 進捗** の single source of truth。
+
+- **書く**: 今日のゴール (罰金回避ライン)、V1-V6 の current status、sub-step 進捗、直近 timeline、次に動かす command
+- **書かない (= 他 doc に委譲)**:
+  - 「**何で OK と判定するか**」 (V1-V6 の検証ゲート定義) → [`../runbook/04_検証.md`](../runbook/04_検証.md) (検証 canonical 定義)
+  - 「**過去 incident の詳細**」 (§4.X postmortem / Wave 計画 / 設計判断) → [`TASKS_ROADMAP.md`](TASKS_ROADMAP.md) (作業計画 + incident 母艦)
+  - 「**やる手順**」 (`make deploy-all` の打ち方) → [`../runbook/05_運用.md`](../runbook/05_運用.md) (PDCA / runbook)
+
+進捗を 3 箇所に書くと「片方だけ ✅ にして実は未達」のような虚偽 (= goal degradation) が起きやすい → **進捗は本ファイルに集約** (CLAUDE.md §「⛔ ゴール劣化禁止」と表裏一体)。
+
+権威順位: `TASKS_ROADMAP.md > TASKS.md > 01_仕様と設計.md > README.md`。過去判断履歴は `docs/decisions/` (ADR 0001〜0008)。
 
 ---
 
