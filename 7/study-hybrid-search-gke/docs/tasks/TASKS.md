@@ -169,3 +169,132 @@ Phase 7 が到達ゴール。これ以降の phase は無い (`README.md` / 親 
 - `TASKS_ROADMAP.md` (本ファイルの正本、Wave 1/2/3 詳細)
 - `docs/decisions/0001〜0008` (恒久対処ギャップの ADR)
 - 親 `CLAUDE.md §「Cloud Composer (Phase 6 必須、Phase 7 継承)」` (orchestration 二重化禁止)
+
+
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+V5 成功後
+
+## 結論
+
+はい。**V5 が成功したら、次にやるべきは機能検証の追加よりも、workflow contract test の強化です。**
+
+理由は明確で、今回地獄になった原因は「機能が存在しない」ではなく、主にこれだからです。
+
+```text
+deploy-all / destroy-all / run-all-core / composer-deploy-dags の間で
+実行順・env・IAM・upload対象・state recovery・DAG実行基盤の契約がズレた
+```
+
+つまり、**個別機能テストだけ増やしても再発防止になりにくい**です。
+再発を止めるには、「この workflow はこういう構造でなければならない」を test で固定する必要があります。
+
+---
+
+## 理由
+
+今回の V5 周辺だけでも、地獄ポイントはかなり workflow contract 寄りです。
+
+| 事故                                 | 本質                             | contract 化すべき内容                            |
+| ---------------------------------- | ------------------------------ | ------------------------------------------ |
+| BashOperator + `uv run`            | Composer worker 前提の誤設計         | DAG で BashOperator / `uv run python` 禁止    |
+| `_pod.py` upload 漏れ                | DAG helper 同梱漏れ                | `composer-deploy-dags` が helper file を含むこと |
+| `API_EXTERNAL_URL` / `API_URL` 不一致 | env 名の契約破れ                     | Pod env alias が定義されていること                   |
+| `api_external_url` 空               | Terraform → Composer env の配線漏れ | dev variables / module / env_variables の接続 |
+| image pull 権限                      | SA と Artifact Registry の契約漏れ   | sa-composer に reader 権限                    |
+| state orphan / alreadyExists       | destroy / deploy の state 契約漏れ  | state_recovery が tf-apply 前に走ること           |
+
+添付の TASKS.md でも、V1/V2/V5 が罰金回避ライン、V3/V4 が destroy/deploy の品質ラインとして整理されています。V5 成功後に V3/V4 を地獄に戻さないには、workflow contract test の拡充が必要です。
+
+---
+
+## 有力シナリオ
+
+### 1. 最優先で追加すべき contract test
+
+```text
+tests/integration/workflow/
+```
+
+ここに以下を追加するのがよいです。
+
+| 優先 | contract                                                                       | 目的                            |
+| -: | ------------------------------------------------------------------------------ | ----------------------------- |
+|  1 | `deploy_all` が `state_recovery` を tf-apply 前に呼ぶ                                | alreadyExists 地獄の再発防止         |
+|  2 | `deploy_all` の step 順が seed → meili → vvs → fv → manifests → dags → api になっている | run-all 前提の破壊防止               |
+|  3 | `destroy_all` が VVS Index / Endpoint を state rm し、deployed_index は undeploy する | 高額課金・prevent_destroy 地獄防止     |
+|  4 | `composer_deploy_dags` が `.py` DAG だけでなく `_pod.py` / sql helper を upload する    | DAG import fail 防止            |
+|  5 | DAG 内に `BashOperator` / `uv run python` が存在しない                                 | Composer worker 依存の再発防止       |
+|  6 | DAG task が `KubernetesPodOperator` or provider operator を使う                    | Composer-native 実行方式の固定       |
+|  7 | `COMPOSER_RUNNER_IMAGE` が Terraform dev → module → Composer env に配線されている       | runner image 未注入防止            |
+|  8 | `API_EXTERNAL_URL` が `API_URL` alias として Pod に渡る                               | check_retrain 再発防止            |
+|  9 | sa-composer に `artifactregistry.reader` / `storage.objectViewer` がある           | image pull / GCS read fail 防止 |
+| 10 | `make run-all-core` の中に `ops-train-now` と `ops-train-wait` が両方ある               | submit だけ成功の偽陽性防止             |
+
+---
+
+## 破綻条件
+
+やってはいけないのは、**成功後に「機能テスト PASS したからOK」で止めること**です。
+
+それだと次にこのあたりで再発します。
+
+```text
+1. deploy-all の step 順が誰かの修正で崩れる
+2. destroy-all がまた state を壊す
+3. Composer DAG helper の upload 漏れが再発する
+4. Terraform env var 配線が片側だけ更新される
+5. DAG が便利だからと BashOperator に戻される
+6. run-all-core が train submit だけ見て wait しなくなる
+```
+
+今回の地獄は「実機で初めてわかる」部分が多かったですが、**構造違反そのものはローカル contract test でかなり弾けます。**
+
+---
+
+## 実務・行動への影響
+
+V5 成功後の順番はこれが最善です。
+
+```text
+1. V5 成功ログを保存
+2. TASKS.md を V5 ✅ に更新
+3. workflow contract test を追加
+4. make check を通す
+5. V3 destroy-all live verify
+6. V4 2周目 deploy-all import verify
+7. run-all-core 再実行
+```
+
+特に、次の5つは即追加がよいです。
+
+```text
+A. DAG で BashOperator / uv run python 禁止
+B. composer_deploy_dags が _pod.py を upload する
+C. API_EXTERNAL_URL → API_URL alias がある
+D. COMPOSER_RUNNER_IMAGE が Terraform から Composer env へ流れる
+E. sa-composer に artifactregistry.reader がある
+```
+
+この5つは、今回の V5 地獄の再発防止に直結します。
+
+---
+
+## まとめ
+
+V5 が成功したら、次の主戦場は **「動いた」ではなく「二度と壊れないように契約化する」**です。
+
+今回の完成ラインはこうです。
+
+```text
+V1 / V2 / V5 成功
+↓
+workflow contract test 追加
+↓
+V3 destroy-all
+↓
+V4 deploy-all import 経路
+↓
+run-all-core 再確認
+```
+
+ここまでやると、次の `deploy-all / destroy-all / run-all-core` でまた地獄になる確率をかなり落とせます。

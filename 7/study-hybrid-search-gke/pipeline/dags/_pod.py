@@ -36,6 +36,12 @@ PROPAGATED_ENV_KEYS = (
     "VERTEX_FEATURE_ONLINE_STORE_ID",
     "VERTEX_FEATURE_VIEW_ID",
     "API_EXTERNAL_URL",
+    # V5 fix Run 2 fail postmortem (2026-05-03 晩): explicit API_URL パスで
+    # default verify_tls=True / host_header=None になる問題を回避する補助 env。
+    # composer/main.tf で値を seed (API_HOST_HEADER=search-api.example.com /
+    # API_INSECURE_TLS=true)。
+    "API_HOST_HEADER",
+    "API_INSECURE_TLS",
     "SLO_AVAILABILITY_GOAL",
     "ENABLE_DAILY_VVS_REFRESH",
     "AUTO_PROMOTE",
