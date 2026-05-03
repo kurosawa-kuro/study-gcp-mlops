@@ -254,6 +254,103 @@ def test_runbook_documents_orphan_state_cleanup_after_emergency_delete() -> None
     ), "runbook must enumerate the modules subject to orphan-state cleanup"
 
 
+def test_deploy_all_invokes_state_recovery_before_tf_apply() -> None:
+    """**state recovery 契約** (2026-05-03 後 incident、`docs/tasks/TASKS_ROADMAP.md §4.10`):
+    `runbook §1.4-emergency` の「全件 state rm」レシピは GCP 側で本当に削除された
+    resources のみを対象にすべきだが、`gcloud delete --async` で Composer/GKE/Cloud Run
+    しか消していない場合に全件 state rm すると、IAM SA / BQ / Pub/Sub / Cloud Function /
+    Eventarc / Cloud Run (Meilisearch) などが GCP 残置 + state 不在になり、tf-apply
+    stage1 で `Error: alreadyExists` が大量発生して deploy-all が止まる。
+
+    本契約は以下を pin する:
+    1. `scripts/infra/state_recovery.py` が存在し、`recover_orphan_gcp_resources` を export
+    2. `scripts/setup/deploy_all.py::_run_tf_apply` が tf-apply 直前に `recover_orphan_gcp_resources` を呼ぶ
+    3. `Makefile` に `make state-recover` target が存在 (CLI single-shot smoke)
+    4. recovery 対象 resource type が IAM SA / BQ dataset+table / Pub/Sub topic+sub /
+       Cloud Function / Eventarc / Cloud Run の 6 種を網羅
+    """
+    state_recovery_py = _read("scripts/infra/state_recovery.py")
+    deploy_all_py = _read("scripts/setup/deploy_all.py")
+    makefile = _read("Makefile")
+
+    # 1. state_recovery.py が存在し、entrypoint を export
+    assert "def recover_orphan_gcp_resources(" in state_recovery_py, (
+        "state_recovery.py must export `recover_orphan_gcp_resources`"
+    )
+    # 2. deploy_all.py が tf-apply 前に呼ぶ
+    assert "from scripts.infra.state_recovery import recover_orphan_gcp_resources" in deploy_all_py
+    assert "recover_orphan_gcp_resources(" in deploy_all_py, (
+        "deploy_all.py::_run_tf_apply must call recover_orphan_gcp_resources before tf-apply"
+    )
+    # 3. Make target
+    assert "state-recover:" in makefile, "Makefile must have `state-recover` target"
+    assert "scripts.infra.state_recovery" in makefile
+    # 4. recovery resource types が 6 種網羅
+    for required_helper in (
+        "_recover_iam_sas",
+        "_recover_bq",
+        "_recover_pubsub",
+        "_recover_cloudfunctions",
+        "_recover_eventarc",
+        "_recover_cloud_run",
+    ):
+        assert f"def {required_helper}(" in state_recovery_py, (
+            f"state_recovery.py must implement `{required_helper}` "
+            "(IAM SA / BQ / Pub/Sub / Cloud Function / Eventarc / Cloud Run の 6 種)"
+        )
+
+
+def test_state_recovery_iam_sa_mapping_matches_terraform() -> None:
+    """**IAM SA mapping 整合契約**: `state_recovery.IAM_SA_NAMES` は `infra/terraform/
+    modules/iam/main.tf` の `google_service_account` resource label と完全一致する。
+
+    新 SA を main.tf に追加したら本 list にも追加する責務を contract で固定。
+    drift すると recovery が新 SA を import せず、`alreadyExists` で fail。
+    """
+    state_recovery_py = _read("scripts/infra/state_recovery.py")
+    iam_main_tf = _read("infra/terraform/modules/iam/main.tf")
+
+    import re as _re
+
+    declared_sas = set(
+        _re.findall(r'resource "google_service_account" "(\w+)"', iam_main_tf)
+    )
+    # state_recovery.IAM_SA_NAMES tuple の中身を抽出 (multi-line tuple)
+    tuple_match = _re.search(
+        r"IAM_SA_NAMES\s*=\s*\(([^)]*)\)", state_recovery_py, flags=_re.DOTALL
+    )
+    assert tuple_match, "state_recovery.py must define IAM_SA_NAMES tuple"
+    listed_sas = set(_re.findall(r'"(\w+)"', tuple_match.group(1)))
+    missing = declared_sas - listed_sas
+    assert not missing, (
+        f"state_recovery.IAM_SA_NAMES is missing SAs declared in iam/main.tf: {sorted(missing)}. "
+        "Add them to IAM_SA_NAMES so `make state-recover` can import them after orphan cleanup."
+    )
+
+
+def test_runbook_warns_against_bare_state_rm_without_state_recovery() -> None:
+    """**runbook 警告契約** (2026-05-03 後 incident): `runbook §1.4-emergency` の
+    orphan cleanup 手順に、bare `state rm` の罠 (= IAM SA など実は GCP に残っている
+    resource を state から消すと、再 deploy が `alreadyExists` で fail) と、
+    その回避として `make state-recover` を deploy-all 前に呼ぶ案内が明記されている契約。
+
+    過去事故 (2026-05-03): 同じレシピで全件 state rm した結果 14 IAM SA + 4 Pub/Sub +
+    3 BQ dataset + Cloud Function + Eventarc + Cloud Run が orphan 化、deploy-all が
+    sa-composer の `alreadyExists` で fail。"""
+    runbook = _read("docs/runbook/05_運用.md")
+
+    # state-recover の言及
+    assert "make state-recover" in runbook or "state_recovery" in runbook, (
+        "runbook must reference `make state-recover` for orphan recovery"
+    )
+    # bare state rm の罠への警告
+    assert "alreadyExists" in runbook or "soft-delete" in runbook, (
+        "runbook must warn that bare `state rm` after partial gcloud delete leaves "
+        "GCP resources orphan (IAM SA / BQ / Pub/Sub etc.) and tf-apply will fail with "
+        "`alreadyExists`"
+    )
+
+
 def test_destroy_all_lessons_learned_documented_in_roadmap() -> None:
     """**lessons learned 契約** (2026-05-03 incident): `prevent_destroy` 撤回 +
     state rm pattern への移行決定が `docs/tasks/TASKS_ROADMAP.md §4.9` に

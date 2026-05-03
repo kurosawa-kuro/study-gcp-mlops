@@ -142,6 +142,9 @@ apply-manifests: ## Apply infra/manifests via kubectl apply -k
 deploy-all: ## End-to-end provisioning + search-api rollout (tf-apply → kubectl apply -k → overlay-configmap → deploy-api)
 	uv run python -m scripts.setup.deploy_all
 
+state-recover: ## Import orphan GCP resources back into tfstate (緊急 cleanup 後の "alreadyExists" fail 回避、`docs/tasks/TASKS_ROADMAP.md §4.10`)
+	uv run python -m scripts.infra.state_recovery
+
 ops-deploy-monitor: ## Real-time monitor: runs deploy-all and reports live step/build stall status
 	@mkdir -p "$(MONITOR_LOG_DIR)"
 	@log_file="$(MONITOR_LOG_DIR)/$$(date -u +%Y%m%dT%H%M%SZ)-deploy-monitor.log"; \

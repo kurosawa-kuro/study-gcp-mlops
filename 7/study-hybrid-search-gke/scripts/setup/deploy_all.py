@@ -68,6 +68,7 @@ from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
 from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
+from scripts.infra.state_recovery import recover_orphan_gcp_resources
 from scripts.infra.vertex_import import import_persistent_vvs_resources
 from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT, MEILI_SERVICE_NAME_DEFAULT
 from scripts.ops.sync_meili import run as sync_meili_run
@@ -174,6 +175,26 @@ def _run_tf_apply() -> int:
     )
     if imported:
         print(f"==> {imported} addr imported into state — terraform plan で no-op 扱いになる")
+
+    # 2026-05-03 incident postmortem (`docs/tasks/TASKS_ROADMAP.md §4.10`):
+    # 緊急 cleanup で `gcloud delete --async` で Composer/GKE/Cloud Run しか消さなかった
+    # 後に runbook §1.4-emergency の `state rm` で全 state を消すと、IAM SA / BQ /
+    # Pub/Sub / Cloud Function / Eventarc / Cloud Run (Meilisearch) などが GCP 残置
+    # かつ state 不在で、tf-apply stage1 が `Error: alreadyExists` で fail する。
+    # IAM SA は soft-delete 30 日 window があるため gcloud delete → 即 terraform create
+    # も fail する罠あり。本 helper は existing GCP resources を type ごとに list して
+    # state へ import で吸収 (idempotent、何度叩いてもそれ以上 import しない)。
+    print(f"==> tf-apply pre-step: orphan GCP resource state recovery (region={region})")
+    recovered = recover_orphan_gcp_resources(
+        INFRA,
+        project_id,
+        region,
+        terraform_var_args=list(terraform_var_args("GITHUB_REPO", "ONCALL_EMAIL")),
+    )
+    if recovered:
+        print(
+            f"==> {recovered} orphan resource(s) imported — tf-apply 'alreadyExists' fail 回避"
+        )
 
     wait_for_deployed_index_absent(project_id, region, deployed_index_id)
 
