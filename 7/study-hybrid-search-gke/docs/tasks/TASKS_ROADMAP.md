@@ -24,7 +24,7 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 現在地 (2026-05-03 夕 更新)
+## 現在地 (2026-05-04 更新)
 
 ### destroy-all + state_recovery 徹底実装 — 完了 ✅
 
@@ -40,24 +40,20 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ### 完了済み実装・検証の正本
 
-- [`docs/architecture/03_実装カタログ.md`](../architecture/03_実装カタログ.md)
-- [`docs/runbook/05_運用.md`](../runbook/05_運用.md) (§1.4-emergency 追加済 + state-recover 推奨)
+- **[`docs/architecture/03_実装カタログ.md`](../architecture/03_実装カタログ.md)** — Wave 1/2、Composer V5、F1–F5、Run 履歴、検証サマリの **アーカイブ**（TASKS は載せない細目）
+- [`docs/runbook/05_運用.md`](../runbook/05_運用.md) (§1.4-emergency + state-recover)
 - [`tests/integration/workflow/test_destroy_all_contract.py`](../../tests/integration/workflow/test_destroy_all_contract.py) (15 件)
-- [`scripts/infra/state_recovery.py`](../../scripts/infra/state_recovery.py) (12 GCP resource type 対応)
-- §4.9 (本 roadmap、VVS 永続化アーキテクチャ + 失敗事故 + 教訓)
-- §4.10 (本 roadmap、state_recovery 徹底実装 + incremental 発見の記録)
+- [`scripts/infra/state_recovery.py`](../../scripts/infra/state_recovery.py)
+- §4.9 / §4.10（本 roadmap）
 
-### 残り作業 (live verify 完走後の TODO)
+### 残り作業（優先順位は [`TASKS.md`](TASKS.md) に集約）
 
-- **新 destroy-all の live 1 周 verify** (進行中、上表 #7): completion の確認ポイントは §4.9 残タスク表
-- **DAG import error 修正の live 確認**: `composer_deploy_dags.py` の upload layout 変更後、live で `task SUCCEEDED` を狙うか別 sprint へ送るかの判断 (§4.1 参照)
-- `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認 (深追いは別 sprint 候補)
-- `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
-- `tests/integration/parity/*` の `live_gcp` 本実行 (別 session 妥当)
+1. **死守** — Composer 経由 **V5 E2E**（`submit_train_pipeline`〜`/search` 健全性）。実装差分・Run 4 背景は実装カタログ § Composer/V5。
+2. **準死守** — V4 2 周目 deploy  
+3. **余力** — V6 parity live_gcp  
+4. **最後** — V3 destroy-all live  
 
-補足:
-- 完了条件は `destroy-all -> deploy-all -> composer-deploy-dags -> run-all-core -> destroy-all`
-- 実測・恒久対処の詳細は `03_実装カタログ.md` と `05_運用.md` を正本とし、この roadmap には再掲しない
+補足: `deploy-all` / `run-all-core` / `check_retrain` live は達成済み（実装カタログ検証表）。長文の再掲はしない。
 
 ### 学び (本 session で固定化)
 
@@ -82,13 +78,13 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ## 1. 現状ギャップ
 
-詳細な完了差分は [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を正本とする。
+詳細な完了差分は [`docs/architecture/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を正本とする。
 
-残ギャップ:
-- Composer DAG import layout 修正
-- `tests/integration/parity/*` の live 実行
-- KFP 2.16 互換 issue の根本対処
-- [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md) の最終同期
+残ギャップ（優先順は [`TASKS.md`](TASKS.md)）:
+- **V5 E2E**（死守）— `submit_train_pipeline` 以降 live + 再学習後 `/search`
+- `tests/integration/parity/*` の live 実行（余力）
+- KFP 2.16 互換の運用上の回避は DAG / runner で継続（詳細は実装カタログ）
+- [`docs/architecture/01_仕様と設計.md`](../architecture/01_仕様と設計.md) の最終同期
 
 ---
 
