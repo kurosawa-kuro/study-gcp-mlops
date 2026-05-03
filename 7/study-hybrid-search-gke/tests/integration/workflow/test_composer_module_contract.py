@@ -71,9 +71,7 @@ def test_composer_env_variables_avoid_reserved_names() -> None:
     assert env_block_match is not None, "composer main.tf must declare an env_variables block"
     env_block = env_block_match.group(0)
     for reserved_name in reserved:
-        key_pattern = re.compile(
-            rf"^\s*{re.escape(reserved_name)}\s*=", flags=re.MULTILINE
-        )
+        key_pattern = re.compile(rf"^\s*{re.escape(reserved_name)}\s*=", flags=re.MULTILINE)
         assert key_pattern.search(env_block) is None, (
             f"composer env_variables must NOT include reserved name {reserved_name!r} "
             "(Composer Gen 3 returns HTTP 400 'may not be overridden')"

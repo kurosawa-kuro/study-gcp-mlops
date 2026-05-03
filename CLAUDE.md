@@ -92,6 +92,27 @@ Phase 4 / 5 / 6 / 7 はローカル CI 同等チェックとして `make check` 
 
 **Phase 7 のみフォルダ構造**: Phase 7 では docs/ 配下を `architecture/` (01,03) / `tasks/` (TASKS, TASKS_ROADMAP) / `runbook/` (04,05) / `decisions/` / `conventions/` に再編済。`docs/tasks/TASKS.md` (current sprint) / `docs/tasks/TASKS_ROADMAP.md` (長期 backlog + Wave 1-3 詳細) / `docs/architecture/01_仕様と設計.md` / `docs/runbook/04_検証.md` / `docs/runbook/05_運用.md` を正本とする。Phase 1-6 は従来構造 (番号付き flat、`docs/02_移行ロードマップ.md` 等) を維持。
 
-## エージェント
+## Claude Code 標準セット (`.claude/` 一式)
 
-`.github/agents/gcp-mlops-theme-research.agent.md` — 検索/ランキングアーキテクチャの比較と日本語マークダウン提案専用エージェント。コード変更やシェル実行は行わず、markdown の設計メモを書くための user-invocable agent。
+phase 横断のエージェント / スキル / コマンド / フックは **root `.claude/`** に集約する (各 phase の `.claude/` は基本的に空、phase 固有ルールは `<phase>/CLAUDE.md` のみ)。最小構成から開始し、有用性が出たもののみ追加する方針 (User memory「学習リポなので最小スペック」「dockerignore は最小から」と整合)。詳細仕様は [`/home/ubuntu/.claude/plans/enchanted-discovering-thacker.md`](/home/ubuntu/.claude/plans/enchanted-discovering-thacker.md)。
+
+| 種別 | 名前 | 用途 |
+|---|---|---|
+| agent | `port-adapter-boundary-reviewer` | diff の Port-Adapter 境界違反 (adapter import 漏れ / RULES 更新忘れ / noop_adapter 不足 / DI 配線忘れ) を検出。`make check-layers` の補完。read-only |
+| agent | `feature-parity-checker` | 特徴量変更 PR の **6 ファイル parity** を検証 (Dataform / `build_ranker_features` / `FEATURE_COLS_RANKER` / TF `ranking_log.features` / `validate_feature_skew.sql` / Vertex Feature Group)。read-only |
+| agent | `phase-subtraction-derivator` | Phase 7 → Phase 6/5/4/... の引き算 diff プレビュー (削除対象 / adapter 差し替え / 不変 Port を提示)。read-only、proposal のみ |
+| skill | `phase-doc-sync` | phase 横断 doc 同期。`.github/skills/phase-doc-sync/SKILL.md` の複製 (両方 canonical) |
+| skill | `port-adapter-scaffolder` | 新 Port を切るときの 6 ステップ (Port → Noop adapter → RULES → Fake → composition root → 本番 adapter → 03_実装カタログ追記) |
+| command | `/check-parity` | `feature-parity-checker` を呼ぶ薄い wrapper |
+| hook | `SessionStart` (`hooks/show-tasks.sh`) | phase root を解決し `docs/tasks/TASKS.md` (Phase 7) または `docs/TASKS.md` (Phase 1-6) の先頭 50 行を表示。phase 外では何もしない |
+| hook | `PostToolUse` (`hooks/check-layers.sh`) | Edit/Write/MultiEdit の対象が Port-Adapter sensitive area (app/services/, app/composition_root.py, app/api/, app/domain/, app/schemas/, ml/<feat>/{ports,adapters}/, pipeline/<job>/ports/, pipeline/dags/, scripts/ci/layers.py) なら `make check-layers` をバックグラウンド実行、失敗時のみ stderr に短い出力 |
+
+その他:
+
+- `.github/agents/gcp-mlops-theme-research.agent.md` — 検索/ランキング設計比較と markdown 提案専用 agent (GitHub 側 user-invocable, コード変更なし)。`.claude/` 集約後も `.github/` 側に残置 (Github Actions 側からの参照可能性のため)
+- `.claude/settings.local.json` (gitignore 対象) — 個人ごとの permissions allowlist。team 共有の hooks は `.claude/settings.json` に書く
+
+**Claude Code に任せる作業 vs 人間判断** (要約、詳細は plan ファイル §5.5):
+
+- **任せる**: Port/adapter/fake の boilerplate 提案、6 ファイル parity 同期、doc 同期、テスト雛形、`scripts/ci/layers.py` の `RULES` 追記提案、引き算 diff プレビュー、`mlops-dev-a` への `terraform apply` / `make deploy-all` (Phase 7 CLAUDE.md 事前承認範囲)
+- **人間判断**: 中核コード変更 (`search_service.py` / `ranking.py` / `build_ranker_features`)、hybrid-search 5 要素の変更、Composer 二重起動判定、高/低スペック選択、Meilisearch → Elasticsearch 等の置換、ADR 起案、`git push --force` / 共有 main への push、別 project への波及

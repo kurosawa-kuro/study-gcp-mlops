@@ -160,10 +160,7 @@ def test_destroy_all_persists_vvs_index_and_endpoint() -> None:
 
     # destroy_all.py の persistent list + state rm 呼出し
     assert "PERSISTENT_VVS_RESOURCES" in destroy_all_py
-    assert (
-        '"module.vector_search.google_vertex_ai_index.property_embeddings"'
-        in destroy_all_py
-    )
+    assert '"module.vector_search.google_vertex_ai_index.property_embeddings"' in destroy_all_py
     assert (
         '"module.vector_search.google_vertex_ai_index_endpoint.property_embeddings"'
         in destroy_all_py
@@ -198,3 +195,89 @@ def test_no_vertex_pipeline_job_schedule_resource_in_terraform() -> None:
                 f"{tf_file.relative_to(REPO_ROOT)} contains forbidden {forbidden!r} "
                 "(Phase 7 W2-4 で撤去済、§3.6 カニバリ NG で再導入禁止)"
             )
+
+
+# ---------------------------------------------------------------------------
+# 2026-05-03 incident postmortem — destroy-all の hang 事故から学んだ契約。
+# 既存 9 件は構造的 guard (PROTECTED_TARGETS / 文字列存在 / 対称性) のみで、
+# 「destroy-all が実際に詰まったときの recovery 経路」は契約として書かれて
+# いなかった。本セクションはその gap を埋める。
+# ---------------------------------------------------------------------------
+
+
+def test_runbook_documents_emergency_kill_switch_for_composer_gke_cloudrun() -> None:
+    """**緊急 kill switch 契約** (2026-05-03 incident、`docs/tasks/TASKS_ROADMAP.md §4.9`):
+    `make destroy-all` が hang した時の最終手段として、Composer / GKE / Cloud Run
+    の主要課金 resource を `gcloud delete --async` で直接消す経路を runbook に
+    明記する契約。
+
+    過去事故: `lifecycle.prevent_destroy = true` で `[6/6]` 本体 destroy が hang
+    し、Composer + GKE + Cloud Run + FOS が課金継続。escape hatch が runbook に
+    無かったため、user が手動で `gcloud composer environments delete --async` 等
+    を試行錯誤で発見する状況になった。本契約は「次に同じ事態が起きた時に runbook
+    だけ見れば 1 分で主要課金を止められる」ことを保証する。"""
+    runbook = _read("docs/runbook/05_運用.md")
+
+    # 緊急節の存在
+    assert "1.4-emergency" in runbook or "緊急 kill switch" in runbook, (
+        "runbook 05_運用.md must document the emergency kill-switch path "
+        "(see docs/tasks/TASKS_ROADMAP.md §4.9 lessons learned)"
+    )
+    # 主要課金 3 経路のコマンドが揃っていること
+    assert "gcloud composer environments delete" in runbook
+    assert "gcloud container clusters delete" in runbook
+    assert "gcloud run services delete" in runbook
+    # `--async` を使う (sync で待つと shell が固まり deploy-all を再走できなくなる)
+    assert "--async" in runbook, (
+        "emergency kill switch must use --async — sync delete blocks the shell"
+    )
+
+
+def test_runbook_documents_orphan_state_cleanup_after_emergency_delete() -> None:
+    """**緊急 cleanup 後の tfstate 整合性回復契約** (2026-05-03 incident 同上):
+    `gcloud delete --async` で GCP 側を直接消すと tfstate に orphan entry が残る。
+    次回 `make deploy-all` が「Resource not found」で fail するのを防ぐため、
+    orphan を `state rm` で消す手順が runbook に明記されている契約。
+
+    実測: 2026-05-03 朝の `terraform state list | wc -l` で orphan 151 entries
+    残置を観測。手順が docs に無いと user が自力で grep / state rm を組み立て
+    なくてはならない。"""
+    runbook = _read("docs/runbook/05_運用.md")
+
+    # state list / state rm の使い方が runbook 内に記載されている
+    assert "terraform" in runbook and "state list" in runbook
+    assert "state rm" in runbook
+    # orphan を含む module の grep pattern が示されている (= operator が手で
+    # 何 module を消すべきか考えなくて済む)
+    assert "module\\.(composer|gke|kserve|meilisearch|vertex" in runbook or (
+        "module.composer" in runbook and "module.gke" in runbook and "module.kserve" in runbook
+    ), "runbook must enumerate the modules subject to orphan-state cleanup"
+
+
+def test_destroy_all_lessons_learned_documented_in_roadmap() -> None:
+    """**lessons learned 契約** (2026-05-03 incident): `prevent_destroy` 撤回 +
+    state rm pattern への移行決定が `docs/tasks/TASKS_ROADMAP.md §4.9` に
+    記録されている契約。
+
+    決定背景が docs に残っていないと、将来「Index/Endpoint を保護したい」と
+    いう要件で再度 `prevent_destroy` を導入する誤った PR が出る (= 同じ事故を
+    繰り返す)。本契約はその再発を block する。"""
+    roadmap = _read("docs/tasks/TASKS_ROADMAP.md")
+
+    # §4.9 の存在
+    assert "§4.9" in roadmap or "### 4.9" in roadmap, (
+        "TASKS_ROADMAP.md must have §4.9 (VVS persistence architecture)"
+    )
+    # 失敗事故 + 真因分析 + 採用方針が揃っている
+    assert "Instance cannot be destroyed" in roadmap, (
+        "§4.9 must reference the actual error message that triggered the redesign"
+    )
+    assert "prevent_destroy" in roadmap, "§4.9 must explain why prevent_destroy was abandoned"
+    assert "state rm" in roadmap and "terraform import" in roadmap, (
+        "§4.9 must document the replacement pattern (state rm + terraform import)"
+    )
+    # 別 sprint 候補 (将来 strict 化) が backlog として残っている
+    assert "Stack 分離" in roadmap or "Cloud Scheduler 自動 undeploy" in roadmap, (
+        "§4.9 must record stronger-protection backlog (stack split / auto-undeploy / "
+        "billing alert / health check) so the lessons trigger future hardening"
+    )

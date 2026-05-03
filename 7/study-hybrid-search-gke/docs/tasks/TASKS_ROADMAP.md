@@ -10,20 +10,34 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 現在地 (2026-05-03 21:xx JST 更新)
+## 現在地 (2026-05-03 朝〜午前 更新)
 
-停止点:
+停止点 (前夜):
 - destroy-all を 2 回失敗 (`prevent_destroy` 仕様欠陥) → 緊急 `gcloud delete --async` で主要課金 resource (Composer / GKE / Cloud Run) を直接削除
 - destroy_all.py / deploy_all.py を **state rm + terraform import pattern** に根本修正 (詳細 §4.9 K fix)
-- 新 destroy-all の live 1 周 verify はまだ未実施 (= 次セッションの最初の作業)
+
+朝の現状確認結果 (2026-05-03 朝):
+- GCP 側: Composer / GKE / Cloud Run / Composer = 0 件 (緊急 cleanup 完了済) ✅
+- VVS Index / Endpoint: 残置 (永続化対象 = 仕様通り) ✅
+- tfstate: **151 entries 残存** (= GCP 側に存在しない resource の orphan、緊急 cleanup の副作用)
+
+午前の追加作業 (本 session、2026-05-03):
+- **destroy-all contract test 拡張** (旧 9 → **新 12 件**): 昨晩実際に詰まった事象 (Composer/GKE/Cloud Run hang) は構造的 guard だけでは捕まえられないため、incident postmortem を契約として固定化
+  - `test_runbook_documents_emergency_kill_switch_for_composer_gke_cloudrun`: `gcloud composer/container/run delete --async` の 3 経路が runbook に揃っている
+  - `test_runbook_documents_orphan_state_cleanup_after_emergency_delete`: 緊急 cleanup 後の tfstate orphan 回復手順が runbook に明記
+  - `test_destroy_all_lessons_learned_documented_in_roadmap`: §4.9 に `prevent_destroy` 撤回経緯 + state rm 採用理由 + 将来 strict 化 backlog が残っている (= 同じ誤った PR の再導入を block)
+- **runbook §1.4-emergency 新節追加**: 緊急 kill switch コマンド (4 行コピペ可) + tfstate orphan cleanup 手順 + 状態確認チェックリスト
+- 検証: `make check` **649 passed, 1 skipped** (新 3 contract test PASS)
 
 完了済み実装・検証の正本:
-- [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md)
-- [`docs/05_運用.md`](../runbook/05_運用.md)
+- [`docs/architecture/03_実装カタログ.md`](../architecture/03_実装カタログ.md)
+- [`docs/runbook/05_運用.md`](../runbook/05_運用.md) (§1.4-emergency 追加済)
+- [`tests/integration/workflow/test_destroy_all_contract.py`](../../tests/integration/workflow/test_destroy_all_contract.py) (12 件)
 - §4.9 (本 roadmap、VVS 永続化アーキテクチャ + 失敗事故 + 教訓)
 
 ### 残り作業
 
+- **tfstate orphan cleanup** (151 entries): runbook §1.4-emergency の手順で `state rm` ループ実行、または `terraform destroy` 自体を再走させて `[6/6]` 本体 destroy を完了させる
 - **新 destroy-all の live 1 周 verify** (詳細 §4.9): fresh から `deploy-all` → 動作確認 → `destroy-all` で `[2/6++] state rm` + `[6/6] complete` まで通す
 - **DAG import error 修正**: `composer_deploy_dags.py` の upload layout を変更済 (pipeline package shim + data/ folder へ SQL upload、646 PASS 反映済)。残: live で `task SUCCEEDED` を狙うか別 sprint へ送るかの判断 (§4.1 参照)
 - `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認 (深追いは別 sprint 候補)
@@ -33,7 +47,6 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 補足:
 - 完了条件は `destroy-all -> deploy-all -> composer-deploy-dags -> run-all-core -> destroy-all`
 - 実測・恒久対処の詳細は `03_実装カタログ.md` と `05_運用.md` を正本とし、この roadmap には再掲しない
-- 寝る前 cleanup の現状: Composer = DELETING、GKE = STOPPING、Cloud Run = 削除完了。tfstate は今 destroy-all が `[6/6]` 進行中 (= 完了して空にできる見込み、明日朝の `terraform state list | wc -l` で 0 を確認)
 
 ---
 
@@ -92,10 +105,13 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 
 ### 4.0 Wave 2 残タスク
 
-- [ ] Composer DAG import layout 修正
-- [ ] `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認
-- [ ] `make run-all-core` PASS 維持確認
-- [ ] `make destroy-all` の最終 re-verify (新 `prevent_destroy` + `PERSISTENT_VVS_RESOURCES` の live 検証も兼ねる — §4.9 参照)
+- [x] Composer DAG import layout 修正 (`composer_deploy_dags.py` 反映済、646 PASS)
+- [x] **destroy-all contract test 拡張** (旧 9 → 新 12 件、incident postmortem を契約化、本 session 2026-05-03)
+- [x] **runbook §1.4-emergency 新節追加** (緊急 kill switch + orphan state cleanup + 状態確認 checklist、本 session 2026-05-03)
+- [ ] tfstate orphan cleanup (151 entries → 0 or 永続化 2 entries のみ)
+- [ ] `make destroy-all` の最終 re-verify (新 state rm + import pattern の live 検証 — §4.9 参照)
+- [ ] `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認 (深追いは別 sprint 候補)
+- [ ] `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
 - [ ] `tests/integration/parity/*` の live 実行
 
 ### 4.1 Stage 3.5 未解決
@@ -160,7 +176,7 @@ Composer DAG smoke の現状:
 - [`tests/integration/workflow/test_destroy_all_contract.py::test_destroy_all_persists_vvs_index_and_endpoint`](../../tests/integration/workflow/test_destroy_all_contract.py): contract を更新 — (1) lifecycle block 内に `prevent_destroy = true` が **無い** (2) destroy_all が `state_rm` で永続化を実施 (3) deploy_all が `import_persistent_vvs_resources` を呼ぶ
 - [`docs/runbook/05_運用.md §1.4`](../runbook/05_運用.md): 「残るもの」に Index / Endpoint を追加、deploy-all 短縮効果 (27 min → 10-15 min) を明記
 
-検証: 646 PASS、`terraform validate` Success
+検証: **649 PASS** (本 session 朝 contract test 3 件追加で 12 件、646 → 649)、`terraform validate` Success
 
 期待効果:
 
@@ -173,14 +189,17 @@ Composer DAG smoke の現状:
 #### 残タスク
 
 **今 sprint の最終 verify**:
-- [ ] **新 destroy-all (state rm + import pattern) の live 1 周検証**: 緊急対処で `gcloud delete --async` を直接叩いた状態から、`make deploy-all` → 動作確認 → `make destroy-all` を fresh で 1 周し、(a) `[2/6++] state rm 永続化 VVS` ログが出る (b) `[6/6]` 本体 destroy が complete で終わる (c) GCP 上に Index / Endpoint だけ残る (d) 次回 deploy-all step 6 で `terraform import` ログが出て deployed_index のみ create される、を確認
+- [x] **incident postmortem の contract 固定化** (本 session 朝): 旧 9 → 新 12 contract test、runbook §1.4-emergency 追加、`make check` 649 PASS
+- [ ] **tfstate orphan cleanup** (現状 151 entries 残置): runbook §1.4-emergency の「緊急 cleanup 後の tfstate 整合性回復」手順 (= `state list` で grep 抽出 → `state rm` ループ) で 0 or 永続化 2 entries まで整理。または `make destroy-all` 自体を再走させて `[6/6]` 本体 destroy を完了させる
+- [ ] **新 destroy-all (state rm + import pattern) の live 1 周検証**: tfstate cleanup 完了後、fresh 状態から `make deploy-all` → 動作確認 → `make destroy-all` を 1 周し、(a) `[2/6++] state rm 永続化 VVS` ログが出る (b) `[6/6]` 本体 destroy が complete で終わる (c) GCP 上に Index / Endpoint だけ残る (d) 次回 deploy-all step 6 で `terraform import` ログが出て deployed_index のみ create される、を確認
 - [ ] state cleanup: tfstate を完全 fresh にしてから上記 1 周を回したいなら `gcloud storage rm --recursive gs://mlops-dev-a-tfstate/hybrid-search-cloud/` を 1 回叩く (任意)
 
 **今 sprint で得られた教訓 (lesson learned)**:
 - `terraform lifecycle.prevent_destroy = true` は依存閉包内で touch される resource は block できない。**state 操作 (state rm / state import) で表現するほうが安全**
-- destroy-all は冪等であるべきだが、全 step PASS を通せていない場合の手動 cleanup 経路 (`gcloud composer environments delete --async` 等) を runbook に明示する必要あり (現状 [docs/05_運用.md §1.4](../runbook/05_運用.md) は normal path しか書かれていない)
-- destroy-all 失敗時の **state inconsistency 検出** が無い: `state list | wc -l` が想定より多ければ alert する health check を `make` に追加する余地あり
-- 緊急時 `gcloud composer environments delete --async` + `gcloud container clusters delete --async` + `gcloud run services delete` の 3 つで主要課金は数分で止まる事を確認 (= **ad hoc kill switch** として runbook 化候補)
+- destroy-all は冪等であるべきだが、全 step PASS を通せていない場合の手動 cleanup 経路 (`gcloud composer environments delete --async` 等) を runbook に明示する必要あり → **本 session 朝で [docs/05_運用.md §1.4-emergency](../runbook/05_運用.md) に追加済 ✅** (緊急 kill switch + tfstate orphan cleanup 手順 + 状態確認 checklist)
+- 緊急時 `gcloud composer environments delete --async` + `gcloud container clusters delete --async` + `gcloud run services delete` の 3 つで主要課金は数分で止まる事を確認 → **runbook §1.4-emergency に固定化済 ✅**
+- incident postmortem は **contract test として固定化** しないと将来同じ誤った PR で再導入されるリスクあり → **本 session 朝で [test_destroy_all_contract.py](../../tests/integration/workflow/test_destroy_all_contract.py) に 3 件追加済 ✅** (旧 9 → 新 12 件): runbook 緊急節 / orphan cleanup 手順 / §4.9 lesson learned の存在を pin
+- destroy-all 失敗時の **state inconsistency 検出** が未実装: `state list | wc -l` が想定より多ければ alert する health check を `make destroy-status` として追加する案を別 sprint へ (下記 backlog)
 
 **別 sprint 候補 (Wave 2 / Wave 3 跨ぎ)**:
 - [ ] **Stack 分離 (PR 1-3 相当)**: `infra/terraform/stacks/{persistent,vector_search,core}/` に分離し、`terraform_remote_state` で接続。core stack の destroy で deployed_index のみ消える設計が構造化され、誤って Index / Endpoint を destroy 対象にしてしまう事故を block (state rm pattern より strong な保護)
@@ -220,8 +239,9 @@ Composer DAG smoke の現状:
 
 | ID | フェーズ | 状態 | メモ |
 |---|---|---|---|
-| M-Local | ローカル | ✅ | 詳細は `03_実装カタログ.md` を参照 |
-| M-GCP | GCP | ⏳ | Composer DAG smoke 修正と最終 re-verify が残り |
+| M-Local | ローカル | ✅ | 詳細は `03_実装カタログ.md` を参照。`make check` 649 PASS |
+| M-Contract | destroy-all 契約 | ✅ | 旧 9 → 新 12 件 (incident postmortem を契約化、本 session 朝 2026-05-03)。runbook §1.4-emergency 緊急 kill switch + tfstate orphan cleanup 手順を追加 |
+| M-GCP | GCP | ⏳ | tfstate orphan cleanup (151 entries) + 新 destroy-all live 1 周 verify が残り。Composer DAG smoke の `task SUCCEEDED` 深追いは別 sprint |
 | M-Docs | docs | ⏳ | `01_仕様と設計.md` の最終同期が残り |
 
 ---

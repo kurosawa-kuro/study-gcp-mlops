@@ -160,7 +160,9 @@ def main() -> int:
             print(f"    state rm: {addr}")
             rm_count += 1
     if rm_count:
-        print(f"==> [2/6++] state rm 永続化 VVS {rm_count} addr (GCP 残置、次回 deploy-all で import)")
+        print(
+            f"==> [2/6++] state rm 永続化 VVS {rm_count} addr (GCP 残置、次回 deploy-all で import)"
+        )
 
     print("==> [3/6] wipe GCS buckets (force_destroy=false blockers)")
     gcs_cleanup.wipe_all_terraform_managed_buckets(project_id)
@@ -242,9 +244,7 @@ def main() -> int:
     destroy_addrs = [a for a in all_addrs if not a.startswith(persistent_prefixes)]
 
     if not destroy_addrs:
-        print(
-            "==> [6/6] state は永続化 VVS resource のみ — 本体 destroy をスキップ"
-        )
+        print("==> [6/6] state は永続化 VVS resource のみ — 本体 destroy をスキップ")
         return 0
 
     excluded = len(all_addrs) - len(destroy_addrs)

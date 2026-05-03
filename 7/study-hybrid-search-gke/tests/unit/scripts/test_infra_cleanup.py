@@ -192,7 +192,12 @@ def test_wait_for_deployed_index_absent_early_exits_on_ready_state() -> None:
 def test_deployed_index_state_classifies_ready_vs_transitional() -> None:
     """`indexSyncTime` あり → ready / なし → transitional / 存在せず → absent."""
     payload_ready = json.dumps(
-        [{"name": "ep-a", "deployedIndexes": [{"id": "x_v3", "indexSyncTime": "2026-05-03T00:00:00Z"}]}]
+        [
+            {
+                "name": "ep-a",
+                "deployedIndexes": [{"id": "x_v3", "indexSyncTime": "2026-05-03T00:00:00Z"}],
+            }
+        ]
     )
     payload_transitional = json.dumps([{"name": "ep-a", "deployedIndexes": [{"id": "x_v3"}]}])
     payload_absent = json.dumps([{"name": "ep-a", "deployedIndexes": []}])

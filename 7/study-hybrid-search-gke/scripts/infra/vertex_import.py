@@ -92,12 +92,12 @@ def import_persistent_vvs_resources(
         if endpoint and endpoint.get("name"):
             # gcloud は numeric project の resource name を返す。Terraform import は
             # この form をそのまま受ける。
-            if _terraform_import(infra_dir, ENDPOINT_ADDR, endpoint["name"], terraform_var_args=var_args):
+            if _terraform_import(
+                infra_dir, ENDPOINT_ADDR, endpoint["name"], terraform_var_args=var_args
+            ):
                 imported += 1
         else:
-            print(
-                f"==> {ENDPOINT_ADDR}: GCP にも state にも存在しない — 初回 deploy 扱いで skip"
-            )
+            print(f"==> {ENDPOINT_ADDR}: GCP にも state にも存在しない — 初回 deploy 扱いで skip")
 
     # ---- Index ----
     if _state_has(infra_dir, INDEX_ADDR):
