@@ -23,12 +23,14 @@
 |---|---|---|
 | 2026-05-03 | **V5 E2E 締め** | Run `manual__2026-05-03T09:18:07+00:00`: `check_retrain` / `submit_train_pipeline` / `wait_train_succeeded` / `gate_auto_promote` **success**、`promote_reranker` **skipped**（`AUTO_PROMOTE=false`）。`make ops-livez` / `make ops-search-components` **緑**（lexical / semantic / rerank）。→ **死守ラインは実測クローズ**。 |
 | (参照) | IAM / runner | `sa-composer`→`sa-pipeline` actAs + pipeline-root 書き込み、runner 再ビルド・`[{` JSON 抽出修正などは実装カタログ / 進捗ログ履歴を参照。 |
+| **2026-05-03** (JST 夕) | **V4** | `make deploy-all` **exit 0**（全 15 step、step 6 tf-apply ~421s含む・計 ~14.7 min）。ログ `_v4_deploy_all.log`。 |
+| **2026-05-03** (JST 夕) | **V6** | `RUN_LIVE_GCP_ACCEPTANCE=1 pytest … -m live_gcp` **FAILED**（計 ~48 min）。`destroy-all` 後の **`deploy-all`** で Vertex **409**（`FeatureGroup` / `FeatureOnlineStore` が **削除中の同名**に再作成しようとした）+ Terraform **Invalid target address**。ログ `_v6_acceptance.log`。 |
+| **2026-05-03** (JST 夕) | **V3** | `make destroy-all` **exit 0**（計 ~8 min）。ログ `_v3_destroy_all.log`。 |
 
-**次に実行（優先順・死守以外）**:
+**次に実行（V6 再試行・環境復旧）**:
 
-1. **V4** — 2 周目 `make deploy-all`（[`04_検証.md` §0 **V4**](../runbook/04_検証.md)）: step 6 で **`terraform import` / state_recovery** ログ、`deployed_index` のみ create、所要 **10–15 min** 目安を確認。
-2. **V6** — opt-in live: `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（破壊的・専用 dev project のみ）。オフライン parity は `pytest tests/integration/parity/`。
-3. **V3** — **最後・破壊的**: [`make destroy-all`](../runbook/05_運用.md) live 1 周（§4.9 / roadmap）。
+1. **復旧**: 現状 **スタックは teardown 済み寄り**（V6 失敗後に V3 `destroy-all` まで実施）。通常運用に戻すなら **`make deploy-all`** を改めて実行（Vertex の **409** は destroy 直後は **15–60 min** 程度あとで再試行するか、[§4.9 / state_recovery](../tasks/TASKS_ROADMAP.md) に沿って **plan を確認**）。
+2. **V6 再試行**: 復旧後かつ Vertex **409** が解消したタイミングで `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`。**Invalid target address** は `terraform state list` で該当 `-target` と実 state のズレを確認。
 
 **再検証（Composer E2E だけ繰り返す場合）**: `make composer-deploy-dags` → `make ops-composer-trigger DAG=retrain_orchestration` → **`make ops-composer-task-states`** → `make ops-livez` / `make ops-search-components`。Terraform 単体は `make tf-plan` 経由。
 
@@ -59,9 +61,9 @@
 ### 優先順位（同列にしない）
 
 1. **✅ 死守（完了）** — V5 E2E（上 checklist・2026-05-03 Run で実測クローズ）
-2. **🟡 準死守（着手本線）** — **V4** 2 周目 `deploy-all`（`terraform import` 経路の live）
-3. **🟢 余力** — **V6** `parity` / `live_gcp`（e2e acceptance gate・[`04_検証.md` §0](../runbook/04_検証.md)）
-4. **⚪ 最後** — **V3** `destroy-all`（破壊的）
+2. **✅ V4** — 2 周目 `make deploy-all` **実測済**（2026-05-03 JST 夕）
+3. **❌→再試行** — **V6** e2e `live_gcp` は **失敗**（409 + Invalid target）。復旧後に再実行。
+4. **✅ V3** — `make destroy-all` **実測済**（同一セッション・exit 0）
 
 ### コピー用（対外向け）
 
@@ -75,7 +77,7 @@
 
 **死守**: V5 E2E ✅（上 checklist）
 
-**並び順（実行順）**: ~~V5 E2E~~ ✅ → **V4** → **V6** → **V3**
+**並び順（実行順）**: ~~V5 E2E~~ ✅ → ~~**V4**~~ ✅ → **V6**（要再試行）→ ~~**V3**~~ ✅
 
 ## 今回はやらない
 
@@ -85,7 +87,9 @@
 
 - [x] `make check` / `deploy-all` / `run-all-core`
 - [x] **死守ライン**（本ファイル checklist 全項目）
-- [ ] **V4** → **V6** → **V3**（上「優先順位」・[`04_検証.md` §0](../runbook/04_検証.md) の残ゲート）
+- [x] **V4** 2 周目 `deploy-all`（2026-05-03 実測）
+- [ ] **V6** e2e `live_gcp`（**未達**・409 / Invalid target → 復旧後に再試行）
+- [x] **V3** `destroy-all`（2026-05-03 実測）
 - [ ] canonical 経路・parity invariant の完全締め — [`04_検証.md`](../runbook/04_検証.md)
 
 ## 参照

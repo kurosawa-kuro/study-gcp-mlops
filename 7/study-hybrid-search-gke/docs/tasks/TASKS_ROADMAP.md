@@ -1,6 +1,10 @@
 # 02. 移行ロードマップ — 検索アプリを最新仕様へ
 
-Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md) §1-§3 / 親 [docs/01_仕様と設計.md](../../../../docs/architecture/01_仕様と設計.md) / 本 phase [docs/01_仕様と設計.md](../architecture/01_仕様と設計.md)) に追従させるための移行計画。
+Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md) §1-§4 / 親 [docs/architecture/01_仕様と設計.md](../../../../docs/architecture/01_仕様と設計.md) / 本 phase [docs/architecture/01_仕様と設計.md](../architecture/01_仕様と設計.md)) に追従させるための移行計画。
+
+> **2026-05-03 教育コード化方針の改訂**: コード化対象を **Phase 1 / 2 / 3 / 4 / 7** に限定。Phase 5 / 6 は **論理 Phase** (個別コード保守なし、本 Phase 7 完成版コードを参照する資料中心の Phase)。Phase 4 は **本 Phase からの引き算ではなく Phase 3 からの足し算** で独立コード化 (GCP MLOps 土台、Vertex AI 以降は含めない)。詳細は [`../../../../docs/architecture/教育コード化についての仕様変更.md`](../../../../docs/architecture/教育コード化についての仕様変更.md)。
+>
+> 本 Phase 7 は **教材コード完成版 / canonical 起点** であり、Phase 5 / 6 の技術要素 (Vertex AI Pipelines / Feature Store / Vertex Vector Search / Cloud Composer 本線 + PMLE 4 技術) を本 phase 配下に集約する。
 
 > **方針**: **Wave 1 = 検索アプリ自体 (app / ml / pipeline コード)** を先に整える。**Wave 2 = GCP インフラ (Terraform / IAM / deploy)** はその後。Wave 3 は docs / reference architecture との整合確認のみ (コード変更なし)。
 >
@@ -72,7 +76,7 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 - **Feature Store (Phase 5 必須)** を Phase 7 でも継承: training-serving skew 防止のため、Feature Online Store 経路を canonical とする
 - **Meilisearch / Redis 同義語辞書は据え置き**: 実案件 reference architecture (Elasticsearch + Redis 同義語辞書) を教材向け substitute で維持しつつ、本 phase でも中核コードの意味を崩さない
 - **Feature parity invariant 6 ファイル原則** は SemanticSearch / FeatureFetcher 変更でも継続 PASS
-- **Cloud Composer は Phase 6 で導入 (本線昇格 + PMLE DAG 増設)、Phase 7 で継承**: Phase 6 で `daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation` の 3 本 DAG が orchestration 本線になり、PMLE step (Dataflow / BQML / SLO / Explainability) も同 DAG に増設される。Vertex `PipelineJobSchedule` は Phase 6 で完全撤去、Cloud Scheduler / Eventarc / Cloud Function trigger は本線から軽量代替へ格下げ (= Phase 5 → 6 引き算境界)。Phase 5 では Composer は導入せず、Phase 4 軽量経路を本線として継続。Phase 7 はそのまま継承し、orchestration 二重化を作らない (詳細は親 [`README.md` §「Cloud Composer の位置づけ」](../../../../README.md))。Wave 2 GCP インフラの中で Composer 関連 (Composer 環境 Terraform 継承確認 + DAG deploy) も含む
+- **Cloud Composer は Phase 7 = canonical で本実装、Phase 6 が論理境界 (2026-05-03 改訂)**: 本 Phase 7 で `daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation` の 3 本 DAG が orchestration 本線として本実装されており、PMLE step (Dataflow / BQML / SLO / Explainability) も同 DAG に増設済み。Vertex `PipelineJobSchedule` は完全撤去、Cloud Scheduler / Eventarc / Cloud Function trigger は本線から軽量代替へ格下げ。Phase 5 / 6 は論理 Phase であり、Phase 5 では Composer は理解上扱わず、Phase 4 軽量経路を本線として継続するという理解。Phase 6 は Composer 本線化の論理境界として位置づけ、Phase 7 配下の本実装を参照する。orchestration 二重化を作らない (詳細は親 [`README.md` §「Cloud Composer の位置づけ」](../../../../README.md))。Wave 2 GCP インフラの中で Composer 関連 (Composer 環境 Terraform + DAG deploy) も含む
 
 ---
 
@@ -135,9 +139,9 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 
 **現状**: BashOperator 経路は撤去済み。**KubernetesPodOperator** + **composer-runner** + `_pod.py`（[`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5）。`check_retrain` は live success（Run 4）。**クライアント説明に必要な完了条件**は §0 / [`TASKS.md`](TASKS.md) の **死守ライン**（全文 DAG + `/search` 健全性）まで。**「task SUCCEEDED は別 sprint」という記述は行わない**。
 
-### 4.7 Cloud Composer 本実装 (W2-4、Phase 7 = canonical / 引き算で Phase 6 派生)
+### 4.7 Cloud Composer 本実装 (W2-4、Phase 7 = canonical / Phase 6 は論理境界)
 
-**Phase 7 で Composer module / 3 DAG / make target / scripts を本実装する** (= 教材コード完成版の到達ゴールに必要な技術が Phase 7 に揃っている前提。引き算チェーン上の Phase 6 論理境界は別 phase 作業で派生させる)。
+**Phase 7 で Composer module / 3 DAG / make target / scripts を本実装する** (= 教材コード完成版 / canonical 起点に必要な技術が Phase 7 に揃っている。Phase 6 は論理 Phase として本 Phase の本実装を参照する位置づけ)。
 
 実装済み内容は [`docs/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を正本とする。
 
