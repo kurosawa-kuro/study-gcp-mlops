@@ -146,13 +146,15 @@ def test_top_level_dag_listing_excludes_underscore_files() -> None:
 
 def test_pipeline_pkg_files_listed_with_gcs_relative_paths() -> None:
     """`pipeline/__init__.py` + `pipeline/dags/__init__.py` + `pipeline/dags/_common.py`
-    の 3 件を、Composer DAG bucket 上の階層 (`pipeline/...`) を保持して upload する。"""
+    + `pipeline/dags/_pod.py` の 4 件を、Composer DAG bucket 上の階層 (`pipeline/...`)
+    を保持して upload する (V5: `python_pod` helper)。"""
     pkg = composer_deploy_dags._list_pipeline_pkg_files()
     relatives = sorted(rel for _, rel in pkg)
     assert relatives == [
         "pipeline/__init__.py",
         "pipeline/dags/__init__.py",
         "pipeline/dags/_common.py",
+        "pipeline/dags/_pod.py",
     ]
     for local_path, _ in pkg:
         assert local_path.is_file(), f"pipeline pkg shim file missing: {local_path}"

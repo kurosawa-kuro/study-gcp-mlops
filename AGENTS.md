@@ -5,6 +5,31 @@
 Agent operating guide for this monorepo-style learning project.
 Use this file for cross-phase behavior only; phase-specific details belong to each phase-local doc.
 
+This file is the **Cursor / Codex-style project charter** for agents (parallel to root [`CLAUDE.md`](CLAUDE.md), which is optimized for Claude Code). Prefer [`CLAUDE.md`](CLAUDE.md) for the fullest constraint text; use this file for quick routing and **tool-equivalence** below.
+
+### Claude Code ↔ Cursor mapping (concept-level)
+
+| Claude Code concept | Role | Cursor equivalent in this repo |
+| --- | --- | --- |
+| `CLAUDE.md` | Always-loaded charter, build/test, bans | [`CLAUDE.md`](CLAUDE.md) + this [`AGENTS.md`](AGENTS.md) + `<phase>/CLAUDE.md` |
+| `.claude/rules/` | Path- or mode-specific rules | [`.cursor/rules/*.mdc`](.cursor/rules/) (this repo has no `.claude/rules/`; rules are split between `CLAUDE.md` and `.cursor/rules/`) |
+| Subagents / custom agents | Specialized agent prompts | Cursor Agent / Cloud Agent; **reference prompts** (read-only handoff): [`.claude/agents/*.agent.md`](.claude/agents/) |
+| Skills | Reusable procedures | Cursor **Agent Skills** (editor-level); repo sources: [`.claude/skills/`](.claude/skills/), [`.github/skills/`](.github/skills/) |
+| Slash commands / commands | Manual bootstraps | [`.cursor/commands/`](.cursor/commands/) and [`.claude/commands/`](.claude/commands/) (keep text in sync when possible) |
+| Hooks | Deterministic post-edit scripts | [`.claude/hooks/`](.claude/hooks/) (Claude Code). Cursor: optional [Hooks](https://cursor.com) or rely on CI / `make check` |
+| MCP | External systems | Configured in Cursor **MCP** settings (per user/env) |
+| Review rules | Reviewer policy, bug patterns | [`.cursor/rules/`](.cursor/rules/) + team review / Bugbot if enabled |
+
+### Tool surface mapping (where each concern lives)
+
+| Concern | Claude Code | Cursor (this repo) |
+| --- | --- | --- |
+| Charter / “read first” | `CLAUDE.md` | `AGENTS.md` + `CLAUDE.md` |
+| Fine-grained rules | `CLAUDE.md` sections + (optional) `.claude/rules/` | `.cursor/rules/*.mdc` |
+| Agent role prompts | `.claude/agents/*.agent.md` | Same files as **documentation**; paste or @-reference in chat when simulating that role |
+| Skills | `.claude/skills/<name>/SKILL.md` | Same paths; optional mirror in user Agent Skills |
+| Commands | `.claude/commands/*.md` | `.cursor/commands/*.md` |
+
 ## Repository Shape
 
 - This repository contains independent phases under `1/` through `7/`.
@@ -89,7 +114,11 @@ Real-world reference architecture (in design docs only, not in code): Elasticsea
 
 ## Existing Chat Customizations
 
-- Custom agent: [.github/agents/gcp-mlops-theme-research.agent.md](.github/agents/gcp-mlops-theme-research.agent.md)
-- Custom skill: [.github/skills/phase-doc-sync/SKILL.md](.github/skills/phase-doc-sync/SKILL.md)
+- Cursor rules: [`.cursor/rules/`](.cursor/rules/) (`study-gcp-mlops-core.mdc`, `python-fastapi-ml.mdc`, `terraform-gcp-mlops.mdc`)
+- Cursor command: [`.cursor/commands/check-parity.md`](.cursor/commands/check-parity.md) (alias intent of [`.claude/commands/check-parity.md`](.claude/commands/check-parity.md))
+- Claude Code agents: [`.claude/agents/`](.claude/agents/) (use as **prompt references** in Cursor)
+- Claude Code skills: [`.claude/skills/`](.claude/skills/)
+- GitHub: [.github/agents/gcp-mlops-theme-research.agent.md](.github/agents/gcp-mlops-theme-research.agent.md)
+- GitHub skill: [.github/skills/phase-doc-sync/SKILL.md](.github/skills/phase-doc-sync/SKILL.md)
 
 Use them when tasks match their scope; otherwise follow this AGENTS guide and phase-local instructions.

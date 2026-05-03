@@ -71,9 +71,7 @@ with DAG(
         region=DATAFORM_REGION,
         repository_id=DATAFORM_REPO,
         workflow_invocation={
-            "compilation_result": (
-                "{{ task_instance.xcom_pull('dataform_compile')['name'] }}"
-            ),
+            "compilation_result": ("{{ task_instance.xcom_pull('dataform_compile')['name'] }}"),
         },
     )
 

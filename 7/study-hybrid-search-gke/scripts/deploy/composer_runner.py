@@ -48,14 +48,9 @@ def main() -> int:
     sha = resolve_git_sha()
 
     image_tag = f"{sha}-{int(time.time())}"
-    image_uri = (
-        f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/{IMAGE_NAME}:{image_tag}"
-    )
+    image_uri = f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/{IMAGE_NAME}:{image_tag}"
 
-    _step(
-        f"build-composer-runner start project={project_id} region={region} "
-        f"repo={artifact_repo}"
-    )
+    _step(f"build-composer-runner start project={project_id} region={region} repo={artifact_repo}")
     _info(f"image_uri={image_uri}")
 
     _step("[1/2] Cloud Build submit (async)")
@@ -89,9 +84,7 @@ def main() -> int:
 
     # latest tag を mutable な「現在の本線 image」として AR の "latest" に張り直す。
     # DAG 側は :latest を pin することで毎回 build で URL を書き換えなくて済む。
-    latest_uri = (
-        f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/{IMAGE_NAME}:latest"
-    )
+    latest_uri = f"{region}-docker.pkg.dev/{project_id}/{artifact_repo}/{IMAGE_NAME}:latest"
     _step(f"[bonus] tag {image_uri} as :latest ({latest_uri})")
     import subprocess
 
