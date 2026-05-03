@@ -36,7 +36,7 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 | 4 | **tfstate orphan cleanup** (緊急 cleanup の副作用 151 entries → 0) | ✅ | 2026-05-03 昼: stale `default.tflock` を `gcloud storage rm` で除去、150 entries を `state rm` ループで全削除、永続化 VVS 2 entries 含めて state count = **0** に到達 |
 | 5 | **state_recovery.py 徹底実装** (12 GCP resource type、`alreadyExists` fail 回避) | ✅ | `scripts/infra/state_recovery.py` 新規 (660 行)。`alreadyExists` を 5 回 attempt の中で incremental に発見した resource type を全て吸収:<br/>・**IAM SA** 12 entries (composer 含む)<br/>・**BQ** dataset 3 + table 10<br/>・**Pub/Sub** topic 4 + subscription 3<br/>・**Cloud Function** 1 (pipeline-trigger)<br/>・**Eventarc** 2 trigger<br/>・**Cloud Run** 1 (meili-search)<br/>・**Artifact Registry** 1 (mlops)<br/>・**Secret Manager** 2 (meili-master-key, search-api-iap-oauth-client-secret)<br/>・**Dataform** 1 (hybrid-search-cloud)<br/>・**GCS bucket** 4 (models/artifacts/pipeline-root/meili-data)<br/>・**Vertex Feature Store** (Feature Group / Feature Online Store / Feature View)<br/>・**Vertex Feature Group Feature** 7 (rent/walk_min/age_years/area_m2/ctr/fav_rate/inquiry_rate)<br/>`deploy_all.py::_run_tf_apply` で tf-apply 直前に呼出し、idempotent (state にあれば skip / GCP に無ければ skip)。`make state-recover` も追加 |
 | 6 | offline 検証 | ✅ | `make check` **649 passed, 1 skipped** / `make check-layers` PASS / `make tf-validate` Success / contract test 15/15 PASS |
-| 7 | live verify (`deploy-all` / `run-all-core` / `check_retrain`) | ✅ | Run 6 完走・同一 sprint で検証（実装カタログ検証表）。**destroy-all** 1 周は [`TASKS.md`](TASKS.md) の優先順位どおり **V5 E2E 後** |
+| 7 | live verify (`deploy-all` / `run-all-core` / `check_retrain` / **V5 E2E**) | ✅ | Run 6 + **2026-05-03 Composer 再学習 E2E**（実装カタログ・[`TASKS.md`](TASKS.md)）。**destroy-all** は [`TASKS.md`](TASKS.md) どおり **最後（V3）** |
 
 ### 完了済み実装・検証の正本
 
@@ -48,12 +48,12 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ### 残り作業（優先順位は [`TASKS.md`](TASKS.md) に集約）
 
-1. **死守** — Composer 経由 **V5 E2E**（`submit_train_pipeline`〜`/search` 健全性）。実装差分・Run 4 背景は実装カタログ § Composer/V5。
-2. **準死守** — V4 2 周目 deploy  
-3. **余力** — V6 parity live_gcp  
-4. **最後** — V3 destroy-all live  
+1. **✅ 死守** — **V5 E2E** は **2026-05-03 Run** で実測クローズ（[`TASKS.md`](TASKS.md) checklist）。
+2. **準死守（本線）** — **V4** 2 周目 `deploy-all`（`terraform import` / state_recovery 経路の live）
+3. **余力** — **V6** parity / `live_gcp`（e2e acceptance gate）
+4. **最後** — **V3** `destroy-all` live（破壊的）
 
-補足: `deploy-all` / `run-all-core` / `check_retrain` live は達成済み（実装カタログ検証表）。長文の再掲はしない。
+補足: `deploy-all` Run 6、`run-all-core`、`check_retrain` live は達成済み（実装カタログ検証表）。長文の再掲はしない。
 
 ### 学び (本 session で固定化)
 
@@ -81,8 +81,9 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 詳細な完了差分は [`docs/architecture/03_実装カタログ.md`](../architecture/03_実装カタログ.md) を正本とする。
 
 残ギャップ（優先順は [`TASKS.md`](TASKS.md)）:
-- **V5 E2E**（死守）— `submit_train_pipeline` 以降 live + 再学習後 `/search`
-- `tests/integration/parity/*` の live 実行（余力）
+- **V4** — 2 周目 `deploy-all`（import 経路の live 再検証）
+- **V6** — opt-in `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（余力・破壊的）
+- **V3** — `destroy-all` live 1 周（最後）
 - KFP 2.16 互換の運用上の回避は DAG / runner で継続（詳細は実装カタログ）
 - [`docs/architecture/01_仕様と設計.md`](../architecture/01_仕様と設計.md) の最終同期
 
@@ -102,9 +103,8 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 
 ## 3. Wave 1 — 検索アプリ層 (本 roadmap の主タスク)
 
-残:
-- [ ] `tests/integration/parity/test_semantic_backend_parity.py` の live 実行
-- [ ] `tests/integration/parity/test_feature_fetcher_parity.py` の live 実行
+残（Wave 1 名称は歴史的経緯 — **offline parity** は `tests/integration/parity/`、**live V6** は e2e gate）:
+- [ ] **V6** — `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（旧「semantic/fetcher parity」相当の cross-check は canonical 1 経路 + e2e に集約）
 - [ ] Cloud Logging ベースの eventual consistency 観測
 - [ ] KFP 2.16 import 互換 issue の根本対処
 
@@ -126,9 +126,10 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 - [x] **state_recovery.py 徹底実装** (12 GCP resource type、5 回 attempt の incremental 発見を吸収、本 session 2026-05-03 夕、§4.10 参照)
 - [x] `make deploy-all` の **live 完走** (Run 6、`state_recovery` 12 type 版 — 実装カタログ)
 - [x] `make run-all-core`（同一 sprint 実測 PASS）
-- [ ] **`retrain_orchestration` の死守 E2E** — [`TASKS.md`](TASKS.md) checklist 全項目（`submit_train_pipeline`〜`wait_train_succeeded`〜gate/promote + 再学習後 `/search`）。**hedging 禁止**（CLAUDE.md §ゴール劣化）。経緯・F1–F5・V5-8 は [`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5
-- [ ] `make destroy-all` の **live 1 周 re-verify**（§4.9、[`TASKS.md`](TASKS.md) で **V5 E2E 後・優先度「最後」**）
-- [ ] `tests/integration/parity/*` の live 実行（余力）
+- [x] **`retrain_orchestration` の死守 E2E** — [`TASKS.md`](TASKS.md) checklist（**2026-05-03 Run 実測クローズ**）。経緯・F1–F5・V5-8 は [`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5
+- [ ] **V4** — `make deploy-all` **2 周目**（import 経路・[`04_検証.md` §0 V4](../runbook/04_検証.md)）
+- [ ] **V6** — opt-in e2e live acceptance（[`tests/e2e/test_phase7_acceptance_gate.py`](../../tests/e2e/test_phase7_acceptance_gate.py)）
+- [ ] `make destroy-all` の **live 1 周 re-verify**（§4.9、[`TASKS.md`](TASKS.md) で **優先度「最後」**）
 
 ### 4.1 Composer DAG（W2-4 / V5）
 
@@ -276,7 +277,7 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 |---|---|---|---|
 | M-Local | ローカル | ✅ | 詳細は `03_実装カタログ.md` を参照。`make check` 649 PASS |
 | M-Contract | destroy-all 契約 | ✅ | 旧 9 → 新 12 件 (incident postmortem を契約化、本 session 朝 2026-05-03)。runbook §1.4-emergency 緊急 kill switch + tfstate orphan cleanup 手順を追加 |
-| M-GCP | GCP | 🟡 | **死守未達**: Composer **V5 E2E**（[TASKS.md](TASKS.md) checklist、[04_検証.md §0 補足](../runbook/04_検証.md)）。**済**: tfstate orphan **151→0**、deploy-all Run 6、run-all-core、`check_retrain` live。**未**: `destroy-all` live 1 周（V3、[TASKS.md](TASKS.md) 優先「最後」）。詳細は [03_実装カタログ.md](../architecture/03_実装カタログ.md) 検証表 |
+| M-GCP | GCP | 🟡 | **死守（V5 E2E）✅** 2026-05-03 Run。**本線残**: **V4** 2 周目 deploy-all → **V6** e2e `live_gcp` → **V3** `destroy-all`（[TASKS.md](TASKS.md)）。**済**: tfstate orphan **151→0**、deploy-all Run 6、run-all-core、Composer 再学習 E2E 完走。詳細は [03_実装カタログ.md](../architecture/03_実装カタログ.md) 検証表 |
 | M-Docs | docs | ⏳ | `01_仕様と設計.md` の最終同期が残り |
 
 ---
