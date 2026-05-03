@@ -388,16 +388,8 @@ def main(argv: list[str] | None = None) -> int:
     import os
 
     project_id = os.environ.get("PROJECT_ID", "mlops-dev-a")
-    region = (
-        os.environ.get("VERTEX_LOCATION") or os.environ.get("REGION") or "asia-northeast1"
-    )
-    infra_dir = (
-        Path(__file__).resolve().parents[2]
-        / "infra"
-        / "terraform"
-        / "environments"
-        / "dev"
-    )
+    region = os.environ.get("VERTEX_LOCATION") or os.environ.get("REGION") or "asia-northeast1"
+    infra_dir = Path(__file__).resolve().parents[2] / "infra" / "terraform" / "environments" / "dev"
     var_args: list[str] = []
     github_repo = os.environ.get("GITHUB_REPO", "").strip()
     if github_repo:

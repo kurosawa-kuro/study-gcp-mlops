@@ -317,13 +317,9 @@ def test_state_recovery_iam_sa_mapping_matches_terraform() -> None:
 
     import re as _re
 
-    declared_sas = set(
-        _re.findall(r'resource "google_service_account" "(\w+)"', iam_main_tf)
-    )
+    declared_sas = set(_re.findall(r'resource "google_service_account" "(\w+)"', iam_main_tf))
     # state_recovery.IAM_SA_NAMES tuple の中身を抽出 (multi-line tuple)
-    tuple_match = _re.search(
-        r"IAM_SA_NAMES\s*=\s*\(([^)]*)\)", state_recovery_py, flags=_re.DOTALL
-    )
+    tuple_match = _re.search(r"IAM_SA_NAMES\s*=\s*\(([^)]*)\)", state_recovery_py, flags=_re.DOTALL)
     assert tuple_match, "state_recovery.py must define IAM_SA_NAMES tuple"
     listed_sas = set(_re.findall(r'"(\w+)"', tuple_match.group(1)))
     missing = declared_sas - listed_sas

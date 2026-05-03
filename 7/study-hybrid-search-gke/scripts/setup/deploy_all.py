@@ -67,8 +67,8 @@ from scripts.deploy.seed_lgbm_model import main as seed_lgbm_main
 from scripts.infra.feature_view_sync import main as feature_view_sync_main
 from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
-from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
 from scripts.infra.state_recovery import recover_orphan_gcp_resources
+from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
 from scripts.infra.vertex_import import import_persistent_vvs_resources
 from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT, MEILI_SERVICE_NAME_DEFAULT
 from scripts.ops.sync_meili import run as sync_meili_run
@@ -192,9 +192,7 @@ def _run_tf_apply() -> int:
         terraform_var_args=list(terraform_var_args("GITHUB_REPO", "ONCALL_EMAIL")),
     )
     if recovered:
-        print(
-            f"==> {recovered} orphan resource(s) imported — tf-apply 'alreadyExists' fail 回避"
-        )
+        print(f"==> {recovered} orphan resource(s) imported — tf-apply 'alreadyExists' fail 回避")
 
     wait_for_deployed_index_absent(project_id, region, deployed_index_id)
 
