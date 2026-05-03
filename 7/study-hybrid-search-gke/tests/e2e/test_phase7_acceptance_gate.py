@@ -28,9 +28,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def _require_acceptance_env() -> None:
     if os.environ.get("RUN_LIVE_GCP_ACCEPTANCE", "").strip() != "1":
-        pytest.skip(
-            "set RUN_LIVE_GCP_ACCEPTANCE=1 to run live acceptance on existing deploy"
-        )
+        pytest.skip("set RUN_LIVE_GCP_ACCEPTANCE=1 to run live acceptance on existing deploy")
 
 
 def test_phase7_live_acceptance_on_existing_env() -> None:

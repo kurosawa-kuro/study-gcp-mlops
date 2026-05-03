@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from scripts._common import env, gcs_bucket_name, run
@@ -75,6 +77,36 @@ def _terraform_output_map() -> dict[str, str]:
     return resolved
 
 
+def _feature_online_store_public_domain_from_api(
+    project_id: str, vertex_location: str, store_id: str
+) -> str:
+    """GET FeatureOnlineStore; return dedicatedServingEndpoint.publicEndpointDomainName."""
+    proc = run(
+        ["gcloud", "auth", "print-access-token"],
+        capture=True,
+        check=False,
+    )
+    token = (proc.stdout or "").strip()
+    if proc.returncode != 0 or not token:
+        return ""
+    url = (
+        f"https://{vertex_location}-aiplatform.googleapis.com/v1beta1/"
+        f"projects/{project_id}/locations/{vertex_location}/featureOnlineStores/{store_id}"
+    )
+    req = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            payload = json.loads((resp.read() or b"").decode() or "{}")
+    except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, OSError):
+        return ""
+    dse = payload.get("dedicatedServingEndpoint") or {}
+    return str(dse.get("publicEndpointDomainName") or "").strip()
+
+
 def main() -> int:
     project_id = env("PROJECT_ID")
     if not project_id:
@@ -86,6 +118,26 @@ def main() -> int:
     print(f"[info] resolved meili_base_url={meili_url}")
     print(f"[info] models_bucket={models_bucket}")
 
+    vertex_location = env("VERTEX_LOCATION") or region
+    fos_endpoint = (tf_outputs.get("vertex_feature_online_store_endpoint") or "").strip()
+    fos_store_id = (tf_outputs.get("vertex_feature_online_store_id") or "").strip()
+    if fos_store_id and not fos_endpoint:
+        fos_endpoint = _feature_online_store_public_domain_from_api(
+            project_id, vertex_location, fos_store_id
+        )
+        if fos_endpoint:
+            print(
+                "[info] vertex_feature_online_store_endpoint resolved via Vertex API "
+                "(terraform output was empty; see vertex module lifecycle / async provisioning)"
+            )
+    if fos_store_id and not fos_endpoint:
+        raise SystemExit(
+            "[error] Feature Online Store serving endpoint is empty. "
+            "Terraform output and live Vertex API both returned no "
+            "dedicatedServingEndpoint.publicEndpointDomainName. "
+            "Wait for Optimized store provisioning after apply, then re-run overlay-configmap."
+        )
+
     data = generate_configmap_data(
         project_id=project_id,
         models_bucket=models_bucket,
@@ -96,11 +148,9 @@ def main() -> int:
         vertex_vector_search_deployed_index_id=tf_outputs.get(
             "vector_search_deployed_index_id", ""
         ),
-        vertex_feature_online_store_id=tf_outputs.get("vertex_feature_online_store_id", ""),
+        vertex_feature_online_store_id=fos_store_id,
         vertex_feature_view_id=tf_outputs.get("vertex_feature_view_id", ""),
-        vertex_feature_online_store_endpoint=tf_outputs.get(
-            "vertex_feature_online_store_endpoint", ""
-        ),
+        vertex_feature_online_store_endpoint=fos_endpoint,
     )
     cm_yaml = render_configmap_yaml(data, with_header=False)
 

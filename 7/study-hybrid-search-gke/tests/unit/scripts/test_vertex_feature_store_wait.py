@@ -7,7 +7,9 @@ import pytest
 from scripts.infra import vertex_feature_store_wait as vfs
 
 
-def test_wait_until_feature_store_names_released_exits_when_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_wait_until_feature_store_names_released_exits_when_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls = {"n": 0}
 
     def fake_token() -> str:

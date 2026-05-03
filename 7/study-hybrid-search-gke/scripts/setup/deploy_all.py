@@ -190,9 +190,7 @@ def _terraform_apply_stage1_with_retries(stage1_args: list[str]) -> None:
             )
             time.sleep(sleep_s)
             continue
-        raise subprocess.CalledProcessError(
-            proc.returncode, stage1_args, proc.stdout, proc.stderr
-        )
+        raise subprocess.CalledProcessError(proc.returncode, stage1_args, proc.stdout, proc.stderr)
 
 
 def _run_tf_apply() -> int:

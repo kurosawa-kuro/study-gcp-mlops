@@ -17,7 +17,15 @@
 
 **ルール**: Cloud Build / DAG Run / Vertex pipeline 待ちなどで手が止まるたび、直近の **状態・Run ID・次コマンド** を 1〜3 行追記する（ゴール逃げ禁止・事実のみ）。
 
-**⛔ エージェント向け（クレーム級）**: **Composer live を `env/config/setting.yaml` の手編集で直そうとしない** — 正本は **Terraform Composer `env_variables`**。無意味に長い **`sleep` ループ**と、**根拠のない `make build-composer-runner`** も禁止。状況確認は **`make ops-composer-task-states` を短時間・必要最小限**。
+**長時間ジョブ（`make deploy-all` 等）をファイルへリダイレクトして走らせる場合** — 固まり不安を避けるため、**別ターミナルでログを追う**：
+
+```bash
+tail -f /home/ubuntu/repos/study-gcp-mlops/7/study-hybrid-search-gke/_verify_deploy_all.log
+```
+
+（リダイレクト先が別名なら、そのパスに読み替える。`Still creating...` や `step N/15` が更新され続けていれば進行中。）
+
+**⛔ エージェント向け（クレーム級）**: **Composer live を `env/config/setting.yaml` の手編集で直そうとしない** — 正本は **Terraform Composer `env_variables`**。無意味に長い **`sleep` ループ**と、**根拠のない `make build-composer-runner`** も禁止。状況確認は **`make ops-composer-task-states` を短時間・必要最小限**。**`make deploy-all` をバックグラウンド／リダイレクトで開始したら**、ユーザーへ **上記 `tail -f _verify_deploy_all.log`（または実際のログパス）** を必ず案内する。
 
 | 時点 (UTC) | 状態 | メモ |
 |---|---|---|

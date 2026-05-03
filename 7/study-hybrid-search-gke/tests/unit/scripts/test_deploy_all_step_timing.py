@@ -147,6 +147,14 @@ def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
         calls.append(cmd)
         return None
 
+    import subprocess as sp
+
+    def _fake_subprocess_run(cmd: list[str], **_: object):
+        """Stage1 uses subprocess.run directly — must not invoke real terraform."""
+        fake = sp.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
+        calls.append(cmd)
+        return fake
+
     with (
         patch.dict(
             "os.environ",
@@ -158,18 +166,23 @@ def test_run_tf_apply_uses_staged_apply_and_waits_for_readiness() -> None:
             },
             clear=False,
         ),
+        patch("scripts.setup.deploy_all.subprocess.run", side_effect=_fake_subprocess_run),
         patch("scripts.setup.deploy_all.run", side_effect=_fake_run),
         patch("scripts.setup.deploy_all.wait_for_deployed_index_absent") as wait_vvs,
         patch("scripts.setup.deploy_all.ensure_kubectl_context") as ensure_ctx,
         patch("scripts.setup.deploy_all.wait_until_api_ready") as wait_k8s,
+        patch("scripts.setup.deploy_all.recover_orphan_gcp_resources", return_value=0),
+        patch("scripts.setup.deploy_all.import_persistent_vvs_resources", return_value=0),
+        patch("scripts.setup.deploy_all.wait_until_feature_store_names_released"),
     ):
         assert dall._run_tf_apply() == 0
 
     wait_vvs.assert_called_once_with("mlops-test", "asia-northeast1", "property_embeddings_v3")
     ensure_ctx.assert_called_once_with()
     wait_k8s.assert_called_once_with()
-    assert len(calls) == 2
-    first, second = calls
+    tf_calls = [c for c in calls if c and c[0] == "terraform"]
+    assert len(tf_calls) == 2, f"expected 2 terraform apply invocations, got {tf_calls!r}"
+    first, second = tf_calls
     assert "terraform" in first[0]
     assert "apply" in first
     assert "-target=module.gke" in first

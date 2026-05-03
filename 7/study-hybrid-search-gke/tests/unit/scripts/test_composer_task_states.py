@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts.ops.composer_task_states import extract_json_array, _latest_run_id_from_list_runs
+from scripts.ops.composer_task_states import _latest_run_id_from_list_runs, extract_json_array
 
 
 def test_extract_json_array_strips_prologue() -> None:

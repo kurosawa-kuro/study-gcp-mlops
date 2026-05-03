@@ -85,7 +85,7 @@ def _gcloud_composer(
         f"--location={region}",
         *subcommand_after_run,
     ]
-    # Composer API + remote Airflow can exceed 1–2 min; fail fast with a clear error.
+    # Composer API + remote Airflow can exceed 1-2 min; fail fast with a clear error.
     proc = subprocess.run(cmd, check=False, text=True, capture_output=True, timeout=300)
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode != 0 and "[" not in out:
@@ -135,7 +135,9 @@ def fetch_task_states_json(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dag-id", default="retrain_orchestration")
-    parser.add_argument("--run-id", default="", help="DAG run id (manual__...). Omit with --latest.")
+    parser.add_argument(
+        "--run-id", default="", help="DAG run id (manual__...). Omit with --latest."
+    )
     parser.add_argument(
         "--latest",
         action="store_true",

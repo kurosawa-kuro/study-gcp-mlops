@@ -297,6 +297,10 @@ resource "google_vertex_ai_feature_online_store" "property_features" {
     }
   }
 
+  # Optimized stores reject UpdateFeatureOnlineStore; Terraform must not
+  # attempt to "fix" drift on dedicated_serving_endpoint (async
+  # publicEndpointDomainName). That left terraform output empty — deploy
+  # resolves the live host via Vertex REST GET in `configmap_overlay.py`.
   lifecycle {
     ignore_changes = [
       optimized,

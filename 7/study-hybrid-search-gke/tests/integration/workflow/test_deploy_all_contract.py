@@ -126,6 +126,56 @@ def test_configmap_overlay_injects_live_vertex_outputs(monkeypatch) -> None:
     run_mock.assert_called_once()
 
 
+def test_configmap_overlay_fills_fos_endpoint_from_api_when_terraform_empty(monkeypatch) -> None:
+    """When terraform output lags (ignored drift / async domain), overlay uses live API."""
+    monkeypatch.setenv("PROJECT_ID", "mlops-test")
+    monkeypatch.setenv("REGION", "asia-northeast1")
+    monkeypatch.setenv("VERTEX_LOCATION", "asia-northeast1")
+    monkeypatch.setenv("MODELS_BUCKET", "mlops-test-models")
+
+    captured: dict[str, str] = {}
+
+    def _fake_generate(*, project_id: str, models_bucket: str, meili_base_url: str, **kwargs: str):
+        captured.update(kwargs)
+        return {"project_id": project_id}
+
+    with (
+        patch.object(
+            configmap_overlay,
+            "_resolve_meili_url",
+            return_value="https://meili.example.run.app",
+        ),
+        patch.object(
+            configmap_overlay,
+            "_terraform_output_map",
+            return_value={
+                "vector_search_index_endpoint_id": "projects/x/locations/r/indexEndpoints/123",
+                "vector_search_deployed_index_id": "property_embeddings_v3",
+                "vertex_feature_online_store_id": "store-a",
+                "vertex_feature_view_id": "view-a",
+                "vertex_feature_online_store_endpoint": "",
+            },
+        ),
+        patch.object(
+            configmap_overlay,
+            "_feature_online_store_public_domain_from_api",
+            return_value="123.asia-northeast1-999.featurestore.vertexai.goog",
+        ),
+        patch.object(configmap_overlay, "generate_configmap_data", side_effect=_fake_generate),
+        patch.object(configmap_overlay, "render_configmap_yaml", return_value="apiVersion: v1\n"),
+        patch.object(
+            subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(["kubectl"], returncode=0),
+        ),
+    ):
+        assert configmap_overlay.main() == 0
+
+    assert captured["vertex_feature_online_store_endpoint"] == (
+        "123.asia-northeast1-999.featurestore.vertexai.goog"
+    )
+
+
 def test_local_boot_contract_does_not_require_adc_when_search_disabled(monkeypatch) -> None:
     settings = ApiSettings(
         project_id="mlops-test",

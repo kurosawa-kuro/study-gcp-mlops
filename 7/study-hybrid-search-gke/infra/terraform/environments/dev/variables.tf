@@ -176,7 +176,7 @@ variable "streaming_flex_template_gcs_path" {
 # =========================================================================
 
 variable "enable_feature_online_store" {
-  description = "Provision the Vertex AI Feature Online Store + FeatureView so feature_group.py fetches return featureValues. Default true for the dev PDCA environment; cost is bounded by `make destroy-all` between cycles. The Optimized FOS API does not support UpdateFeatureOnlineStore so module.vertex applies `lifecycle.ignore_changes` to keep create-only semantics."
+  description = "Provision the Vertex AI Feature Online Store + FeatureView so feature_group.py fetches return featureValues. Default true for the dev PDCA environment; cost is bounded by `make destroy-all` between cycles. Optimized FOS rejects updates; module.vertex ignores drift on optimized/dedicated_serving_endpoint/labels. Live serving hostname for Pods comes from Vertex API in `scripts/deploy/configmap_overlay.py` when terraform output is empty."
   type        = bool
   default     = true
 }

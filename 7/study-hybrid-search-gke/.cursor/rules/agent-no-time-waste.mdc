@@ -20,3 +20,5 @@ Treat the following as **trust-breaking / customer-claim level** misuse of the u
 3. **No blind retries** — After a failure, classify logs once, apply one fix if needed, verify once.
 
 4. **`env/config/setting.yaml` は非クレデンシャル専用（リポジトリ設計）** — 秘密は `env/secret/credential.yaml`（gitignore）または Secret Manager。setting に鍵・トークン実体を書く提案をしない。迷ったら `env/README.md`。
+
+5. **長時間 `make deploy-all` をログファイルへリダイレクトしたとき** — ユーザーへ **進捗確認用の `tail -f`** を必ず案内する（例: `tail -f …/study-hybrid-search-gke/_verify_deploy_all.log`）。`docs/tasks/TASKS.md` ダッシュボードにコピペ例あり。
