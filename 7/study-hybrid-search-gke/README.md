@@ -58,6 +58,17 @@ raw.properties (upstream ETL)
 - **予測分布 drift 検知は縮退**: Vertex Model Monitoring v2 は Vertex Endpoint 前提なので Phase 7 (serving 層 = KServe) では失う (復活は KServe payload logging + 自前 drift 計算の別タスクに分離)
 - **固定値**: プロジェクト `mlops-dev-a` / リージョン `asia-northeast1` / Python 3.12 / uv / Terraform 1.9
 
+## Live 検証の境界（Composer / V5）
+
+[`docs/tasks/TASKS.md`](docs/tasks/TASKS.md) が sprint の正本。**狭いゲート定義**は [`docs/runbook/04_検証.md`](docs/runbook/04_検証.md) §0、**クライアント向けの最低説明**は TASKS の **死守ライン**（Composer 経由の再学習 E2E + `/search` 健全性）。
+
+| 優先 | 意味 |
+|---|---|
+| **死守** | `check_retrain` だけでなく、`submit_train_pipeline` → `wait_train_succeeded` → gate / promote（または意図どおり skip）まで live で踏む。**再学習後に `/search` が 200 で 3 成分が壊れていない**ことまで（TASKS チェックリスト） |
+| **それ以外** | V4（2 周目 deploy）→ V6（parity）→ V3（destroy）は **死守の後**。同列に並べない |
+
+実装メモ: Run 4 は `submit_train_pipeline` が **failed**（argv の shell 形リテラル + `dist/pipelines`）。**V5-8** で `scripts.ops.submit_train_pipeline` + `/tmp/pipelines`。runner image の **再 build・push** と DAG upload が前提。
+
 ## デプロイ
 
 `main` へのマージで path filter に応じて以下が走る:

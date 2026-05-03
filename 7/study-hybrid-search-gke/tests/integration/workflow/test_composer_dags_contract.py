@@ -97,9 +97,9 @@ def test_dag_files_avoid_kfp_2_16_module_level_compile_import() -> None:
 def test_retrain_dag_is_canonical_retrain_trigger() -> None:
     """`retrain_orchestration` DAG が本線 retrain schedule を担う唯一の経路。"""
     text = (DAGS_DIR / "retrain_orchestration.py").read_text(encoding="utf-8")
-    assert "python -m pipeline.workflow.compile" in text
-    assert "--target train" in text
-    assert "--submit" in text
+    assert 'module="scripts.ops.submit_train_pipeline"' in text
+    runner_text = (REPO_ROOT / "scripts/ops/submit_train_pipeline.py").read_text(encoding="utf-8")
+    assert "--target" in runner_text and "train" in runner_text and "--submit" in runner_text
     for required_task in (
         "check_retrain",
         "submit_train_pipeline",
@@ -118,6 +118,7 @@ def test_dag_files_call_only_existing_scripts() -> None:
         "scripts.ops.vertex.pipeline_wait": "scripts/ops/vertex/pipeline_wait.py",
         "scripts.ops.promote": "scripts/ops/promote.py",
         "scripts.ops.slo_status": "scripts/ops/slo_status.py",
+        "scripts.ops.submit_train_pipeline": "scripts/ops/submit_train_pipeline.py",
         "pipeline.workflow.compile": "pipeline/workflow/compile.py",
     }
     all_dag_text = "\n".join(

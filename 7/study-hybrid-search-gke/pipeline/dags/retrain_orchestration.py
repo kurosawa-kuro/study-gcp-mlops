@@ -6,9 +6,9 @@ Vertex `PipelineJobSchedule` を置き換える上下関係。詳細: docs/archi
 
 責務:
 1. retrain 判定 (`scripts.ops.check_retrain`)
-2. Vertex Pipeline submit (`pipeline.workflow.compile --target train --submit`
-   = `make ops-train-now` と同一 invocation。subprocess 呼出しで KFP 2.16
-   module-level import 問題を回避する)
+2. Vertex Pipeline submit (`scripts.ops.submit_train_pipeline` →
+   `pipeline.workflow.compile`、``make ops-train-now`` と等価 argv。Pod 内実行で
+   KFP 2.16 module-level import 問題を回避 / V5-8 で env を実行時展開)
 3. Pipeline SUCCEEDED 待機 (`scripts.ops.vertex.pipeline_wait`)
 4. Reranker promote (`scripts.ops.promote` — `AUTO_PROMOTE=true` のときのみ)
 
@@ -34,24 +34,12 @@ def _gate_auto_promote() -> bool:
     return env("AUTO_PROMOTE", "false").lower() == "true"
 
 
-# `pipeline.workflow.compile` を subprocess 経由で叩くことで KFP 2.16 の
-# module-level `@dsl.pipeline` 互換 issue (TASKS_ROADMAP §4.8 W2-9) を回避する。
-# `make ops-train-now` と同じ引数列を使う (= live で実証済の path)。
-SUBMIT_TRAIN_PIPELINE_ARGS = [
-    "--target",
-    "train",
-    "--output-dir",
-    "dist/pipelines",
-    "--submit",
-    "--project-id",
-    "$(GCP_PROJECT)",
-    "--location",
-    "$(VERTEX_LOCATION)",
-    "--pipeline-root",
-    "gs://$(PIPELINE_ROOT_BUCKET)/runs",
-    "--service-account",
-    "sa-pipeline@$(GCP_PROJECT).iam.gserviceaccount.com",
-]
+# Train submit は `scripts.ops.submit_train_pipeline` に寄せる (V5-8)。
+# `python -m pipeline.workflow.compile` に ``$(GCP_PROJECT)`` 形式の argv を
+# 渡すと **シェル展開されず** リテラルが Vertex に渡る。また ``dist/pipelines``
+# は cwd 依存で Pod で FileNotFoundError になり得る。ランナーが実行時に env を読み
+# ``/tmp/pipelines`` へ compile + submit する (KFP 2.16 DAG-parse issue は引き続き
+# compile を Pod 内 subprocess 相当として隔離)。
 
 
 with DAG(
@@ -68,12 +56,10 @@ with DAG(
         module="scripts.ops.check_retrain",
     )
 
-    # python -m pipeline.workflow.compile --target train --submit ...
-    # (KFP 2.16 issue 回避のため subprocess 化、make ops-train-now と同一)
+    # `python -m scripts.ops.submit_train_pipeline` (→ compile + submit, V5-8)
     submit_train_pipeline = python_pod(
         task_id="submit_train_pipeline",
-        module="pipeline.workflow.compile",
-        extra_args=SUBMIT_TRAIN_PIPELINE_ARGS,
+        module="scripts.ops.submit_train_pipeline",
     )
 
     wait_train_succeeded = python_pod(
