@@ -133,6 +133,14 @@ FEATURE_GROUPS = (("property_features", "vertex", "property_features"),)
 FEATURE_ONLINE_STORES = (("mlops_dev_feature_store", "vertex", "property_features"),)
 FEATURE_VIEWS = (("mlops_dev_feature_store", "property_features", "vertex", "property_features"),)
 
+# Vertex AI Feature Group Features: (feature_group_id, feature_id, module_name, terraform_resource_name)
+# `for_each` resource なので address suffix は `["<feature_id>"]`。
+# 名前は `infra/terraform/modules/vertex/main.tf::local.feature_group_property_features` の name と一致させる。
+FEATURE_GROUP_FEATURES = tuple(
+    ("property_features", feat, "vertex", "property_features")
+    for feat in ("rent", "walk_min", "age_years", "area_m2", "ctr", "fav_rate", "inquiry_rate")
+)
+
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -527,6 +535,25 @@ def _recover_feature_store(
         if _state_has(infra_dir, addr):
             continue
         gcp_resource = f"projects/{project_id}/locations/{region}/featureOnlineStores/{gcp_id}"
+        if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
+            imported += 1
+
+    # Feature Group Features (under each Feature Group)
+    for fg_id, feat_id, module, tf_name in FEATURE_GROUP_FEATURES:
+        if fg_id not in fg_existing:
+            continue
+        addr = f'module.{module}.google_vertex_ai_feature_group_feature.{tf_name}["{feat_id}"]'
+        feat_payload = _aiplatform_get(token, f"{base}/featureGroups/{fg_id}/features")
+        feat_existing = {
+            r.get("name", "").rsplit("/", 1)[-1] for r in (feat_payload.get("features") or [])
+        }
+        if feat_id not in feat_existing:
+            continue
+        if _state_has(infra_dir, addr):
+            continue
+        gcp_resource = (
+            f"projects/{project_id}/locations/{region}/featureGroups/{fg_id}/features/{feat_id}"
+        )
         if _terraform_import(infra_dir, addr, gcp_resource, terraform_var_args=var_args):
             imported += 1
 

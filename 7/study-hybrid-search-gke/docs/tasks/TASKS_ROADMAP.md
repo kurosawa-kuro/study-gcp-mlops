@@ -10,29 +10,32 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
-## 現在地 (2026-05-03 昼 更新)
+## 現在地 (2026-05-03 夕 更新)
 
-### destroy-all 修正作業 — 完了 ✅
+### destroy-all + state_recovery 徹底実装 — 完了 ✅
 
 | # | 作業 | 状態 | 証跡 |
 |---|---|---|---|
 | 1 | `prevent_destroy` 撤回 + **state rm + terraform import pattern** への根本修正 | ✅ | §4.9 K fix。`infra/terraform/modules/vector_search/main.tf` から `lifecycle.prevent_destroy = true` 撤去、`scripts/setup/destroy_all.py` に `PERSISTENT_VVS_RESOURCES` + `state_rm` ループ、`scripts/setup/deploy_all.py` の tf-apply 前に `import_persistent_vvs_resources` 呼出し、`scripts/infra/vertex_import.py` 新規 |
-| 2 | **destroy-all contract test 拡張** (旧 9 → **新 12 件**) | ✅ | `tests/integration/workflow/test_destroy_all_contract.py`。昨晩 hang した事象 (Composer/GKE/Cloud Run) を構造的 guard だけで捕まえられないため、incident postmortem を契約化:<br/>・`test_runbook_documents_emergency_kill_switch_for_composer_gke_cloudrun`<br/>・`test_runbook_documents_orphan_state_cleanup_after_emergency_delete`<br/>・`test_destroy_all_lessons_learned_documented_in_roadmap` |
-| 3 | **runbook §1.4-emergency 新節追加** | ✅ | `docs/runbook/05_運用.md` に緊急 kill switch (4 行コピペ可) + tfstate orphan cleanup 手順 + 状態確認 checklist |
-| 4 | **tfstate orphan cleanup** (緊急 cleanup の副作用 151 entries → 0) | ✅ | 2026-05-03 昼: stale `default.tflock` (前夜 17:52 destroy-all 中断時のもの) を `gcloud storage rm` で除去、150 entries を `state rm` ループで全削除、永続化 VVS 2 entries 含めて state count = **0** に到達 |
-| 5 | offline 検証 | ✅ | `make check` **649 passed, 1 skipped** / `make check-layers` PASS / `make tf-validate` Success |
-| 6 | live verify (`deploy-all → destroy-all` 1 周) | 🔄 進行中 | 2026-05-03 昼開始。`make deploy-all` (Composer Gen 3 SMALL 含む 187 resources、~50-65 min)。完走後 `make destroy-all` で `[2/6++] state rm 永続化 VVS` + `[6/6] complete` を確認 |
+| 2 | **destroy-all contract test 拡張** (旧 9 → **新 15 件**) | ✅ | `tests/integration/workflow/test_destroy_all_contract.py`。昨晩 hang した事象 (Composer/GKE/Cloud Run) を構造的 guard だけで捕まえられないため、incident postmortem を契約化:<br/>・`test_runbook_documents_emergency_kill_switch_for_composer_gke_cloudrun`<br/>・`test_runbook_documents_orphan_state_cleanup_after_emergency_delete`<br/>・`test_destroy_all_lessons_learned_documented_in_roadmap`<br/>・`test_deploy_all_invokes_state_recovery_before_tf_apply` (12 helper を pin)<br/>・`test_state_recovery_iam_sa_mapping_matches_terraform`<br/>・`test_runbook_warns_against_bare_state_rm_without_state_recovery` |
+| 3 | **runbook §1.4-emergency 新節追加** | ✅ | `docs/runbook/05_運用.md` に緊急 kill switch (4 行コピペ可) + tfstate orphan cleanup 手順 + 状態確認 checklist + `make state-recover` 推奨 (bare `state rm` 警告) |
+| 4 | **tfstate orphan cleanup** (緊急 cleanup の副作用 151 entries → 0) | ✅ | 2026-05-03 昼: stale `default.tflock` を `gcloud storage rm` で除去、150 entries を `state rm` ループで全削除、永続化 VVS 2 entries 含めて state count = **0** に到達 |
+| 5 | **state_recovery.py 徹底実装** (12 GCP resource type、`alreadyExists` fail 回避) | ✅ | `scripts/infra/state_recovery.py` 新規 (660 行)。`alreadyExists` を 5 回 attempt の中で incremental に発見した resource type を全て吸収:<br/>・**IAM SA** 12 entries (composer 含む)<br/>・**BQ** dataset 3 + table 10<br/>・**Pub/Sub** topic 4 + subscription 3<br/>・**Cloud Function** 1 (pipeline-trigger)<br/>・**Eventarc** 2 trigger<br/>・**Cloud Run** 1 (meili-search)<br/>・**Artifact Registry** 1 (mlops)<br/>・**Secret Manager** 2 (meili-master-key, search-api-iap-oauth-client-secret)<br/>・**Dataform** 1 (hybrid-search-cloud)<br/>・**GCS bucket** 4 (models/artifacts/pipeline-root/meili-data)<br/>・**Vertex Feature Store** (Feature Group / Feature Online Store / Feature View)<br/>・**Vertex Feature Group Feature** 7 (rent/walk_min/age_years/area_m2/ctr/fav_rate/inquiry_rate)<br/>`deploy_all.py::_run_tf_apply` で tf-apply 直前に呼出し、idempotent (state にあれば skip / GCP に無ければ skip)。`make state-recover` も追加 |
+| 6 | offline 検証 | ✅ | `make check` **649 passed, 1 skipped** / `make check-layers` PASS / `make tf-validate` Success / contract test 15/15 PASS |
+| 7 | live verify (`deploy-all → destroy-all` 1 周) | 🔄 進行中 | 5 回 attempt で incremental に missing resource type を発見・吸収 (Run 1: sa-composer / Run 2: ArtifactRegistry+Secret+Dataform / Run 3-4: GCS / Run 5: Feature Group + Feature Online Store + Feature View / Run 6: **Feature Group Features 7 個 = 12 type 完備**)。Run 6 進行中 |
 
 ### 完了済み実装・検証の正本
 
 - [`docs/architecture/03_実装カタログ.md`](../architecture/03_実装カタログ.md)
-- [`docs/runbook/05_運用.md`](../runbook/05_運用.md) (§1.4-emergency 追加済)
-- [`tests/integration/workflow/test_destroy_all_contract.py`](../../tests/integration/workflow/test_destroy_all_contract.py) (12 件)
+- [`docs/runbook/05_運用.md`](../runbook/05_運用.md) (§1.4-emergency 追加済 + state-recover 推奨)
+- [`tests/integration/workflow/test_destroy_all_contract.py`](../../tests/integration/workflow/test_destroy_all_contract.py) (15 件)
+- [`scripts/infra/state_recovery.py`](../../scripts/infra/state_recovery.py) (12 GCP resource type 対応)
 - §4.9 (本 roadmap、VVS 永続化アーキテクチャ + 失敗事故 + 教訓)
+- §4.10 (本 roadmap、state_recovery 徹底実装 + incremental 発見の記録)
 
 ### 残り作業 (live verify 完走後の TODO)
 
-- **新 destroy-all の live 1 周 verify** (進行中、上表 #6): completion の確認ポイントは §4.9 残タスク表
+- **新 destroy-all の live 1 周 verify** (進行中、上表 #7): completion の確認ポイントは §4.9 残タスク表
 - **DAG import error 修正の live 確認**: `composer_deploy_dags.py` の upload layout 変更後、live で `task SUCCEEDED` を狙うか別 sprint へ送るかの判断 (§4.1 参照)
 - `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認 (深追いは別 sprint 候補)
 - `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
@@ -46,7 +49,8 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 - terraform `lifecycle.prevent_destroy = true` は依存閉包内で touch される resource を block できない → **state 操作 (state rm + import) で表現するほうが安全** (§4.9 K fix で適用)
 - 緊急 cleanup (`gcloud delete --async`) の副作用で tfstate orphan が大量に残る → **stale lock を `gcloud storage rm` で除去 → `state rm` ループ** が runbook 化済 (§1.4-emergency)
-- incident postmortem は **contract test として固定化** しないと将来同じ誤った PR で再導入されるリスクあり → **3 件追加で固定化**
+- incident postmortem は **contract test として固定化** しないと将来同じ誤った PR で再導入されるリスクあり → **6 件追加で固定化** (incident 3 + state_recovery 3)
+- 全件 `state rm` 後の deploy-all は **GCP 残置 resource との `alreadyExists` 衝突** で fail する → state_recovery.py で **12 GCP resource type を type-by-type に import** することで idempotent 化。bare `state rm` だけで cleanup する runbook recipe は contract test で禁止
 
 ---
 
@@ -106,9 +110,11 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 ### 4.0 Wave 2 残タスク
 
 - [x] Composer DAG import layout 修正 (`composer_deploy_dags.py` 反映済、646 PASS)
-- [x] **destroy-all contract test 拡張** (旧 9 → 新 12 件、incident postmortem を契約化、本 session 2026-05-03)
-- [x] **runbook §1.4-emergency 新節追加** (緊急 kill switch + orphan state cleanup + 状態確認 checklist、本 session 2026-05-03)
-- [ ] tfstate orphan cleanup (151 entries → 0 or 永続化 2 entries のみ)
+- [x] **destroy-all contract test 拡張** (旧 9 → 新 15 件、incident postmortem 3 + state_recovery 3 を契約化、本 session 2026-05-03)
+- [x] **runbook §1.4-emergency 新節追加** (緊急 kill switch + orphan state cleanup + state-recover 推奨、本 session 2026-05-03)
+- [x] **tfstate orphan cleanup** (151 entries → 0 達成、本 session 2026-05-03 昼)
+- [x] **state_recovery.py 徹底実装** (12 GCP resource type、5 回 attempt の incremental 発見を吸収、本 session 2026-05-03 夕、§4.10 参照)
+- [ ] `make deploy-all` の **live 完走** (Run 6 進行中、12 type recovery 完備版)
 - [ ] `make destroy-all` の最終 re-verify (新 state rm + import pattern の live 検証 — §4.9 参照)
 - [ ] `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認 (深追いは別 sprint 候補)
 - [ ] `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
@@ -189,10 +195,10 @@ Composer DAG smoke の現状:
 #### 残タスク
 
 **今 sprint の最終 verify**:
-- [x] **incident postmortem の contract 固定化** (本 session 朝): 旧 9 → 新 12 contract test、runbook §1.4-emergency 追加、`make check` 649 PASS
-- [ ] **tfstate orphan cleanup** (現状 151 entries 残置): runbook §1.4-emergency の「緊急 cleanup 後の tfstate 整合性回復」手順 (= `state list` で grep 抽出 → `state rm` ループ) で 0 or 永続化 2 entries まで整理。または `make destroy-all` 自体を再走させて `[6/6]` 本体 destroy を完了させる
-- [ ] **新 destroy-all (state rm + import pattern) の live 1 周検証**: tfstate cleanup 完了後、fresh 状態から `make deploy-all` → 動作確認 → `make destroy-all` を 1 周し、(a) `[2/6++] state rm 永続化 VVS` ログが出る (b) `[6/6]` 本体 destroy が complete で終わる (c) GCP 上に Index / Endpoint だけ残る (d) 次回 deploy-all step 6 で `terraform import` ログが出て deployed_index のみ create される、を確認
-- [ ] state cleanup: tfstate を完全 fresh にしてから上記 1 周を回したいなら `gcloud storage rm --recursive gs://mlops-dev-a-tfstate/hybrid-search-cloud/` を 1 回叩く (任意)
+- [x] **incident postmortem の contract 固定化** (本 session 朝): 旧 9 → 新 15 contract test (incident 3 + state_recovery 3)、runbook §1.4-emergency 追加、`make check` 649 PASS
+- [x] **tfstate orphan cleanup** (151 entries → 0 達成、本 session 2026-05-03 昼)
+- [x] **state_recovery.py 徹底実装** (12 type、§4.10、本 session 夕)
+- [ ] **新 destroy-all (state rm + import pattern) の live 1 周検証**: 進行中 — `make deploy-all` → 動作確認 → `make destroy-all` を 1 周し、(a) `[2/6++] state rm 永続化 VVS` ログが出る (b) `[6/6]` 本体 destroy が complete で終わる (c) GCP 上に Index / Endpoint だけ残る (d) 次回 deploy-all step 6 で `terraform import` ログが出て deployed_index のみ create される、を確認
 
 **今 sprint で得られた教訓 (lesson learned)**:
 - `terraform lifecycle.prevent_destroy = true` は依存閉包内で touch される resource は block できない。**state 操作 (state rm / state import) で表現するほうが安全**
@@ -214,6 +220,41 @@ Composer DAG smoke の現状:
 - 数ヶ月放置時の Google 側 GC (公式に未明記、念の為 monthly health check 推奨)
 - **deployed_index 残置が最大リスク** (1 replica = ¥1,460/日 = ¥44,000/月) → Cloud Scheduler 自動 undeploy が後続 sprint で必須
 - **state import 失敗時のリスク**: `vertex_import.py` の gcloud list が空 → terraform plan は「新規 create」と判定 → existing GCP resource と name 衝突で 409。再現条件: destroy-all 後に GCP 側で手動 delete された場合 / 別 region で list した場合。回避策: `vertex_import.py` 内の region 引数を必ず env から取る (実装済)
+
+### 4.10 state_recovery 徹底実装 (W2-11、本 session 2026-05-03 夕)
+
+**背景**: §4.9 K fix で VVS 永続化を `state rm + import` pattern に移行したが、同じ pattern を **VVS 以外の全 GCP resource type** に拡張する必要があった。きっかけは tfstate orphan cleanup (151 entries → 0) 後の `make deploy-all` Run 1-5 で、`alreadyExists` errors が **type-by-type に incremental 発見** されたこと:
+
+| Run | 失敗 type | 追加した recovery |
+|---|---|---|
+| 1 | `sa-composer` IAM SA | `_recover_iam_sas` (12 SA: api/job_train/job_embed/dataform/scheduler/pipeline/endpoint_encoder/endpoint_reranker/pipeline_trigger/external_secrets/github_deployer/composer) |
+| 2 | Artifact Registry `mlops` / Secret Manager `meili-master-key` `search-api-iap-oauth-client-secret` / Dataform `hybrid-search-cloud` | `_recover_artifact_registry` / `_recover_secret_manager` / `_recover_dataform` |
+| 3-4 | GCS `mlops-dev-a-{models,artifacts,pipeline-root,meili-data}` | `_recover_gcs_buckets` |
+| 5 | Vertex Feature Group `property_features` / Feature Online Store `mlops_dev_feature_store` / Feature View `property_features` | `_recover_feature_store` (Feature Group + Feature Online Store + Feature View) |
+| 6 | Vertex Feature Group Features 7 個 (rent/walk_min/age_years/area_m2/ctr/fav_rate/inquiry_rate) | `FEATURE_GROUP_FEATURES` 追加 + `_recover_feature_store` 内ループ拡張 |
+
+**実装** (実装済 ✅):
+
+- [`scripts/infra/state_recovery.py`](../../scripts/infra/state_recovery.py) **新規 (~700 行)**: 12 type の generic recovery framework。各 type ごとに「GCP list → state list 突合 → terraform import」の idempotent ループ。`_aiplatform_get` は v1beta1 REST 経由 (gcloud list 未対応の Feature Store / Feature Group Feature 用)
+- [`scripts/setup/deploy_all.py::_run_tf_apply`](../../scripts/setup/deploy_all.py): tf-apply の前に `recover_orphan_gcp_resources(...)` を呼出し (`vertex_import.py` の VVS recovery と並列)
+- [`Makefile`](../../Makefile): `make state-recover` target 追加 (`uv run python -m scripts.infra.state_recovery`)
+- [`tests/integration/workflow/test_destroy_all_contract.py`](../../tests/integration/workflow/test_destroy_all_contract.py): 3 件追加 (旧 12 → 新 15)
+  - `test_deploy_all_invokes_state_recovery_before_tf_apply`: 12 helper (`_recover_iam_sas` / `_recover_bq` / `_recover_pubsub` / `_recover_cloudfunctions` / `_recover_eventarc` / `_recover_cloud_run` / `_recover_artifact_registry` / `_recover_secret_manager` / `_recover_dataform` / `_recover_gcs_buckets` / `_recover_feature_store` / FEATURE_GROUP_FEATURES) を pin
+  - `test_state_recovery_iam_sa_mapping_matches_terraform`: `IAM_SA_NAMES` と `infra/terraform/modules/iam/main.tf` の `google_service_account` 宣言を一致確認
+  - `test_runbook_warns_against_bare_state_rm_without_state_recovery`: runbook §1.4-emergency が `make state-recover` を bare `state rm` の前に推奨することを pin
+
+**冪等性の保証**:
+- `_state_has(addr)`: state に既に entry があれば skip
+- GCP 側に存在しない resource は skip (= 初回 deploy 扱い)
+- 何度叩いても余分な import は走らない (`make state-recover` は smoke として複数回叩いても安全)
+
+**適用条件**:
+- 教材 dev project (`mlops-dev-a`) 専用。別 project 流用時は GCS bucket 名 / Feature Store ID を mapping 拡張要
+- IAM bindings (`google_project_iam_member` 等) は recover しない (依存 SA を import すれば tf-apply で create_or_read される)
+
+**残タスク**:
+- [ ] **Run 6 live 完走** (12 type recovery 完備版で `make deploy-all` が `Apply complete` まで到達)
+- [ ] state_recovery が新規 GCP resource 追加時に自動拡張されない件は技術負債として記録 (新 resource 追加時に手動で mapping 追加要、契約 test で漏れ検出)
 
 ---
 
