@@ -21,4 +21,4 @@ Treat the following as **trust-breaking / customer-claim level** misuse of the u
 
 4. **`env/config/setting.yaml` は非クレデンシャル専用（リポジトリ設計）** — 秘密は `env/secret/credential.yaml`（gitignore）または Secret Manager。setting に鍵・トークン実体を書く提案をしない。迷ったら `env/README.md`。
 
-5. **長時間 `make deploy-all` をログファイルへリダイレクトしたとき** — ユーザーへ **進捗確認用の `tail -f`** を必ず案内する（例: `tail -f …/study-hybrid-search-gke/_verify_deploy_all.log`）。`docs/tasks/TASKS.md` ダッシュボードにコピペ例あり。
+5. **長時間ジョブをファイルへ `tee`／リダイレクトしたとき** — 応答の **最初** にユーザーへ **`tail -f` の絶対パス**を提示する。例: `make deploy-all` → `tail -f …/_verify_deploy_all.log`；full recreate pytest → `tail -f …/_full_recreate_gate.log`。質問で止めず、`docs/tasks/TASKS.md` にコピペ例あり。

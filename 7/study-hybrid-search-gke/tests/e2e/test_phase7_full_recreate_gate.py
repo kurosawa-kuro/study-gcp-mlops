@@ -9,9 +9,14 @@ contract as ``test_phase7_acceptance_gate`` (existing env).
 Prefer ``deploy-all`` alone after a wait, or acceptance-on-existing-env, for
 routine V6 verification.
 
-Run:
+Run (long-running; tee + monitor):
 
-    RUN_LIVE_GCP_FULL_RECREATE=1 pytest tests/e2e/test_phase7_full_recreate_gate.py -m 'live_gcp and full_recreate'
+    cd 7/study-hybrid-search-gke
+    RUN_LIVE_GCP_FULL_RECREATE=1 uv run pytest tests/e2e/test_phase7_full_recreate_gate.py -m 'live_gcp and full_recreate' -v 2>&1 | tee _full_recreate_gate.log
+
+Monitor (another terminal):
+
+    tail -f /home/ubuntu/repos/study-gcp-mlops/7/study-hybrid-search-gke/_full_recreate_gate.log
 """
 
 from __future__ import annotations
