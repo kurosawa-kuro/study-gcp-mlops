@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -69,6 +70,7 @@ from scripts.infra.kubectl_context import ensure as ensure_kubectl_context
 from scripts.infra.kubectl_context import wait_until_api_ready
 from scripts.infra.state_recovery import recover_orphan_gcp_resources
 from scripts.infra.vertex_cleanup import wait_for_deployed_index_absent
+from scripts.infra.vertex_feature_store_wait import wait_until_feature_store_names_released
 from scripts.infra.vertex_import import import_persistent_vvs_resources
 from scripts.lib.gcp_resources import GKE_CLUSTER_NAME_DEFAULT, MEILI_SERVICE_NAME_DEFAULT
 from scripts.ops.sync_meili import run as sync_meili_run
@@ -154,6 +156,45 @@ def _run_tf_plan() -> int:
     return tf_plan_main()
 
 
+def _terraform_apply_stage1_with_retries(stage1_args: list[str]) -> None:
+    """Run stage1 apply; retry on Vertex HTTP 409 / async-delete name collision."""
+    max_attempts = int(env("TF_APPLY_STAGE1_MAX_ATTEMPTS", "5"))
+    sleep_s = int(env("TF_APPLY_STAGE1_RETRY_SLEEP_SEC", "120"))
+    for attempt in range(1, max_attempts + 1):
+        proc = subprocess.run(
+            stage1_args,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if proc.returncode == 0:
+            if proc.stdout:
+                print(proc.stdout)
+            return
+        combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
+        print(combined[-12000:])
+        retryable = attempt < max_attempts and any(
+            sig in combined
+            for sig in (
+                "Error 409",
+                ": 409:",
+                "being deleted",
+                "Re-using the same name",
+                "could not be created",
+            )
+        )
+        if retryable:
+            print(
+                f"==> terraform apply stage1 attempt {attempt}/{max_attempts} failed "
+                f"(Vertex eventual consistency?) — sleep {sleep_s}s then retry"
+            )
+            time.sleep(sleep_s)
+            continue
+        raise subprocess.CalledProcessError(
+            proc.returncode, stage1_args, proc.stdout, proc.stderr
+        )
+
+
 def _run_tf_apply() -> int:
     project_id = env("PROJECT_ID")
     region = env("REGION", "asia-northeast1")
@@ -196,6 +237,11 @@ def _run_tf_apply() -> int:
 
     wait_for_deployed_index_absent(project_id, region, deployed_index_id)
 
+    # destroy-all → deploy-all の短間隔では Vertex Feature Group / Feature Online Store が
+    # GCP 側で非同期削除中のまま同名 create が走り HTTP 409 になる。list API で名前解放を待つ。
+    vertex_region = env("VERTEX_LOCATION") or region
+    wait_until_feature_store_names_released(project_id, vertex_region)
+
     stage1_args = [
         "terraform",
         f"-chdir={INFRA}",
@@ -208,7 +254,7 @@ def _run_tf_apply() -> int:
         "==> terraform apply stage1 (core infra before kube provider resources): "
         + ", ".join(TF_APPLY_STAGE1_TARGETS)
     )
-    run(stage1_args)
+    _terraform_apply_stage1_with_retries(stage1_args)
 
     print(f"==> refresh kubeconfig + wait for cluster API: cluster={cluster_name} region={region}")
     ensure_kubectl_context()

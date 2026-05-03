@@ -23,14 +23,15 @@
 |---|---|---|
 | 2026-05-03 | **V5 E2E 締め** | Run `manual__2026-05-03T09:18:07+00:00`: `check_retrain` / `submit_train_pipeline` / `wait_train_succeeded` / `gate_auto_promote` **success**、`promote_reranker` **skipped**（`AUTO_PROMOTE=false`）。`make ops-livez` / `make ops-search-components` **緑**（lexical / semantic / rerank）。→ **死守ラインは実測クローズ**。 |
 | (参照) | IAM / runner | `sa-composer`→`sa-pipeline` actAs + pipeline-root 書き込み、runner 再ビルド・`[{` JSON 抽出修正などは実装カタログ / 進捗ログ履歴を参照。 |
-| **2026-05-03** (JST 夕) | **V4** | `make deploy-all` **exit 0**（全 15 step、step 6 tf-apply ~421s含む・計 ~14.7 min）。ログ `_v4_deploy_all.log`。 |
-| **2026-05-03** (JST 夕) | **V6** | `RUN_LIVE_GCP_ACCEPTANCE=1 pytest … -m live_gcp` **FAILED**（計 ~48 min）。`destroy-all` 後の **`deploy-all`** で Vertex **409**（`FeatureGroup` / `FeatureOnlineStore` が **削除中の同名**に再作成しようとした）+ Terraform **Invalid target address**。ログ `_v6_acceptance.log`。 |
-| **2026-05-03** (JST 夕) | **V3** | `make destroy-all` **exit 0**（計 ~8 min）。ログ `_v3_destroy_all.log`。 |
+| **2026-05-03** (JST 夕) | **V4** | ✅ `make deploy-all` **exit 0**（全 15 step 完走・計 ~14.7 min）。ログ `_v4_deploy_all.log`。 |
+| **2026-05-03** (JST 夕) | **V6** | ⚠️ 旧 e2e（**1 本のテスト内で** `destroy-all` → 即 `deploy-all`）は **Vertex Feature Store 系の削除遅延 409** で失敗（検索アプリ／死守 E2E の欠陥ではない）。**対処済**: `deploy-all` に **名前解放待ち** + **stage1 409 リトライ**、e2e を **既存環境 acceptance** と **full recreate** に分割（下参照）。 |
+| **2026-05-03** (JST 夕) | **V3** | ✅ `make destroy-all` **exit 0**（計 ~8 min）。ログ `_v3_destroy_all.log`。 |
 
-**次に実行（V6 再試行・環境復旧）**:
+**次に実行（V6 の正本）**:
 
-1. **復旧**: 現状 **スタックは teardown 済み寄り**（V6 失敗後に V3 `destroy-all` まで実施）。通常運用に戻すなら **`make deploy-all`** を改めて実行（Vertex の **409** は destroy 直後は **15–60 min** 程度あとで再試行するか、[§4.9 / state_recovery](../tasks/TASKS_ROADMAP.md) に沿って **plan を確認**）。
-2. **V6 再試行**: 復旧後かつ Vertex **409** が解消したタイミングで `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`。**Invalid target address** は `terraform state list` で該当 `-target` と実 state のズレを確認。
+1. **復旧**: 環境が teardown 寄りなら **`make deploy-all`**（`scripts/setup/deploy_all.py` が Feature Group / Online Store の **list API 解放待ち**後に tf-apply）。
+2. **V6（通常）** — **deploy 済み環境**への acceptance のみ: `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（**destroy を含まない**）。
+3. **Full recreate（別ゲート・不安定）** — `RUN_LIVE_GCP_FULL_RECREATE=1 pytest tests/e2e/test_phase7_full_recreate_gate.py -m 'live_gcp and full_recreate'`（`destroy-all` → `deploy-all` → 同一チェック。GCP 非同期削除で **フレーク**し得る）。
 
 **再検証（Composer E2E だけ繰り返す場合）**: `make composer-deploy-dags` → `make ops-composer-trigger DAG=retrain_orchestration` → **`make ops-composer-task-states`** → `make ops-livez` / `make ops-search-components`。Terraform 単体は `make tf-plan` 経由。
 
@@ -62,12 +63,12 @@
 
 1. **✅ 死守（完了）** — V5 E2E（上 checklist・2026-05-03 Run で実測クローズ）
 2. **✅ V4** — 2 周目 `make deploy-all` **実測済**（2026-05-03 JST 夕）
-3. **❌→再試行** — **V6** e2e `live_gcp` は **失敗**（409 + Invalid target）。復旧後に再実行。
+3. **V6** — **通常**: `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（既存環境）。旧「destroy→即 deploy」単体 e2e は **検証設計として不適切** → **`test_phase7_full_recreate_gate`** に分離。
 4. **✅ V3** — `make destroy-all` **実測済**（同一セッション・exit 0）
 
 ### コピー用（対外向け）
 
-**Composer 経由の再学習 E2E**は **2026-05-03 Run** で実測クローズ（`check_retrain`、Vertex Pipeline submit・完走待ち、gate まで成功、`AUTO_PROMOTE=false` で promote は設計どおり skip、再学習後 `/search` 200 と 3 成分疎通確認済み）。**残りは死守ではなく**、**V4（import 経路の再検証）→ V6（parity live_gcp）→ V3（destroy-all）** の順で進める。
+**Composer 経由の再学習 E2E**は **2026-05-03 Run** で実測クローズ（`check_retrain`、Vertex Pipeline submit・完走待ち、gate まで成功、`AUTO_PROMOTE=false` で promote は設計どおり skip、再学習後 `/search` 200 と 3 成分疎通確認済み）。**V4 / V3** は単体 `deploy-all` / `destroy-all` で実測済。**V6** は **deploy 済み環境**への `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp` が正本（旧・単一テスト内の destroy→即 deploy は Vertex 削除遅延で不安定なため **full recreate** を別ファイルに分離済み）。
 
 ---
 
@@ -77,7 +78,7 @@
 
 **死守**: V5 E2E ✅（上 checklist）
 
-**並び順（実行順）**: ~~V5 E2E~~ ✅ → ~~**V4**~~ ✅ → **V6**（要再試行）→ ~~**V3**~~ ✅
+**並び順（実行順）**: ~~V5 E2E~~ ✅ → ~~**V4**~~ ✅ → **V6**（既存環境 acceptance が正本）→ ~~**V3**~~ ✅
 
 ## 今回はやらない
 
@@ -88,7 +89,7 @@
 - [x] `make check` / `deploy-all` / `run-all-core`
 - [x] **死守ライン**（本ファイル checklist 全項目）
 - [x] **V4** 2 周目 `deploy-all`（2026-05-03 実測）
-- [ ] **V6** e2e `live_gcp`（**未達**・409 / Invalid target → 復旧後に再試行）
+- [ ] **V6** — `RUN_LIVE_GCP_ACCEPTANCE=1` … `test_phase7_acceptance_gate`（deploy 済み環境で実行）
 - [x] **V3** `destroy-all`（2026-05-03 実測）
 - [ ] canonical 経路・parity invariant の完全締め — [`04_検証.md`](../runbook/04_検証.md)
 

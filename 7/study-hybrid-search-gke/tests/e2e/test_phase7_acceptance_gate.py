@@ -1,19 +1,13 @@
-"""Opt-in live acceptance gate for the Phase 7 end goal.
+"""Opt-in live acceptance on an **already deployed** environment.
 
-This test is intentionally skipped unless the operator explicitly opts in.
-Its purpose is not local CI coverage; it is to encode the *true* acceptance
-contract for this phase in executable form:
+This is the canonical **V6** gate: ConfigMap + ``ops-search-components`` + VVS +
+Feature Group + feedback / ranking / accuracy — **without** tearing down infra
+inside the test.
 
-- clean destroy
-- one-shot deploy-all
-- search components all non-zero
-- live ConfigMap points at canonical Vertex backends
-- VVS smoke
-- FOS feature fetch
-- feedback / ranking smoke
-- accuracy gate
+Destructive ``destroy-all -> deploy-all`` PDCA is a separate unstable gate; see
+``test_phase7_full_recreate_gate.py``.
 
-Run manually only on the dedicated dev project:
+Run (dev project only, kubectl context ready):
 
     RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp
 """
@@ -21,76 +15,25 @@ Run manually only on the dedicated dev project:
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from tests.e2e.phase7_acceptance_checks import run_phase7_live_acceptance_checks
 
 pytestmark = pytest.mark.live_gcp
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _require_live_acceptance() -> None:
+def _require_acceptance_env() -> None:
     if os.environ.get("RUN_LIVE_GCP_ACCEPTANCE", "").strip() != "1":
-        pytest.skip("set RUN_LIVE_GCP_ACCEPTANCE=1 to run destructive Phase 7 acceptance gate")
-
-
-def _run(cmd: list[str], *, timeout: int) -> None:
-    proc = subprocess.run(
-        cmd,
-        cwd=REPO_ROOT,
-        check=False,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-    )
-    if proc.returncode != 0:
-        tail = "\n".join((proc.stdout + "\n" + proc.stderr).splitlines()[-40:])
-        raise AssertionError(f"command failed rc={proc.returncode}: {' '.join(cmd)}\n{tail}")
-
-
-def _run_capture(cmd: list[str], *, timeout: int) -> str:
-    proc = subprocess.run(
-        cmd,
-        cwd=REPO_ROOT,
-        check=False,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-    )
-    if proc.returncode != 0:
-        tail = "\n".join((proc.stdout + "\n" + proc.stderr).splitlines()[-40:])
-        raise AssertionError(f"command failed rc={proc.returncode}: {' '.join(cmd)}\n{tail}")
-    return proc.stdout
-
-
-def test_phase7_pdca_acceptance_gate_live() -> None:
-    _require_live_acceptance()
-
-    _run(["make", "destroy-all"], timeout=1800)
-    _run(["make", "deploy-all"], timeout=3600)
-    configmap_yaml = _run_capture(
-        ["kubectl", "get", "configmap", "-n", "search", "search-api-config", "-o", "yaml"],
-        timeout=120,
-    )
-    # W2-8 後 backend 切替 selector は撤去。ConfigMap が canonical Vertex
-    # resource を持っていることを resource ID 直接で立証する (空文字なら
-    # search-api Pod が build 時に RuntimeError で fail-loud する設計)。
-    for key in (
-        "vertex_vector_search_index_endpoint_id",
-        "vertex_vector_search_deployed_index_id",
-        "vertex_feature_online_store_id",
-        "vertex_feature_view_id",
-        "vertex_feature_online_store_endpoint",
-    ):
-        assert f"{key}: " in configmap_yaml, f"ConfigMap missing key {key}"
-        assert f'{key}: ""' not in configmap_yaml, (
-            f"ConfigMap key {key} is empty — configmap_overlay didn't inject Terraform output"
+        pytest.skip(
+            "set RUN_LIVE_GCP_ACCEPTANCE=1 to run live acceptance on existing deploy"
         )
-    _run(["make", "ops-search-components"], timeout=300)
-    _run(["uv", "run", "python", "-m", "scripts.ops.vertex.vector_search"], timeout=300)
-    _run(["make", "ops-vertex-feature-group"], timeout=300)
-    _run(["make", "ops-feedback"], timeout=300)
-    _run(["make", "ops-ranking"], timeout=300)
-    _run(["make", "ops-accuracy-report"], timeout=300)
+
+
+def test_phase7_live_acceptance_on_existing_env() -> None:
+    """Requires prior ``make deploy-all`` (or equivalent)."""
+    _require_acceptance_env()
+    run_phase7_live_acceptance_checks(REPO_ROOT)

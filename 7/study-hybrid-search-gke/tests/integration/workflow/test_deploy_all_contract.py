@@ -199,6 +199,13 @@ def test_wait_for_deployed_index_absent_is_idempotent_on_resume() -> None:
     )
 
 
+def test_deploy_all_waits_vertex_feature_store_and_retries_stage1_on_409() -> None:
+    """Pin destroy→deploy 409 対策: list API 待ち + stage1 apply 再試行。"""
+    deploy_py = _read("scripts/setup/deploy_all.py")
+    assert "wait_until_feature_store_names_released" in deploy_py
+    assert "_terraform_apply_stage1_with_retries" in deploy_py
+
+
 def test_makefile_run_all_core_targets_all_exist() -> None:
     """`make run-all-core` recipe が `$(MAKE) <target>` で呼ぶ全 target が
     Makefile に実在 (typo / drift で recipe が誤った target を呼ぶ事故を防ぐ)。"""

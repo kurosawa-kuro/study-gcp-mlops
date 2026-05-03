@@ -3,7 +3,8 @@
 Tests are split into themed files under `tests/integration/workflow/`:
 
 - `test_deploy_all_contract.py` — deploy-all step sequence / ordering /
-  ConfigMap overlay / run-all-core / local boot contract
+  ConfigMap overlay / run-all-core / local boot contract + Feature Store 待ち・
+  stage1 409 リトライの contract pin
 - `test_destroy_all_contract.py` — destroy-all teardown / PDCA reproducibility
   guards (Vertex undeploy / VVS undeploy / BQ deletion_protection flip /
   GCS force_destroy / WIF undelete)

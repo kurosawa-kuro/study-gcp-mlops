@@ -86,7 +86,7 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 残ギャップ（優先順は [`TASKS.md`](TASKS.md)）:
 - **V4** — 2 周目 `deploy-all`（import 経路の live 再検証）
-- **V6** — opt-in `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（余力・破壊的）
+- **V6** — **既存 deploy 上** `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（**full recreate** は `test_phase7_full_recreate_gate.py` に分離）
 - **V3** — `destroy-all` live 1 周（最後）
 - KFP 2.16 互換の運用上の回避は DAG / runner で継続（詳細は実装カタログ）
 - [`docs/architecture/01_仕様と設計.md`](../architecture/01_仕様と設計.md) の最終同期
@@ -108,7 +108,7 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 ## 3. Wave 1 — 検索アプリ層 (本 roadmap の主タスク)
 
 残（Wave 1 名称は歴史的経緯 — **offline parity** は `tests/integration/parity/`、**live V6** は e2e gate）:
-- [ ] **V6** — `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（旧「semantic/fetcher parity」相当の cross-check は canonical 1 経路 + e2e に集約）
+- [ ] **V6** — `RUN_LIVE_GCP_ACCEPTANCE=1 pytest tests/e2e/test_phase7_acceptance_gate.py -m live_gcp`（既存環境）。optional: `RUN_LIVE_GCP_FULL_RECREATE=1` … `test_phase7_full_recreate_gate.py`
 - [ ] Cloud Logging ベースの eventual consistency 観測
 - [ ] KFP 2.16 import 互換 issue の根本対処
 
@@ -132,7 +132,7 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 - [x] `make run-all-core`（同一 sprint 実測 PASS）
 - [x] **`retrain_orchestration` の死守 E2E** — [`TASKS.md`](TASKS.md) checklist（**2026-05-03 Run 実測クローズ**）。経緯・F1–F5・V5-8 は [`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5
 - [ ] **V4** — `make deploy-all` **2 周目**（import 経路・[`04_検証.md` §0 V4](../runbook/04_検証.md)）
-- [ ] **V6** — opt-in e2e live acceptance（[`tests/e2e/test_phase7_acceptance_gate.py`](../../tests/e2e/test_phase7_acceptance_gate.py)）
+- [ ] **V6** — opt-in e2e（[`test_phase7_acceptance_gate.py`](../../tests/e2e/test_phase7_acceptance_gate.py)）。full recreate: [`test_phase7_full_recreate_gate.py`](../../tests/e2e/test_phase7_full_recreate_gate.py)
 - [ ] `make destroy-all` の **live 1 周 re-verify**（§4.9、[`TASKS.md`](TASKS.md) で **優先度「最後」**）
 
 ### 4.1 Composer DAG（W2-4 / V5）
