@@ -247,11 +247,16 @@ def test_runbook_documents_orphan_state_cleanup_after_emergency_delete() -> None
     # state list / state rm の使い方が runbook 内に記載されている
     assert "terraform" in runbook and "state list" in runbook
     assert "state rm" in runbook
-    # orphan を含む module の grep pattern が示されている (= operator が手で
-    # 何 module を消すべきか考えなくて済む)
-    assert "module\\.(composer|gke|kserve|meilisearch|vertex" in runbook or (
-        "module.composer" in runbook and "module.gke" in runbook and "module.kserve" in runbook
-    ), "runbook must enumerate the modules subject to orphan-state cleanup"
+    # **state-recover を先に呼ぶ** ことが runbook に書かれていること
+    # (2026-05-03 後 incident 教訓: bare state rm 単独だと alreadyExists 罠を作る)
+    assert "make state-recover" in runbook, (
+        "runbook must instruct operators to run `make state-recover` BEFORE bare state rm "
+        "(see contract test_deploy_all_invokes_state_recovery_before_tf_apply)"
+    )
+    # cleanup 対象 module が明示列挙されている
+    assert "module.composer" in runbook
+    assert "module.gke" in runbook
+    assert "module.kserve" in runbook
 
 
 def test_deploy_all_invokes_state_recovery_before_tf_apply() -> None:
