@@ -54,7 +54,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         sync-meili \
         train-smoke train-smoke-persist api-dev api-dev-hybrid clean \
         docker-auth deploy-api deploy-api-local deploy-kserve-models kube-creds \
-        composer-deploy-dags build-composer-runner ops-composer-trigger ops-composer-list-runs \
+        composer-deploy-dags build-composer-runner ops-composer-trigger ops-composer-list-runs ops-composer-task-states \
 		ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
         ops-accuracy-report local-accuracy-report \
@@ -274,6 +274,11 @@ ops-composer-list-runs: ## List recent runs of a Composer DAG (DAG=retrain_orche
 	gcloud composer environments run $(COMPOSER_ENV) \
 	  --project=$(PROJECT_ID) --location=$(REGION) \
 	  dags list-runs -- --dag-id $(DAG)
+
+ops-composer-task-states: ## Task states for latest run (DAG=...) or RUN_ID=manual__...
+	uv run python -m scripts.ops.composer_task_states \
+	  --dag-id "$(or $(DAG),retrain_orchestration)" \
+	  $(if $(RUN_ID),--run-id $(RUN_ID),--latest)
 
 seed-lgbm-model: ## Seed a synthetic LightGBM model into gs://$(MODELS_BUCKET)/lgbm/latest/ (idempotent)
 	uv run python -m scripts.deploy.seed_lgbm_model
