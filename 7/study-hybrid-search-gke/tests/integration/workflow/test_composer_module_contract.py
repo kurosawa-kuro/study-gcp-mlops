@@ -313,13 +313,29 @@ def test_makefile_exposes_composer_deploy_dags_and_smoke_targets() -> None:
         "composer-deploy-dags",
         "ops-composer-trigger",
         "ops-composer-list-runs",
+        "ops-composer-task-states",
     ):
         assert f"{required_target}:" in makefile, f"Make target {required_target} missing"
         assert required_target in makefile.split(".PHONY")[1]
 
     assert "uv run python -m scripts.deploy.composer_deploy_dags" in makefile
+    assert "uv run python -m scripts.ops.composer_task_states" in makefile
     assert "gcloud composer environments run" in makefile
     assert "COMPOSER_ENV  ?= " in makefile
+
+
+def test_composer_runner_dockerfile_does_not_bake_setting_yaml() -> None:
+    """Incident: baking env/config/setting.yaml invites wrong ops; live env is canonical."""
+    dockerfile = _read("infra/run/services/composer_runner/Dockerfile")
+    assert "setting.yaml" in dockerfile
+    # Hard guard: no COPY of repo env/config into the image
+    for line in dockerfile.splitlines():
+        stripped = line.strip()
+        if stripped.upper().startswith("COPY") and "env/config" in stripped:
+            raise AssertionError(
+                "composer-runner Dockerfile must not COPY env/config "
+                f"(setting drift risk): {line!r}"
+            )
 
 
 def test_make_composer_env_default_matches_terraform_default() -> None:

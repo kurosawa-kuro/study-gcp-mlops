@@ -84,3 +84,11 @@ Thumbs.db
 # ローカル実行で落ちるデバッグログ全般 (例: tea_debug.log)。
 # Terraform の crash.log は上で個別に列挙しているが、汎用 log もまとめて弾く。
 *.log
+
+# Shell / agent: stdout が取れない環境向けに、コマンド出力をワークスペース
+# ファイルへリダイレクトして検証する場合の作業用ファイル。誤 commit 防止。
+_*_out.txt
+_*_exit.txt
+_task_states_*.txt
+_make_check*.txt
+.cursor_shell_test
