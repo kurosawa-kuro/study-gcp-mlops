@@ -8,27 +8,39 @@
 schedule: `0 16 * * *` UTC = 01:00 JST。`retrain_orchestration` (04:00 JST)
 の 3 時間前に feature を refresh しておくため、本 DAG が先行する。
 
-各 task は **BashOperator** で `uv run python -m ...` を呼ぶ — Composer worker
-で `pipeline.workflow.compile` 等の重い module を import するコストを避け、
-かつ既存 `make` target と同じ呼び出しパスを使うことで CI/live のバッキング
-パスを揃える設計。
-
-詳細: docs/architecture/01_仕様と設計.md §3.5 (Phase 6 6A の DAG = 本 phase
-で本実装) と docs/tasks/TASKS_ROADMAP.md §4.7。
+**V5 fix (2026-05-03)**: 旧版は `BashOperator: uv run python -m ...` だったが、
+Composer worker に uv / repo source が無く task SUCCEEDED 未達 (canonical 違反)。
+新版は `KubernetesPodOperator` + `composer-runner` image で実行 (= V5 = §4.1)。
+Dataform は Composer Gen 3 組み込みの `DataformCreateWorkflowInvocationOperator`
+を使う (= gcloud CLI 不要、retry / state 管理が provider 側で処理される)。
 """
 
 from __future__ import annotations
 
+import os
+
 from airflow import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import ShortCircuitOperator
+from airflow.providers.google.cloud.operators.dataform import (
+    DataformCreateCompilationResultOperator,
+    DataformCreateWorkflowInvocationOperator,
+)
 
 from pipeline.dags._common import DEFAULT_DAG_ARGS, env, fixed_start_date
+from pipeline.dags._pod import python_pod
 
 
 def _gate_daily_vvs_refresh() -> bool:
     """`ENABLE_DAILY_VVS_REFRESH=true` のときだけ後段を走らせる short-circuit。"""
     return env("ENABLE_DAILY_VVS_REFRESH", "false").lower() == "true"
+
+
+# Dataform repository は terraform で `hybrid-search-cloud` を作成済 (data module)。
+# main branch の workspace を compile + invoke する。
+DATAFORM_REPO = env("DATAFORM_REPO_ID", "hybrid-search-cloud")
+DATAFORM_REGION = env("REGION", "asia-northeast1")
+# Composer Gen 3 が GCP_PROJECT を auto-set。
+PROJECT_ID = os.environ.get("GCP_PROJECT") or os.environ.get("PROJECT_ID") or ""
 
 
 with DAG(
@@ -40,19 +52,33 @@ with DAG(
     catchup=False,
     tags=["phase7", "canonical", "feature"],
 ) as dag:
-    dataform_run = BashOperator(
-        task_id="dataform_run",
-        bash_command=(
-            "gcloud dataform repositories workflow-invocations create "
-            "--repository=hybrid-search-cloud "
-            '--location="$REGION" '
-            "--workflow-config=daily"
-        ),
+    # Dataform compile + invocation (= `gcloud dataform repositories
+    # workflow-invocations create` に相当、provider が REST API を叩く)。
+    dataform_compile = DataformCreateCompilationResultOperator(
+        task_id="dataform_compile",
+        project_id=PROJECT_ID,
+        region=DATAFORM_REGION,
+        repository_id=DATAFORM_REPO,
+        compilation_result={
+            "git_commitish": "main",
+        },
     )
 
-    trigger_fv_sync = BashOperator(
+    dataform_run = DataformCreateWorkflowInvocationOperator(
+        task_id="dataform_run",
+        project_id=PROJECT_ID,
+        region=DATAFORM_REGION,
+        repository_id=DATAFORM_REPO,
+        workflow_invocation={
+            "compilation_result": (
+                "{{ task_instance.xcom_pull('dataform_compile')['name'] }}"
+            ),
+        },
+    )
+
+    trigger_fv_sync = python_pod(
         task_id="trigger_fv_sync",
-        bash_command="uv run python -m scripts.infra.feature_view_sync",
+        module="scripts.infra.feature_view_sync",
     )
 
     gate_vvs_refresh = ShortCircuitOperator(
@@ -60,9 +86,16 @@ with DAG(
         python_callable=_gate_daily_vvs_refresh,
     )
 
-    backfill_vvs_incremental = BashOperator(
+    backfill_vvs_incremental = python_pod(
         task_id="backfill_vvs_incremental",
-        bash_command="uv run python -m scripts.setup.backfill_vector_search_index --apply",
+        module="scripts.setup.backfill_vector_search_index",
+        extra_args=["--apply"],
     )
 
-    dataform_run >> trigger_fv_sync >> gate_vvs_refresh >> backfill_vvs_incremental
+    (
+        dataform_compile
+        >> dataform_run
+        >> trigger_fv_sync
+        >> gate_vvs_refresh
+        >> backfill_vvs_incremental
+    )

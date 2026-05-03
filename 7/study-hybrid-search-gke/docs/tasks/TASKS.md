@@ -16,10 +16,18 @@
 
 | # | item | ETA | status |
 |---|---|---|---|
-| **V1** | `make deploy-all` 完走 (state_recovery 12 type 完備版、Run 6) | Composer 作成 +10 min → 残り step 7-15 で **+25 min** | 🔄 **進行中** (Composer 作成中、`alreadyExists` ゼロを達成) |
+| **V1** | `make deploy-all` 完走 (state_recovery 12 type 完備版、Run 6) | step 7-15 で **+12-15 min** | 🟢 **大詰め** (step 1-6 全 PASS、Composer 作成 18m48s 完了、`Apply complete! 1 added 2 changed`) |
 | **V2** | `make run-all-core` 完走 (G3-G8 ゲート全通過、`ndcg_at_10=1.0`) | V1 完走後 **+3-5 min** | ⏳ V1 待ち |
 
-= **ゴール到達まで残り ~30-35 分** (Run 6 が PASS 前提)
+= **ゴール到達まで残り ~15-20 分** (Run 6 = 最大の難所だった step 6 を通過済)
+
+### Run 6 milestone 通過記録
+
+| step | 内容 | 結果 |
+|---|---|---|
+| step 1-5 (tf-bootstrap → tf-init → recover-wif → sync-dataform → tf-plan) | 静的検証 | ✅ PASS |
+| **step 6 (tf-apply)** | state_recovery 12 type 実行 → Composer 作成 (18m48s) → Apply complete | ✅ **PASS** (`1 added, 2 changed, 0 destroyed`、`alreadyExists` ゼロ) |
+| step 7-15 (seed-test → sync-meili → backfill-vvs → trigger-fv-sync → apply-manifests → overlay-configmap → composer-deploy-dags → deploy-api) | live serving 配線 | 🔄 進行中 (2026-05-02 で実証済の経路) |
 
 ### 直近 1.5 日の達成 (= **進捗ゼロではない**、構造的 incident fix が大量に入った)
 
@@ -28,7 +36,7 @@
 | 2026-05-02 | Wave 1 完了 + Wave 2 offline wiring 完了 + run-all-core 1 周 live PASS | `ndcg_at_10=1.0`、3 種 lexical/semantic/rerank all non-zero |
 | 2026-05-03 朝 | destroy-all 失敗事故 → **§4.9 K fix** (`prevent_destroy` 撤回 + state rm + terraform import pattern)、contract test 9 → 12 件 | VVS 永続化アーキテクチャの根本修正 |
 | 2026-05-03 昼 | tfstate orphan **151 → 0** cleanup (緊急 cleanup の副作用回復)、runbook §1.4-emergency 新節追加 | 緊急 kill switch + state-recover 推奨を runbook 化 |
-| 2026-05-03 夕 | **§4.10 state_recovery.py 12 GCP type 徹底実装** (Run 1-5 で incremental 発見)、contract test 12 → 15 件、Run 6 (12 type 完備版) 実行中 | IAM SA / BQ / Pub/Sub / CF / Eventarc / Run / AR / Secret / Dataform / GCS / Feature Store (FG/FOS/FV) / FG Features 7 個 |
+| 2026-05-03 夕 | **§4.10 state_recovery.py 12 GCP type 徹底実装** (Run 1-5 で incremental 発見)、contract test 12 → 15 件、**Run 6 step 6 PASS** (Composer 作成 18m48s、`Apply complete! 1 added 2 changed`) | IAM SA / BQ / Pub/Sub / CF / Eventarc / Run / AR / Secret / Dataform / GCS / Feature Store (FG/FOS/FV) / FG Features 7 個 |
 
 ### 明日以降 (今日のゴールに含めない)
 
@@ -36,8 +44,8 @@
 |---|---|---|
 | V3 | `make destroy-all` live 1 周 verify (state rm + import pattern) | 12-17 min 想定 |
 | V4 | 2 周目 `make deploy-all` (`terraform import` 経路の live 検証) | 30 min → **10-15 min** に短縮の期待 (§4.9) |
-| V5 | Composer DAG SUCCEEDED smoke (`make ops-composer-trigger`) | 深追いは別 sprint 候補 (§4.1) |
-| V6 | `tests/integration/parity/*` `live_gcp` mark 本実行 | 別 session 妥当 |
+| **V5 ⚠️ canonical 未達** | Composer DAG `retrain_orchestration::check_retrain` SUCCEEDED smoke | **追加 sprint 必須** (§4.1、CLAUDE.md「本線 retrain = Composer DAG」の根幹実証。「深追いは別 sprint」は hedging label) |
+| V6 | `tests/integration/parity/*` `live_gcp` mark 本実行 | 別 session 妥当 (機能影響低) |
 
 詳細は [`TASKS_ROADMAP.md` 「現在地」](TASKS_ROADMAP.md#現在地-2026-05-03-夕-更新) と [`04_検証.md §0`](../runbook/04_検証.md#0-現在の検証状況と重点未済項目-2026-05-03-夕-更新)。
 
@@ -78,15 +86,15 @@ Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** o
 - [x] `make ops-feedback` / `make ops-ranking` / `make ops-accuracy-report` の live 実行 (2026-05-02)
 - [x] `ops-train-wait` 追加 (`ops-train-now` submit 後に SUCCEEDED まで待つ contract)
 
-**🔄 進行中 (今日のゴール = V1+V2)**:
-- [ ] **V1**: `make deploy-all` Run 6 完走 (state_recovery 12 type 完備版で `alreadyExists` ゼロ達成、Composer 作成中、残り ~25 min)
+**🟢 進行中 (今日のゴール = V1+V2)**:
+- [ ] **V1**: `make deploy-all` Run 6 完走 — **step 1-6 ✅ PASS** (Composer 作成 18m48s、`Apply complete! 1 added 2 changed`、`alreadyExists` ゼロ達成)、step 7-15 (seed → meili → vvs → fv → manifest → configmap → dags → api) 進行中、残り ~12-15 min
 - [ ] **V2**: `make run-all-core` 完走 (V1 直後、~3-5 min、`ndcg_at_10=1.0` 維持確認)
 
-**⏳ 明日以降 (今日のゴールに含めない)**:
+**⏳ 明日以降 (今日のゴールに含めない、ただし V5 は質低下マーカー)**:
 - [ ] V3: `make destroy-all` live 1 周 verify (state rm + import pattern)
 - [ ] V4: 2 周目 deploy-all で `terraform import` 経路の live 検証
-- [ ] V5: Composer DAG `retrain_orchestration` SUCCEEDED smoke (深追いは別 sprint)
-- [ ] V6: `tests/integration/parity/test_semantic_backend_parity.py` / `test_feature_fetcher_parity.py` の `live_gcp` 本実行
+- [ ] **V5 ⚠️ canonical 未達 (= ゴール劣化)**: Composer DAG `retrain_orchestration::check_retrain` task が SUCCEEDED **しない** (数秒 fail)。真因 = DAG が `BashOperator: uv run python -m scripts.ops.X` を呼ぶ設計なのに Composer worker に `uv` と repo module 不在 (§4.1)。CLAUDE.md は「**本線 retrain schedule は Composer DAG**」と謳うため、SUCCEEDED 未達は Phase 7 canonical の根幹未実証。**「深追いは別 sprint」と書くのは hedging、本来は V1+V2 完走後の追加 sprint で必ず潰すべき必須項目**
+- [ ] V6: `tests/integration/parity/test_semantic_backend_parity.py` / `test_feature_fetcher_parity.py` の `live_gcp` 本実行 (W2-8 削除後の cross-check、機能影響低)
 
 ## 今回はやらない
 

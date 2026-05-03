@@ -54,7 +54,7 @@ export PROJECT_ID REGION API_SERVICE ARTIFACT_REPO VERTEX_LOCATION PIPELINE_ROOT
         sync-meili \
         train-smoke train-smoke-persist api-dev api-dev-hybrid clean \
         docker-auth deploy-api deploy-api-local deploy-kserve-models kube-creds \
-        composer-deploy-dags ops-composer-trigger ops-composer-list-runs \
+        composer-deploy-dags build-composer-runner ops-composer-trigger ops-composer-list-runs \
 		ops-deploy-monitor \
         ops-api-url ops-daily ops-livez ops-search ops-search-components ops-ranking ops-feedback \
         ops-accuracy-report local-accuracy-report \
@@ -259,6 +259,9 @@ deploy-kserve-models: ## Sync Model Registry artifacts into KServe InferenceServ
 
 composer-deploy-dags: ## Upload pipeline/dags/*.py to Composer DAG GCS bucket (Phase 7 W2-4)
 	uv run python -m scripts.deploy.composer_deploy_dags
+
+build-composer-runner: ## Cloud Build composer-runner image (DAG KubernetesPodOperator runner、V5 fix)
+	uv run python -m scripts.deploy.composer_runner
 
 ops-composer-trigger: ## Trigger a Composer DAG manually (DAG=retrain_orchestration etc.)
 	@if [ -z "$(DAG)" ]; then echo "Usage: make ops-composer-trigger DAG=<dag_id>"; exit 1; fi

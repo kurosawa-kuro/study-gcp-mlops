@@ -5,23 +5,27 @@ Vertex `PipelineJobSchedule` を置き換える上下関係。詳細: docs/archi
 01_仕様と設計.md §3 / §3.6)。
 
 責務:
-1. retrain 判定 (`scripts.ops.check_retrain` を `/jobs/check-retrain` 経由で叩く)
+1. retrain 判定 (`scripts.ops.check_retrain`)
 2. Vertex Pipeline submit (`pipeline.workflow.compile --target train --submit`
-   = `make ops-train-now` と同一 invocation。BashOperator で subprocess 呼出し
-   して KFP 2.16 module-level import 問題を回避する)
+   = `make ops-train-now` と同一 invocation。subprocess 呼出しで KFP 2.16
+   module-level import 問題を回避する)
 3. Pipeline SUCCEEDED 待機 (`scripts.ops.vertex.pipeline_wait`)
 4. Reranker promote (`scripts.ops.promote` — `AUTO_PROMOTE=true` のときのみ)
 
 schedule: `0 19 * * *` UTC = 04:00 JST (`daily_feature_refresh` の 3 時間後)。
+
+**V5 fix (2026-05-03)**: 旧版は `BashOperator: uv run python -m ...` だったが、
+Composer worker に uv / repo source が無く task SUCCEEDED 未達 (canonical 違反)。
+新版は `KubernetesPodOperator` + `composer-runner` image で実行 (= V5 = §4.1)。
 """
 
 from __future__ import annotations
 
 from airflow import DAG
-from airflow.operators.bash import BashOperator
 from airflow.operators.python import ShortCircuitOperator
 
 from pipeline.dags._common import DEFAULT_DAG_ARGS, env, fixed_start_date
+from pipeline.dags._pod import python_pod
 
 
 def _gate_auto_promote() -> bool:
@@ -32,13 +36,21 @@ def _gate_auto_promote() -> bool:
 # `pipeline.workflow.compile` を subprocess 経由で叩くことで KFP 2.16 の
 # module-level `@dsl.pipeline` 互換 issue (TASKS_ROADMAP §4.8 W2-9) を回避する。
 # `make ops-train-now` と同じ引数列を使う (= live で実証済の path)。
-SUBMIT_TRAIN_PIPELINE_CMD = (
-    "uv run python -m pipeline.workflow.compile "
-    "--target train --output-dir dist/pipelines --submit "
-    '--project-id "$GCP_PROJECT" --location "$VERTEX_LOCATION" '
-    '--pipeline-root "gs://$PIPELINE_ROOT_BUCKET/runs" '
-    '--service-account "sa-pipeline@$GCP_PROJECT.iam.gserviceaccount.com"'
-)
+SUBMIT_TRAIN_PIPELINE_ARGS = [
+    "--target",
+    "train",
+    "--output-dir",
+    "dist/pipelines",
+    "--submit",
+    "--project-id",
+    "$(GCP_PROJECT)",
+    "--location",
+    "$(VERTEX_LOCATION)",
+    "--pipeline-root",
+    "gs://$(PIPELINE_ROOT_BUCKET)/runs",
+    "--service-account",
+    "sa-pipeline@$(GCP_PROJECT).iam.gserviceaccount.com",
+]
 
 
 with DAG(
@@ -50,19 +62,22 @@ with DAG(
     catchup=False,
     tags=["phase7", "canonical", "retrain"],
 ) as dag:
-    check_retrain = BashOperator(
+    check_retrain = python_pod(
         task_id="check_retrain",
-        bash_command="uv run python -m scripts.ops.check_retrain",
+        module="scripts.ops.check_retrain",
     )
 
-    submit_train_pipeline = BashOperator(
+    # python -m pipeline.workflow.compile --target train --submit ...
+    # (KFP 2.16 issue 回避のため subprocess 化、make ops-train-now と同一)
+    submit_train_pipeline = python_pod(
         task_id="submit_train_pipeline",
-        bash_command=SUBMIT_TRAIN_PIPELINE_CMD,
+        module="pipeline.workflow.compile",
+        extra_args=SUBMIT_TRAIN_PIPELINE_ARGS,
     )
 
-    wait_train_succeeded = BashOperator(
+    wait_train_succeeded = python_pod(
         task_id="wait_train_succeeded",
-        bash_command="uv run python -m scripts.ops.vertex.pipeline_wait",
+        module="scripts.ops.vertex.pipeline_wait",
     )
 
     gate_auto_promote = ShortCircuitOperator(
@@ -70,9 +85,10 @@ with DAG(
         python_callable=_gate_auto_promote,
     )
 
-    promote_reranker = BashOperator(
+    promote_reranker = python_pod(
         task_id="promote_reranker",
-        bash_command="APPLY=1 uv run python -m scripts.ops.promote",
+        module="scripts.ops.promote",
+        extra_env={"APPLY": "1"},
     )
 
     (
