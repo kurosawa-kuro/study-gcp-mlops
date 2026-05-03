@@ -36,7 +36,7 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 | 4 | **tfstate orphan cleanup** (緊急 cleanup の副作用 151 entries → 0) | ✅ | 2026-05-03 昼: stale `default.tflock` を `gcloud storage rm` で除去、150 entries を `state rm` ループで全削除、永続化 VVS 2 entries 含めて state count = **0** に到達 |
 | 5 | **state_recovery.py 徹底実装** (12 GCP resource type、`alreadyExists` fail 回避) | ✅ | `scripts/infra/state_recovery.py` 新規 (660 行)。`alreadyExists` を 5 回 attempt の中で incremental に発見した resource type を全て吸収:<br/>・**IAM SA** 12 entries (composer 含む)<br/>・**BQ** dataset 3 + table 10<br/>・**Pub/Sub** topic 4 + subscription 3<br/>・**Cloud Function** 1 (pipeline-trigger)<br/>・**Eventarc** 2 trigger<br/>・**Cloud Run** 1 (meili-search)<br/>・**Artifact Registry** 1 (mlops)<br/>・**Secret Manager** 2 (meili-master-key, search-api-iap-oauth-client-secret)<br/>・**Dataform** 1 (hybrid-search-cloud)<br/>・**GCS bucket** 4 (models/artifacts/pipeline-root/meili-data)<br/>・**Vertex Feature Store** (Feature Group / Feature Online Store / Feature View)<br/>・**Vertex Feature Group Feature** 7 (rent/walk_min/age_years/area_m2/ctr/fav_rate/inquiry_rate)<br/>`deploy_all.py::_run_tf_apply` で tf-apply 直前に呼出し、idempotent (state にあれば skip / GCP に無ければ skip)。`make state-recover` も追加 |
 | 6 | offline 検証 | ✅ | `make check` **649 passed, 1 skipped** / `make check-layers` PASS / `make tf-validate` Success / contract test 15/15 PASS |
-| 7 | live verify (`deploy-all → destroy-all` 1 周) | 🔄 進行中 | 5 回 attempt で incremental に missing resource type を発見・吸収 (Run 1: sa-composer / Run 2: ArtifactRegistry+Secret+Dataform / Run 3-4: GCS / Run 5: Feature Group + Feature Online Store + Feature View / Run 6: **Feature Group Features 7 個 = 12 type 完備**)。Run 6 進行中 |
+| 7 | live verify (`deploy-all` / `run-all-core` / `check_retrain`) | ✅ | Run 6 完走・同一 sprint で検証（実装カタログ検証表）。**destroy-all** 1 周は [`TASKS.md`](TASKS.md) の優先順位どおり **V5 E2E 後** |
 
 ### 完了済み実装・検証の正本
 
@@ -124,31 +124,15 @@ Wave 1 ではローカル完結のために一時的な backend 切替と fallba
 - [x] **runbook §1.4-emergency 新節追加** (緊急 kill switch + orphan state cleanup + state-recover 推奨、本 session 2026-05-03)
 - [x] **tfstate orphan cleanup** (151 entries → 0 達成、本 session 2026-05-03 昼)
 - [x] **state_recovery.py 徹底実装** (12 GCP resource type、5 回 attempt の incremental 発見を吸収、本 session 2026-05-03 夕、§4.10 参照)
-- [ ] `make deploy-all` の **live 完走** (Run 6 進行中、12 type recovery 完備版)
-- [ ] `make destroy-all` の最終 re-verify (新 state rm + import pattern の live 検証 — §4.9 参照)
-- [ ] `make ops-composer-trigger DAG=retrain_orchestration` で SUCCEEDED 確認 (深追いは別 sprint 候補)
-- [ ] `make run-all-core` PASS 維持確認 (`ndcg_at_10=1.0`)
-- [ ] `tests/integration/parity/*` の live 実行
+- [x] `make deploy-all` の **live 完走** (Run 6、`state_recovery` 12 type 版 — 実装カタログ)
+- [x] `make run-all-core`（同一 sprint 実測 PASS）
+- [ ] **`retrain_orchestration` の死守 E2E** — [`TASKS.md`](TASKS.md) checklist 全項目（`submit_train_pipeline`〜`wait_train_succeeded`〜gate/promote + 再学習後 `/search`）。**hedging 禁止**（CLAUDE.md §ゴール劣化）。経緯・F1–F5・V5-8 は [`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5
+- [ ] `make destroy-all` の **live 1 周 re-verify**（§4.9、[`TASKS.md`](TASKS.md) で **V5 E2E 後・優先度「最後」**）
+- [ ] `tests/integration/parity/*` の live 実行（余力）
 
-### 4.1 Stage 3.5 未解決
+### 4.1 Composer DAG（W2-4 / V5）
 
-Composer DAG smoke の現状:
-- DAG bag 登録: 3 本とも成功
-- import errors: なし
-- 手動 trigger: 可能
-- task SUCCEEDED: 未達
-
-未解決事象:
-- `check_retrain` が数秒で fail する
-- 真因は、DAG が `BashOperator` で `uv run python -m scripts.ops.X` を呼ぶ設計なのに、Composer worker に `uv` と repo module が存在しないこと
-
-判断待ち:
-- `A`: 現状で W2-4 完了とみなし、Stage 3.6 (`run-all-core`) へ進む
-- `B`: Composer-native な実行方式へ寄せて、task `SUCCEEDED` まで深追いする
-
-含意:
-- `A` は「Composer 環境 provision + DAG 認識 + trigger 成立」までを今回の完了条件にする判断
-- `B` は DAG 実装方式の見直しを含むため、別 sprint 級の追加作業になる
+**現状**: BashOperator 経路は撤去済み。**KubernetesPodOperator** + **composer-runner** + `_pod.py`（[`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5）。`check_retrain` は live success（Run 4）。**クライアント説明に必要な完了条件**は §0 / [`TASKS.md`](TASKS.md) の **死守ライン**（全文 DAG + `/search` 健全性）まで。**「task SUCCEEDED は別 sprint」という記述は行わない**。
 
 ### 4.7 Cloud Composer 本実装 (W2-4、Phase 7 = canonical / 引き算で Phase 6 派生)
 
@@ -163,7 +147,7 @@ Composer DAG smoke の現状:
 - [ ] KFP 2.16 互換 issue の根本対処
 - [ ] `tests/integration/parity/*` の live 実行
 
-### 4.9 VVS 永続化アーキテクチャ — MVP 完了 / 拡張は別 sprint (W2-10)
+### 4.9 VVS 永続化アーキテクチャ — MVP 完了（追加 hardening は §4.9 末 backlog）(W2-10)
 
 **背景**: Vertex Vector Search の課金構造は非対称。Index 自体と空の Index Endpoint は **無料** (公式: "Models that are not deployed or have failed to deploy are not charged.")、課金されるのは `deployed_index` (replica 起動状態) のみ。Index build に 5-15 min、Endpoint 作成 + DNS propagation に数分かかるため、PDCA cycle ごとに作り直すと deploy-all 全体の短縮効果が消える。
 
@@ -215,9 +199,9 @@ Composer DAG smoke の現状:
 - destroy-all は冪等であるべきだが、全 step PASS を通せていない場合の手動 cleanup 経路 (`gcloud composer environments delete --async` 等) を runbook に明示する必要あり → **本 session 朝で [docs/05_運用.md §1.4-emergency](../runbook/05_運用.md) に追加済 ✅** (緊急 kill switch + tfstate orphan cleanup 手順 + 状態確認 checklist)
 - 緊急時 `gcloud composer environments delete --async` + `gcloud container clusters delete --async` + `gcloud run services delete` の 3 つで主要課金は数分で止まる事を確認 → **runbook §1.4-emergency に固定化済 ✅**
 - incident postmortem は **contract test として固定化** しないと将来同じ誤った PR で再導入されるリスクあり → **本 session 朝で [test_destroy_all_contract.py](../../tests/integration/workflow/test_destroy_all_contract.py) に 3 件追加済 ✅** (旧 9 → 新 12 件): runbook 緊急節 / orphan cleanup 手順 / §4.9 lesson learned の存在を pin
-- destroy-all 失敗時の **state inconsistency 検出** が未実装: `state list | wc -l` が想定より多ければ alert する health check を `make destroy-status` として追加する案を別 sprint へ (下記 backlog)
+- destroy-all 失敗時の **state inconsistency 検出** が未実装: `state list | wc -l` が想定より多ければ alert する health check を `make destroy-status` として追加する案 → **backlog**（下記、優先度は V5 E2E・V4 の後）
 
-**別 sprint 候補 (Wave 2 / Wave 3 跨ぎ)**:
+**Backlog（優先度较低・Wave 2/3 跨ぎ）**:
 - [ ] **Stack 分離 (PR 1-3 相当)**: `infra/terraform/stacks/{persistent,vector_search,core}/` に分離し、`terraform_remote_state` で接続。core stack の destroy で deployed_index のみ消える設計が構造化され、誤って Index / Endpoint を destroy 対象にしてしまう事故を block (state rm pattern より strong な保護)
 - [ ] **Cloud Scheduler 自動 undeploy (PR 4 相当)**: deployed_index 残置による課金事故防止。4h timeout で強制 undeploy する Cloud Scheduler job
 - [ ] **Billing Budget Alert (PR 5 相当)**: 日次 ¥3,000 閾値で notification、加えて監視ダッシュボード
@@ -263,7 +247,7 @@ Composer DAG smoke の現状:
 - IAM bindings (`google_project_iam_member` 等) は recover しない (依存 SA を import すれば tf-apply で create_or_read される)
 
 **残タスク**:
-- [ ] **Run 6 live 完走** (12 type recovery 完備版で `make deploy-all` が `Apply complete` まで到達)
+- [x] **Run 6 live 完走** (12 type recovery 完備版で `make deploy-all` が `Apply complete` まで到達 — §7 M-GCP と整合)
 - [ ] state_recovery が新規 GCP resource 追加時に自動拡張されない件は技術負債として記録 (新 resource 追加時に手動で mapping 追加要、契約 test で漏れ検出)
 
 ---
@@ -280,7 +264,7 @@ Composer DAG smoke の現状:
 
 | 状態 | リスク | 回避 |
 |---|---|---|
-| ⚠ 残存 | Composer DAG import layout | upload layout 修正後に DAG smoke を再実行 |
+| ✅ 対処済 | Composer DAG upload layout / V5 runner | [`03_実装カタログ.md`](../architecture/03_実装カタログ.md) § Composer/V5。死守は [`TASKS.md`](TASKS.md) E2E |
 | ⚠ 残存 | KFP 2.16 互換 issue | `scripts.ops.train_now` で暫定回避、根本 fix は別 PR |
 | ⏳ Wave 2 | Feature Online Store のコスト | `make destroy-all` 運用を維持 |
 
@@ -292,7 +276,7 @@ Composer DAG smoke の現状:
 |---|---|---|---|
 | M-Local | ローカル | ✅ | 詳細は `03_実装カタログ.md` を参照。`make check` 649 PASS |
 | M-Contract | destroy-all 契約 | ✅ | 旧 9 → 新 12 件 (incident postmortem を契約化、本 session 朝 2026-05-03)。runbook §1.4-emergency 緊急 kill switch + tfstate orphan cleanup 手順を追加 |
-| M-GCP | GCP | ⏳ | tfstate orphan cleanup (151 entries) + 新 destroy-all live 1 周 verify が残り。Composer DAG smoke の `task SUCCEEDED` 深追いは別 sprint |
+| M-GCP | GCP | 🟡 | **死守未達**: Composer **V5 E2E**（[TASKS.md](TASKS.md) checklist、[04_検証.md §0 補足](../runbook/04_検証.md)）。**済**: tfstate orphan **151→0**、deploy-all Run 6、run-all-core、`check_retrain` live。**未**: `destroy-all` live 1 周（V3、[TASKS.md](TASKS.md) 優先「最後」）。詳細は [03_実装カタログ.md](../architecture/03_実装カタログ.md) 検証表 |
 | M-Docs | docs | ⏳ | `01_仕様と設計.md` の最終同期が残り |
 
 ---
