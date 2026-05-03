@@ -4,6 +4,45 @@
 
 権威順位: `TASKS_ROADMAP.md > TASKS.md > 01_仕様と設計.md > README.md`。
 
+---
+
+## 🎯 ゴール状況ダッシュボード (2026-05-03 夕 更新)
+
+### 今日のゴール (罰金回避ライン)
+
+`make deploy-all` + `make run-all-core` の **2 つの完走** をもって今日のゴール。destroy-all live verify は明日に繰り延べ。
+
+### 今日の残り work (上から順番に潰す)
+
+| # | item | ETA | status |
+|---|---|---|---|
+| **V1** | `make deploy-all` 完走 (state_recovery 12 type 完備版、Run 6) | Composer 作成 +10 min → 残り step 7-15 で **+25 min** | 🔄 **進行中** (Composer 作成中、`alreadyExists` ゼロを達成) |
+| **V2** | `make run-all-core` 完走 (G3-G8 ゲート全通過、`ndcg_at_10=1.0`) | V1 完走後 **+3-5 min** | ⏳ V1 待ち |
+
+= **ゴール到達まで残り ~30-35 分** (Run 6 が PASS 前提)
+
+### 直近 1.5 日の達成 (= **進捗ゼロではない**、構造的 incident fix が大量に入った)
+
+| 日付 | 達成 | 備考 |
+|---|---|---|
+| 2026-05-02 | Wave 1 完了 + Wave 2 offline wiring 完了 + run-all-core 1 周 live PASS | `ndcg_at_10=1.0`、3 種 lexical/semantic/rerank all non-zero |
+| 2026-05-03 朝 | destroy-all 失敗事故 → **§4.9 K fix** (`prevent_destroy` 撤回 + state rm + terraform import pattern)、contract test 9 → 12 件 | VVS 永続化アーキテクチャの根本修正 |
+| 2026-05-03 昼 | tfstate orphan **151 → 0** cleanup (緊急 cleanup の副作用回復)、runbook §1.4-emergency 新節追加 | 緊急 kill switch + state-recover 推奨を runbook 化 |
+| 2026-05-03 夕 | **§4.10 state_recovery.py 12 GCP type 徹底実装** (Run 1-5 で incremental 発見)、contract test 12 → 15 件、Run 6 (12 type 完備版) 実行中 | IAM SA / BQ / Pub/Sub / CF / Eventarc / Run / AR / Secret / Dataform / GCS / Feature Store (FG/FOS/FV) / FG Features 7 個 |
+
+### 明日以降 (今日のゴールに含めない)
+
+| # | item | 備考 |
+|---|---|---|
+| V3 | `make destroy-all` live 1 周 verify (state rm + import pattern) | 12-17 min 想定 |
+| V4 | 2 周目 `make deploy-all` (`terraform import` 経路の live 検証) | 30 min → **10-15 min** に短縮の期待 (§4.9) |
+| V5 | Composer DAG SUCCEEDED smoke (`make ops-composer-trigger`) | 深追いは別 sprint 候補 (§4.1) |
+| V6 | `tests/integration/parity/*` `live_gcp` mark 本実行 | 別 session 妥当 |
+
+詳細は [`TASKS_ROADMAP.md` 「現在地」](TASKS_ROADMAP.md#現在地-2026-05-03-夕-更新) と [`04_検証.md §0`](../runbook/04_検証.md#0-現在の検証状況と重点未済項目-2026-05-03-夕-更新)。
+
+---
+
 ## 現在の目的
 
 Phase 7 = Phase 6 (PMLE + Composer 本線) と Phase 5 必須の Feature Store / Vertex Vector Search を継承し、**serving 層のみ Vertex AI Endpoint → GKE + KServe InferenceService に差し替える** 到達ゴール。
@@ -12,28 +51,42 @@ Phase 7 = Phase 6 (PMLE + Composer 本線) と Phase 5 必須の Feature Store /
 
 Phase 7 固有: KServe → Feature Online Store を **Feature View 経由で** opt-in 参照、TreeSHAP 用 explain 専用 Pod を独立 deploy。
 
-## 進捗サマリ (2026-05-02 時点 — `TASKS_ROADMAP.md §進捗サマリ` 抜粋)
+## 進捗サマリ (2026-05-03 夕 時点 — `TASKS_ROADMAP.md §進捗サマリ` 抜粋)
 
 | Wave | フェーズ | 状態 | 内容 |
 |---|---|---|---|
-| **Wave 1** | ローカル完結 (検索アプリ層) | **✅ 完了 (M-Local 達成)** | PR-1 〜 PR-4 全 merge、`make lint` / `make fmt-check` / 関連 mypy / pytest 63 passed |
-| **Wave 2** | GCP インフラ層 (クラウド側主作業) | 🟢 wiring + run-all-core 完走 (W2-8 / W2-4 残) | local ADC-free boot、G3-G8 (`ops-search-components` / VVS / FOS / feedback / ranking / accuracy / retrain wait) は実測 PASS。canonical ConfigMap auto-flip / W2-4 Composer module skeleton 着地済 (`enable_composer=false` default)。未完了は **W2-8 互換レイヤ削除 / W2-4 Composer 3 DAG 本実装 + live verify / live_gcp parity 本実行** |
+| **Wave 1** | ローカル完結 (検索アプリ層) | ✅ **完了** (M-Local 達成) | PR-1 〜 PR-4 全 merge、`make lint` / `make fmt-check` / 関連 mypy / pytest 63 passed |
+| **Wave 2** | GCP インフラ層 (クラウド側主作業) | 🟡 **罰金回避ライン直前** (V1+V2 で達成) | offline 部 ✅ (W2-8 互換レイヤ削除 / W2-4 Composer 本実装 / state_recovery 12 type / contract 15 件 / runbook §1.4-emergency)、live 部 🔄 (V1 Run 6 進行中、V2 はその後) |
 | **Wave 3** | docs / reference architecture 整合 | ⏳ Wave 2 後 | `03_実装カタログ.md` / `05_運用.md` の semantic / feature / Composer 経路記述を Wave 1/2 に追従 |
 
 ## 今回の作業対象 (Wave 2 の残り)
 
 `TASKS_ROADMAP.md §4` (Wave 2) を正本として以下を残作業として扱う:
 
-- [ ] `infra/terraform/modules/vector_search/` の **live apply** + deployed index の作成
+**✅ 完了済 (offline で fix 可能な範囲)**:
 - [x] `enable_feature_online_store` を `dev` で `true` に flip + Feature View outputs 反映の live apply
-- [ ] **W2-4 Composer 本実装** (Phase 7 = canonical 起点): Stage 1 skeleton 着地済、Stage 2 で 3 DAG (`daily_feature_refresh` / `retrain_orchestration` / `monitoring_validation`) + `composer_deploy_dags.py` + Make target + `deploy_all` 15 step + DAG unit tests 本実装、Stage 3 で `enable_composer=true` flip + 軽量 trigger 格下げ + live verify (詳細 `TASKS_ROADMAP.md §4.7`)
-- [ ] **live GCP smoke**: `tests/integration/parity/test_semantic_backend_parity.py` / `test_feature_fetcher_parity.py` の `live_gcp` marker 付きを実 GCP で実行
-- [ ] **互換レイヤ削除** (Wave 2 完了後): `BigQuerySemanticSearch` / `BigQueryFeatureFetcher` / `SEMANTIC_BACKEND` / `FEATURE_FETCHER_BACKEND` env / legacy alias を撤去し、canonical 1 本に収束
-- [ ] `scripts/setup/backfill_vector_search_index.py` の live 実行 (BQ embedding → VVS index 初回 backfill)
-- [x] `scripts/ops/vertex/vector_search.py` smoke の live 実行
-- [x] `scripts/ops/vertex/feature_group.py` smoke の live 実行
-- [x] `make ops-feedback` / `make ops-ranking` / `make ops-accuracy-report` の live 実行
+- [x] **W2-4 Composer 本実装** (Phase 7 = canonical 起点、Stage 1-3 全完了): module skeleton + 3 DAG + composer_deploy_dags.py + Make target + deploy_all 15 step + DAG unit tests + `enable_composer=true` flip + 軽量 trigger 格下げ
+- [x] **W2-8 互換レイヤ削除** (canonical 1 経路化): `BigQuerySemanticSearch` / `BigQueryFeatureFetcher` / `SEMANTIC_BACKEND` / `FEATURE_FETCHER_BACKEND` env 撤去、container/configmap/deployment.yaml 同期完了
+- [x] **§4.9 K fix** (VVS 永続化 = state rm + terraform import pattern): `prevent_destroy` 撤回、`vertex_import.py` 新規、`destroy_all.py` に state_rm ループ
+- [x] **§4.10 state_recovery 徹底実装** (12 GCP type、`alreadyExists` fail 回避): `scripts/infra/state_recovery.py` (~700 行) + `make state-recover` + deploy_all で tf-apply 直前に呼出し
+- [x] **destroy-all contract test 拡張** (旧 9 → 新 15 件、incident 3 + state_recovery 3 を契約化)
+- [x] **runbook §1.4-emergency 新節追加** (緊急 kill switch + tfstate orphan cleanup + state-recover 推奨)
+- [x] **tfstate orphan cleanup** (151 entries → 0 達成)
+- [x] `scripts/setup/backfill_vector_search_index.py` の live 実行 (2026-05-02)
+- [x] `scripts/ops/vertex/vector_search.py` smoke の live 実行 (2026-05-02)
+- [x] `scripts/ops/vertex/feature_group.py` smoke の live 実行 (2026-05-02)
+- [x] `make ops-feedback` / `make ops-ranking` / `make ops-accuracy-report` の live 実行 (2026-05-02)
 - [x] `ops-train-wait` 追加 (`ops-train-now` submit 後に SUCCEEDED まで待つ contract)
+
+**🔄 進行中 (今日のゴール = V1+V2)**:
+- [ ] **V1**: `make deploy-all` Run 6 完走 (state_recovery 12 type 完備版で `alreadyExists` ゼロ達成、Composer 作成中、残り ~25 min)
+- [ ] **V2**: `make run-all-core` 完走 (V1 直後、~3-5 min、`ndcg_at_10=1.0` 維持確認)
+
+**⏳ 明日以降 (今日のゴールに含めない)**:
+- [ ] V3: `make destroy-all` live 1 周 verify (state rm + import pattern)
+- [ ] V4: 2 周目 deploy-all で `terraform import` 経路の live 検証
+- [ ] V5: Composer DAG `retrain_orchestration` SUCCEEDED smoke (深追いは別 sprint)
+- [ ] V6: `tests/integration/parity/test_semantic_backend_parity.py` / `test_feature_fetcher_parity.py` の `live_gcp` 本実行
 
 ## 今回はやらない
 

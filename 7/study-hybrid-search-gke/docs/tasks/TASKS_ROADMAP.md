@@ -10,6 +10,34 @@ Phase 7 の現コードを、最新仕様 (親 [README.md](../../../../README.md
 
 ---
 
+## 🎯 ゴール状況ダッシュボード (2026-05-03 夕 更新)
+
+### 今日のゴール (罰金回避ライン)
+
+`make deploy-all` + `make run-all-core` の **2 つの完走** をもって今日のゴール。
+
+### 今日の残り work
+
+| # | item | ETA | status |
+|---|---|---|---|
+| **V1** | `make deploy-all` 完走 (state_recovery 12 type 完備版、Run 6) | Composer 作成中 + 残り step ~25 min | 🔄 **進行中** (`alreadyExists` ゼロ達成) |
+| **V2** | `make run-all-core` 完走 (G3-G8、`ndcg_at_10=1.0`) | V1 +3-5 min | ⏳ V1 待ち |
+
+### 直近 1.5 日の主要成果 (= **進捗ゼロではない**、構造的 incident fix)
+
+| 日付 | 主要成果 |
+|---|---|
+| 05-02 | Wave 1 完了 + Wave 2 offline wiring + run-all-core 1 周 live PASS (`ndcg_at_10=1.0`) |
+| 05-03 朝 | destroy-all 失敗事故 → §4.9 K fix (state rm + import)、contract test 9 → 12 件 |
+| 05-03 昼 | tfstate orphan **151 → 0** cleanup、runbook §1.4-emergency 新節追加 |
+| 05-03 夕 | §4.10 **state_recovery.py 12 type 徹底実装**、contract 12 → 15、Run 6 実行中 |
+
+### 明日以降
+
+V3 destroy-all live → V4 2 周目 deploy-all (import 経路) → V5 Composer DAG SUCCEEDED → V6 parity live。詳細は §4.0 / §4.9 / §4.10 と [04_検証.md §0](../runbook/04_検証.md#0-現在の検証状況と重点未済項目-2026-05-03-夕-更新)。
+
+---
+
 ## 現在地 (2026-05-03 夕 更新)
 
 ### destroy-all + state_recovery 徹底実装 — 完了 ✅
