@@ -78,8 +78,22 @@ def _propagated_env_vars() -> dict[str, str]:
     """Composer 環境の env_variables から PROPAGATED_ENV_KEYS を Pod に渡す。
 
     ENV_KEY_ALIASES に従い、scripts 側 canonical 名 (例: API_URL) にも複製する。
+
+    V5 fix Run 3 fail postmortem (2026-05-03 晩): tf-apply で Composer
+    env_variables に API_HOST_HEADER / API_INSECURE_TLS を追加しても、Composer
+    scheduler の `os.environ` に即時反映されないケースが観測された (DIAG log
+    で `<unset>` 確認)。timing 依存を避け、TLS / Host のような **値が
+    決定的な env** は DAG file 内で hardcode default を持たせる (env が
+    あればそれを優先、無ければ default fallback)。
     """
-    out: dict[str, str] = {}
+    # GKE Gateway 自己署名 TLS + HTTPRoute hostname の決定的 default。
+    # `var.api_external_url` が GKE Gateway IP に向く前提のため、TLS verify は
+    # 必ず off で、Host ヘッダは必ず DEFAULT_GATEWAY_HOST_HEADER 相当を付ける。
+    HARDCODED_DEFAULTS = {
+        "API_HOST_HEADER": "search-api.example.com",
+        "API_INSECURE_TLS": "true",
+    }
+    out: dict[str, str] = dict(HARDCODED_DEFAULTS)
     for key in PROPAGATED_ENV_KEYS:
         if key in os.environ:
             value = os.environ[key]
