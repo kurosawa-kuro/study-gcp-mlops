@@ -8,26 +8,35 @@
 
 ## 🎯 ゴール状況ダッシュボード (2026-05-03 夕 更新)
 
-### 今日のゴール (罰金回避ライン)
+### 今日のゴール (罰金回避ライン = Phase 7 canonical 充足)
 
-`make deploy-all` + `make run-all-core` の **2 つの完走** をもって今日のゴール。destroy-all live verify は明日に繰り延べ。
+`make deploy-all` + `make run-all-core` + **Composer DAG SUCCEEDED** (V5) の **3 つ完遂** が今日のゴール。`make destroy-all` の live verify は明日に繰り延べ。
 
-### 今日の残り work (上から順番に潰す)
+**V5 を含める理由**: CLAUDE.md / 親 README に「**本線 retrain schedule は Composer DAG**」と明記されており、SUCCEEDED 未達は canonical の根幹未実証 (= MLOps として動いていない = ゴミ納品)。「明日以降」「別 sprint」という hedging label でこれを scope 外に逃がすことは禁止 (CLAUDE.md §「⛔ ゴール劣化禁止」)。
 
-| # | item | ETA | status |
+### 今日の達成・残り work
+
+| # | item | status | 備考 |
 |---|---|---|---|
-| **V1** | `make deploy-all` 完走 (state_recovery 12 type 完備版、Run 6) | step 7-15 で **+12-15 min** | 🟢 **大詰め** (step 1-6 全 PASS、Composer 作成 18m48s 完了、`Apply complete! 1 added 2 changed`) |
-| **V2** | `make run-all-core` 完走 (G3-G8 ゲート全通過、`ndcg_at_10=1.0`) | V1 完走後 **+3-5 min** | ⏳ V1 待ち |
+| **V1** | `make deploy-all` 完走 | ✅ **DONE** | Run 6 exit 0 / 35.5 min / state_recovery 12 type で `alreadyExists` ゼロ / Composer 作成 18m48s |
+| **V2** | `make run-all-core` 完走 | ✅ **DONE** | retry 1 回目 PASS / `ndcg_at_10=1.0 hit_rate=1.0 mrr=1.0` / 3 種 lexical/semantic/rerank all non-zero / Vertex Pipeline SUCCEEDED |
+| **V5** | Composer DAG `retrain_orchestration::check_retrain` SUCCEEDED | 🔄 **70% 進行中** (詳細下表) | 🔴 canonical 必須 = 罰金確定ライン |
 
-= **ゴール到達まで残り ~15-20 分** (Run 6 = 最大の難所だった step 6 を通過済)
+### V5 実装サブステップ
 
-### Run 6 milestone 通過記録
+| # | サブステップ | status | 詳細 |
+|---|---|---|---|
+| V5-1 | `composer-runner` Dockerfile 作成 | ✅ | `infra/run/services/composer_runner/Dockerfile` 新規 (Python 3.12 + `[pipelines]` extra + gcloud SDK + scripts/pipeline/ml source) |
+| V5-2 | Cloud Build config + Make target | ✅ | `infra/run/services/composer_runner/cloudbuild.yaml` + `scripts/deploy/composer_runner.py` + `make build-composer-runner` |
+| V5-3 | composer-runner image push | ✅ | Run 1 = OOM (exit 137、`[ml]` extra で snapshot 4GB+)、**Run 2 SUCCESS 187s** (`[ml]` 削除で ~700MB-1GB に縮小)。`composer-runner:latest` = `asia-northeast1-docker.pkg.dev/mlops-dev-a/mlops/composer-runner:latest` |
+| V5-4 | 3 DAG を `KubernetesPodOperator` + provider Operator に書き換え (8 task) | ✅ | `pipeline/dags/_pod.py` (helper、`python_pod` / `gcloud_pod`)、`retrain_orchestration.py` (5 task)、`daily_feature_refresh.py` (5 task、Dataform は `DataformCreateWorkflowInvocationOperator` 化)、`monitoring_validation.py` (3 task) |
+| V5-5 | DAG unit test 更新 | ✅ | `tests/unit/pipeline/dags/test_dag_files.py` に契約追加: `BashOperator` 禁止 / `uv run python` 文字列禁止 / `python_pod` or provider Operator 必須 / `_pod.py` 存在確認。**18 PASS** + `make check` **659 PASS / 1 skipped** |
+| V5-6 | sa-composer IAM 追加 + Composer module env_var | ✅ | `iam/main.tf` に `artifactregistry.reader` + `storage.objectViewer` 追加 / `composer/main.tf` env_variables に `COMPOSER_RUNNER_IMAGE` 追加 / `composer/variables.tf` + `dev/main.tf` + `dev/variables.tf` 配線 / `tf-validate` Success |
+| V5-7a | `tf-apply` (新 IAM + Composer env_var update) | 🔄 **進行中** | sa-composer に artifactregistry.reader + storage.objectViewer / Composer env_variables に `COMPOSER_RUNNER_IMAGE` を注入 (~3-5 min、Composer env update は in-place) |
+| V5-7b | `composer-deploy-dags` (新 DAG upload + `_pod.py` helper) | ⏳ V5-7a 待ち | ~2-3 min |
+| V5-7c | DAG smoke (`make ops-composer-trigger DAG=retrain_orchestration` → SUCCEEDED 確認) | ⏳ V5-7b 待ち | check_retrain task が Pod 起動 → SUCCEEDED まで ~3-5 min |
 
-| step | 内容 | 結果 |
-|---|---|---|
-| step 1-5 (tf-bootstrap → tf-init → recover-wif → sync-dataform → tf-plan) | 静的検証 | ✅ PASS |
-| **step 6 (tf-apply)** | state_recovery 12 type 実行 → Composer 作成 (18m48s) → Apply complete | ✅ **PASS** (`1 added, 2 changed, 0 destroyed`、`alreadyExists` ゼロ) |
-| step 7-15 (seed-test → sync-meili → backfill-vvs → trigger-fv-sync → apply-manifests → overlay-configmap → composer-deploy-dags → deploy-api) | live serving 配線 | 🔄 進行中 (2026-05-02 で実証済の経路) |
+= **V5 ゴール到達まで残り ~10-15 分**
 
 ### 直近 1.5 日の達成 (= **進捗ゼロではない**、構造的 incident fix が大量に入った)
 
